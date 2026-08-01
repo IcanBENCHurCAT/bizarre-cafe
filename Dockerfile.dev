@@ -1,0 +1,31 @@
+FROM node:22-alpine
+
+# Install build dependencies and node-gyp
+RUN apk add --no-cache python3 make g++ git
+
+# Set working directory
+WORKDIR /app
+
+# Install dependencies first for better layer caching
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Install tsx and nodemon globally for dev
+RUN npm install -g tsx nodemon
+
+# Expose dev port
+EXPOSE 3000
+
+# Create non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- http://localhost:3000/health || exit 1
+
+# Start with hot-reload for development
+CMD ["tsx", "watch", "src/index.ts"]

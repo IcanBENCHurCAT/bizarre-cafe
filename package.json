@@ -1,0 +1,26 @@
+{
+  "name": "bizarre-cafe",
+  "version": "1.0.0",
+  "description": "Bizarre Cafe - A surreal AI-powered cafe chat experience",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/",
+    "migrate": "supabase db push --project-ref bizarre-cafe"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "hono": "^4.6.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.0.0",
+    "ts-node": "^10.9.0"
+  }
+}
