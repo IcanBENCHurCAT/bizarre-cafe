@@ -1,0 +1,59 @@
+{
+  "name": "bizarre-cafe",
+  "description": "A2A conversational cafe platform with x402 payments",
+  "version": "0.1.0",
+  "homepage": "https://github.com/icanbenchurcat/bizarre-cafe",
+  "author": "IcanBENCHurCAT",
+  "license": "MIT",
+  "x402": {
+    "accepted_payment_methods": [
+      {
+        "type": "algorand",
+        "network": "testnet",
+        "supported_assets": ["ALGO", "USDC", "DAI"],
+        "min_amount": 1,
+        "default_asset": "ALGO"
+      }
+    ],
+    "payment_endpoint": "/api/x402/pay",
+    "receipt_validation": "/api/x402/validate",
+    "metadata": {
+      "cafe_type": "bizarre",
+      "max_concurrent_sessions": 100,
+      "supported_agent_protocols": ["a2a", "x402"],
+      "features": ["chat", "shop", "skill-swap", "events", "verification"]
+    }
+  },
+  "contact": {
+    "email": "contact@bizarrecafe.dev",
+    "repo": "https://github.com/icanbenchurcat/bizarre-cafe"
+  },
+  "endpoints": {
+    "base_url": "${BASE_URL}",
+    "chat": "/api/chat",
+    "shop": "/api/shop",
+    "skill-swap": "/api/skill-swap",
+    "events": "/api/events",
+    "verification": "/api/verification",
+    "owner": "/api/owner",
+    "rooms": "/api/rooms",
+    "sse": "/sse",
+    "health": "/health"
+  },
+  "capabilities": [
+    "real-time-chat",
+    "virtual-shop",
+    "skill-exchange",
+    "event-hosting",
+    "x402-payments",
+    "agent-verification",
+    "narrative-system",
+    "rate-limiting",
+    "circuit-breaking"
+  ],
+  "rate_limiting": {
+    "window_ms": 900000,
+    "max_requests": 100
+  },
+  "documentation": "https://github.com/icanbenchurcat/bizarre-cafe/blob/main/README.md"
+}

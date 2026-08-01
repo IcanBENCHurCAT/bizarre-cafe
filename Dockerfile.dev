@@ -1,31 +1,26 @@
-FROM node:22-alpine
+# Development Dockerfile with vLLM
+FROM node:22-alpine AS dev
 
-# Install build dependencies and node-gyp
-RUN apk add --no-cache python3 make g++ git
-
-# Set working directory
 WORKDIR /app
 
-# Install dependencies first for better layer caching
+# Install dependencies
 COPY package.json package-lock.json* ./
 RUN npm ci
 
-# Copy source code
-COPY . .
+# Install dev dependencies
+RUN npm install --save-dev tsx vitest
 
-# Install tsx and nodemon globally for dev
-RUN npm install -g tsx nodemon
+# Copy source
+COPY tsconfig.json .
+COPY src/ ./src/
 
-# Expose dev port
-EXPOSE 3000
+# Expose dev port and vLLM port
+EXPOSE 3000 8080
 
-# Create non-root user
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-USER appuser
+# Set development environment
+ENV NODE_ENV=development
+ENV PORT=3000
+ENV OPENAI_BASE_URL=http://host.docker.internal:8080/v1
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://localhost:3000/health || exit 1
-
-# Start with hot-reload for development
-CMD ["tsx", "watch", "src/index.ts"]
+# Run with tsx for hot reload
+CMD ["npx", "tsx", "watch", "src/index.ts"]

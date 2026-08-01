@@ -1,26 +1,59 @@
 {
   "name": "bizarre-cafe",
-  "version": "1.0.0",
-  "description": "Bizarre Cafe - A surreal AI-powered cafe chat experience",
+  "version": "0.1.0",
+  "description": "A2A conversational cafe platform with x402 payments",
   "main": "dist/index.js",
+  "type": "module",
   "scripts": {
+    "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "ts-node src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src/",
-    "migrate": "supabase db push --project-ref bizarre-cafe"
+    "lint:fix": "eslint src/ --fix",
+    "typecheck": "tsc --noEmit",
+    "deploy:gcp": "bash scripts/deploy-gcp.sh",
+    "deploy:gcp-setup": "bash scripts/deploy-gcp-setup.sh",
+    "setup:supabase": "bash scripts/setup-supabase.sh",
+    "test:local": "bash scripts/test-local.sh",
+    "seed:data": "bash scripts/seed-data.sh"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.0",
-    "hono": "^4.6.0",
+    "hono": "^4.0.0",
+    "algoliasearch": "^4.24.0",
+    "ed25519-hypercore": "^2.0.0",
+    "key-did-provider-ed25519": "^1.2.0",
+    "key-did-resolver": "^3.0.0",
+    "uniregistro": "^0.0.10",
+    "x402": "^0.3.0",
+    "supabase": "^1.200.0",
+    "dotenv": "^16.4.0",
+    "ws": "^8.18.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "typescript": "^5.6.0",
-    "vitest": "^2.0.0",
-    "ts-node": "^10.9.0"
-  }
+    "@types/ws": "^8.5.0",
+    "@types/express": "^5.0.0",
+    "typescript": "^5.5.0",
+    "tsx": "^4.19.0",
+    "vitest": "^2.1.0",
+    "eslint": "^9.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "a2a",
+    "x402",
+    "conversational",
+    "cafe",
+    "payments",
+    "algorand"
+  ],
+  "author": "IcanBENCHurCAT",
+  "license": "MIT"
 }

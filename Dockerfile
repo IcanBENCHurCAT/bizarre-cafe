@@ -1,64 +1,39 @@
-# ---- Builder Stage ----
+# Production Dockerfile for GCP Cloud Run
 FROM node:22-alpine AS builder
 
-# Install build dependencies
-RUN apk add --no-cache python3 make g++ git
-
 WORKDIR /app
 
-# Copy package files for dependency caching
+# Install dependencies first for layer caching
 COPY package.json package-lock.json* ./
+RUN npm ci --omit=dev 2>/dev/null || npm install --omit=dev
 
-# Install all dependencies (including devDeps for build)
-RUN npm ci
+# Copy source and build
+COPY tsconfig.json .
+COPY src/ ./src/
 
-# Copy source code
-COPY . .
+RUN npm run build
 
-# Build TypeScript
-RUN npx tsc --build
-
-# Generate production-only lockfile
-RUN npm ci --only=production && npm prune --production
-
-# ---- Runtime Stage ----
-FROM node:22-slim AS runtime
-
-# Install CA certificates and tini
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    tini \
-    && rm -rf /var/lib/apt/lists/*
+# Production stage
+FROM node:22-alpine AS runtime
 
 WORKDIR /app
 
-# Create non-root user
-RUN addgroup --system --gid 1001 appgroup && \
-    adduser --system --uid 1001 appuser
-
-# Copy built files from builder
-COPY --from=builder /app/dist ./dist
+# Install production dependencies only
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
+COPY --from=builder /app/dist ./dist
 
-# Set ownership
-RUN chown -R appuser:appgroup /app
-
+# Create non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
-# Expose Cloud Run standard port
-EXPOSE 8080
-
-# Environment variables for Cloud Run
 ENV NODE_ENV=production
 ENV PORT=8080
 
+EXPOSE 8080
+
 # Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD wget -qO- http://localhost:8080/health || exit 1
 
-# Use tini as init system
-ENTRYPOINT ["/usr/bin/tini", "--"]
-
-# Start the production server
 CMD ["node", "dist/index.js"]
