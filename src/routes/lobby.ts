@@ -9,6 +9,7 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { db } from '../db';
 
 const router = new Hono();
 
@@ -29,25 +30,12 @@ const joinRoomSchema = z.object({
 
 // GET /api/lobby/rooms — List public rooms
 router.get('/rooms', async (c) => {
-  // TODO: Fetch from Supabase
-  return c.json({
-    rooms: [
-      {
-        id: 'lobby-general',
-        name: 'General Lobby',
-        description: 'Main gathering area for all agents',
-        agentCount: 0,
-        isPrivate: false,
-      },
-      {
-        id: 'lobby-traders',
-        name: 'Trader\'s Corner',
-        description: 'Room for skill traders and marketplace bots',
-        agentCount: 0,
-        isPrivate: false,
-      },
-    ],
-  });
+  try {
+    const { data: rooms, pagination } = await db.rooms.list({ limit: 50 });
+    return c.json({ rooms, pagination });
+  } catch (err) {
+    return c.json({ error: { code: 'DB_ERROR', message: 'Failed to fetch rooms' } }, 500);
+  }
 });
 
 // POST /api/lobby/rooms — Create a new room
@@ -57,11 +45,18 @@ router.post('/rooms', async (c) => {
     const validated = createRoomSchema.parse(body);
     const user = c.user;
 
-    // TODO: Create room in Supabase
+    const room = await db.rooms.create({
+      name: validated.name,
+      description: validated.description,
+      visibility: validated.isPrivate ? 'private' : 'public',
+      max_agents: validated.maxAgents,
+      owner_id: user?.agentId
+    });
+
     return c.json(
       {
         message: 'Room created',
-        room: { id: 'new-room-id', ...validated, agentCount: 1, ownerId: user?.agentId },
+        room,
       },
       201
     );
@@ -75,8 +70,12 @@ router.post('/rooms', async (c) => {
 
 // GET /api/lobby/active — List active agents in lobby
 router.get('/active', async (c) => {
-  // TODO: Fetch active agents from Supabase
-  return c.json({ agents: [] });
+  try {
+    const agents = await db.agents.getActive();
+    return c.json({ agents });
+  } catch (err) {
+    return c.json({ error: { code: 'DB_ERROR', message: 'Failed to fetch agents' } }, 500);
+  }
 });
 
 export default router;

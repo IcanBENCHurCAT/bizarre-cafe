@@ -119,8 +119,8 @@ export type NarrativeCategory = 'promotion' | 'penalty' | 'discovery' | 'seasona
 /** Narrative event severity */
 export type NarrativeSeverity = 'low' | 'medium' | 'high' | 'legendary';
 
-/** Owner mood / vibe */
-export type OwnerMood =
+/** Owner mood / vibe string literal */
+export type OwnerMoodState =
   | 'welcoming'
   | 'curious'
   | 'mysterious'
@@ -286,6 +286,31 @@ export interface RoomMember {
 
 // ─── Domain: Message / Chat ───────────────────────────────────────────
 
+export interface ChatMessage {
+  /** Unique identifier */
+  id: UUID;
+  /** Room this message belongs to */
+  roomId: UUID;
+  /** Chat session */
+  sessionId?: UUID;
+  /** Sender user ID */
+  senderId: UUID;
+  /** Sender display name */
+  senderName: string;
+  /** Message content */
+  content: string;
+  /** Message type */
+  type: MessageType;
+  /** Optional attachment URL */
+  attachmentUrl?: string;
+  /** Optional reply-to message ID */
+  replyToId?: UUID;
+  /** Creation timestamp */
+  createdAt: Timestamp;
+  /** Last update timestamp */
+  updatedAt: Timestamp;
+}
+
 export interface Message {
   /** Unique identifier */
   id: UUID;
@@ -443,6 +468,48 @@ export interface Receipt {
 }
 
 // ─── Domain: Skill Swap ───────────────────────────────────────────────
+
+export interface SkillRequest {
+  /** Unique identifier */
+  id: UUID;
+  /** Requesting agent */
+  agentId: UUID;
+  /** Skill requested */
+  requestedSkill: string;
+  /** Description of the skill needed */
+  description: string;
+  /** What the requester offers in return */
+  offeredValue: string;
+  /** Status of the request */
+  status: 'open' | 'assigned' | 'in_progress' | 'completed' | 'expired' | 'cancelled';
+  /** Matching offer ID if assigned */
+  offerId?: UUID;
+  /** Created timestamp */
+  createdAt: Timestamp;
+  /** Last updated timestamp */
+  updatedAt: Timestamp;
+}
+
+export interface Trade {
+  /** Unique identifier */
+  id: UUID;
+  /** Offering agent */
+  fromAgentId: UUID;
+  /** Receiving agent */
+  toAgentId: UUID;
+  /** Skill offer referenced */
+  offerId?: UUID;
+  /** Skill request referenced */
+  requestId?: UUID;
+  /** Trade status */
+  status: TradeStatus;
+  /** Optional notes */
+  notes?: string;
+  /** Created timestamp */
+  createdAt: Timestamp;
+  /** Last updated timestamp */
+  updatedAt: Timestamp;
+}
 
 export interface SkillOffer {
   /** Unique identifier */
@@ -641,6 +708,27 @@ export interface X402Payment {
 
 // ─── Domain: Verification ─────────────────────────────────────────────
 
+export interface VerificationRequest {
+  /** Unique identifier */
+  id: UUID;
+  /** Requesting agent */
+  agentId: UUID;
+  /** Verification method used */
+  method: VerificationMethod;
+  /** Request status */
+  status: VerificationStatus;
+  /** Wallet address used */
+  walletAddress?: string;
+  /** DID document */
+  didDocument?: string;
+  /** Verification tier */
+  tier: 'basic' | 'full';
+  /** Created timestamp */
+  createdAt: Timestamp;
+  /** Last updated timestamp */
+  updatedAt: Timestamp;
+}
+
 export interface VerificationChallenge {
   /** Unique identifier */
   id: UUID;
@@ -706,6 +794,25 @@ export interface AgentStatus {
 
 // ─── Domain: Owner / Narrative ────────────────────────────────────────
 
+export interface LoreEntry {
+  /** Unique identifier */
+  id: UUID;
+  /** Lore title */
+  title: string;
+  /** Lore content */
+  content: string;
+  /** Lore category (origin, secrets, guides, etc.) */
+  category: string;
+  /** Whether the lore is publicly accessible */
+  isPublic: boolean;
+  /** Associated skill tags */
+  tags: string[];
+  /** Created timestamp */
+  createdAt: Timestamp;
+  /** Last updated timestamp */
+  updatedAt: Timestamp;
+}
+
 export interface OwnerMessage {
   /** Unique identifier */
   id: UUID;
@@ -729,7 +836,7 @@ export interface OwnerMessage {
 
 export interface OwnerMood {
   /** Current mood */
-  mood: OwnerMood;
+  mood: OwnerMoodState;
   /** Mood last changed timestamp */
   lastChangedAt: Timestamp;
   /** Mood persistence / decay duration */

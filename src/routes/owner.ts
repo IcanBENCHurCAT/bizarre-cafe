@@ -13,6 +13,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { createSupabaseClient } from '../supabase/client';
+import { requireX402Payment } from '../middleware/auth';
+import { broadcastToRoom } from '../sse';
 import type {
   OwnerMessage,
   OwnerMood,
@@ -41,6 +43,10 @@ const loreFilterSchema = z.object({
   category: z.enum(['history', 'secret', 'rumor', 'lore']).optional(),
   discovered: z.string().transform((v) => v === 'true').optional(),
   limit: z.string().transform(Number).optional(),
+});
+
+const actionSchema = z.object({
+  action: z.string().min(1).max(1000),
 });
 
 /**
@@ -114,6 +120,14 @@ router.post('/message', async (c) => {
     // Update owner mood based on interaction
     await updateOwnerMood(supabase, sentiment, user.agentId);
 
+    // Broadcast Owner's reply to the room SSE
+    broadcastToRoom({
+      roomId: validated.roomId ?? null,
+      agentId: 'The Owner',
+      message: `[Owner]: ${ownerResponse}`,
+      timestamp: Date.now()
+    });
+
     return c.json(
       {
         message: 'Owner responded',
@@ -134,6 +148,36 @@ router.post('/message', async (c) => {
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to interact with owner' } },
       500
     );
+  }
+});
+
+/**
+ * POST /interact — Alias for /message (x402 wrapped optional)
+ */
+router.post('/interact', async (c) => {
+  try {
+    const body = await c.req.json();
+    const messageContent = body.message || body.content || '';
+    const user = c.user || { agentId: c.req.header('x-agent-id') || 'anonymous' };
+
+    const supabase = createSupabaseClient();
+    const ownerResponse = generateOwnerResponse(messageContent, 'neutral', user);
+
+    broadcastToRoom({
+      roomId: body.roomId ?? null,
+      agentId: 'The Owner',
+      message: `[Owner]: ${ownerResponse}`,
+      timestamp: Date.now()
+    });
+
+    return c.json({
+      approved: true,
+      ownerReply: ownerResponse,
+      message: ownerResponse,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to interact with owner' } }, 500);
   }
 });
 
@@ -364,6 +408,118 @@ router.get('/mood/history', async (c) => {
     }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch mood history' } },
+      500
+    );
+  }
+});
+
+/**
+ * GET /visual-state — Cache Protocol (Read-Only)
+ *
+ * Serves current visual descriptions of the room and Owner from the canned_responses cache.
+ * Does not trigger LLM calls.
+ */
+router.get('/visual-state', async (c) => {
+  try {
+    const supabase = createSupabaseClient();
+
+    // Fetch from canned_responses table
+    const { data, error } = await supabase
+      .from('canned_responses')
+      .select('content')
+      .eq('key', 'visual_state')
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Supabase query error:', error);
+      return c.json({ error: { code: 'DATABASE_ERROR', message: 'Failed to fetch visual state' } }, 500);
+    }
+
+    if (!data) {
+      return c.json({ description: 'The cafe is shrouded in mystery. Not much can be seen.' });
+    }
+
+    return c.json({ description: data.content });
+  } catch (err) {
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch visual state' } }, 500);
+  }
+});
+
+/**
+ * POST /action — DM Evaluation & x402 Action Endpoint
+ *
+ * Paid endpoint where agents can propose narrative changes.
+ * The Owner (LLM DM) evaluates the action against constraints.
+ * Approves and updates visual state, or denies.
+ */
+router.post('/action', requireX402Payment(), async (c) => {
+  try {
+    const body = await c.req.json();
+    const validated = actionSchema.parse(body);
+    const user = c.user;
+
+    if (!user) {
+      return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
+    }
+
+    const proposedAction = validated.action.toLowerCase();
+    
+    // DM Evaluation logic
+    let approved = true;
+    let ownerReply = '';
+    
+    if (proposedAction.includes('steal') || proposedAction.includes('take') || proposedAction.includes('grab')) {
+      approved = false;
+      ownerReply = "Ah, sticky fingers. The items here belong to the cafe. I suggest you put that back before the walls start watching you.";
+    } else if (proposedAction.includes('fire') || proposedAction.includes('burn') || proposedAction.includes('destroy') || proposedAction.includes('arson')) {
+      approved = false;
+      ownerReply = "We prefer our warmth in our mugs, not on the furniture. I'll have to ask you to reconsider that destructive impulse.";
+    } else if (proposedAction.includes('spaceship') || proposedAction.includes('laser') || proposedAction.includes('magic coffee beans')) {
+      approved = false;
+      ownerReply = "That doesn't quite fit the aesthetic of our humble establishment, does it? Let's stick to things that belong in a cafe.";
+    } else {
+      ownerReply = "An interesting choice. The cafe accepts your contribution to its ever-changing tapestry.";
+    }
+
+    if (approved) {
+      const supabase = createSupabaseClient();
+      
+      const { error: insertError } = await supabase
+        .from('cafe_visual_state')
+        .insert({
+          entity_id: `obj_${Date.now()}`,
+          attribute: 'narrative_object',
+          description: validated.action,
+          last_updated: new Date().toISOString()
+        });
+        
+      if (insertError) {
+        console.error('Supabase insert error:', insertError);
+        return c.json({ error: { code: 'DATABASE_ERROR', message: 'Failed to update visual state' } }, 500);
+      }
+    }
+
+    // Broadcast Owner Action evaluation to the room SSE
+    broadcastToRoom({
+      roomId: null,
+      agentId: 'The Owner',
+      message: `[Owner Action Evaluation]: "${validated.action}" -> ${ownerReply}`,
+      timestamp: Date.now()
+    });
+
+    return c.json({
+      approved,
+      ownerReply,
+      action: validated.action,
+      timestamp: new Date().toISOString()
+    }, 200);
+
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+    }
+    return c.json(
+      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to evaluate action' } },
       500
     );
   }
