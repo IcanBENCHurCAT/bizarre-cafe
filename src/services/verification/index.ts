@@ -131,15 +131,14 @@ const generateNonce = (length: number = 32): string => {
  * @param nonce - The raw nonce
  * @returns Hashed nonce
  */
-export const hashNonce = (nonce: string): string => {
+export const hashNonce = async (nonce: string): Promise<string> => {
   // Use Web Crypto API if available
   if (crypto.subtle && crypto.subtle.digest) {
     const encoder = new TextEncoder();
     const data = encoder.encode(nonce);
-    return crypto.subtle.digest('SHA-256', data).then((hashBuffer) => {
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-    });
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
   }
 
   // Fallback: simple hash

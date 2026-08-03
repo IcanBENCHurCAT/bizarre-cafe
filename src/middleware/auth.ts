@@ -47,7 +47,7 @@ const extractWalletSignature = (c: Context): { message: string; signature: strin
   if (!sig || !address || !message) return null;
 
   // Base64 decode the signature
-  const sigBytes = Uint8Array.from(atob(sig), (c) => c.charCodeAt(0));
+  const sigBytes = Buffer.from(sig, 'base64');
 
   return { message, signature: sigBytes.toString('hex'), address };
 };

@@ -11,7 +11,7 @@ import { Hono } from 'hono';
 import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
-import { powered } from 'hono/powered-by';
+import { poweredBy } from 'hono/powered-by';
 
 import { config } from './config';
 import { authMiddleware } from './middleware/auth';
@@ -38,8 +38,6 @@ const app = new Hono();
 app.use('*', logger());
 app.use('*', cors());
 app.use('*', secureHeaders());
-app.use('*', powered());
-
 // Health check
 app.get('/health', (c) => c.json({ status: 'ok', version: '0.1.0' }));
 
@@ -48,7 +46,7 @@ app.get('/sse', sseHandler);
 
 // Authenticated routes (requires x402 wallet signature)
 app.use('/api/*', authMiddleware);
-app.use('/api/*', circuitBreaker);
+app.use('/api/*', circuitBreaker());
 
 // Route mounts
 app.route('/api/lobby', lobbyRouter);
@@ -61,7 +59,7 @@ app.route('/api/events', eventsRouter);
 app.route('/api/verification', verificationRouter);
 
 // Rate limiting on all API routes
-app.use('/api/*', rateLimiter);
+app.use('/api/*', rateLimiter());
 
 // Graceful shutdown
 process.on('SIGTERM', () => {

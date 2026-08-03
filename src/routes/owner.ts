@@ -168,9 +168,12 @@ router.get('/mood', async (c) => {
       // Default mood
       return c.json({
         mood: 'neutral' as const,
-        stressLevel: 25,
+        stress_level: 25,
         lastInteraction: new Date().toISOString(),
         totalInteractions: 0,
+        lastChangedAt: new Date().toISOString(),
+        persistenceMinutes: 30,
+        triggers: [],
       } satisfies OwnerMood);
     }
 
@@ -296,7 +299,7 @@ router.get('/lore', async (c) => {
       );
     }
 
-    const lore = (data ?? []).map((l) => ({
+    const lore = (data ?? []).map((l: any) => ({
       id: l.id,
       title: l.title,
       content: l.content,
@@ -351,7 +354,7 @@ router.get('/mood/history', async (c) => {
       );
     }
 
-    const history = (data ?? []).map((m) => ({
+    const history = (data ?? []).map((m: any) => ({
       content: m.content,
       sentiment: m.sentiment,
       timestamp: m.created_at,

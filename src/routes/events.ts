@@ -143,7 +143,7 @@ router.get('/upcoming', async (c) => {
       );
     }
 
-    const events = (data ?? []).map((e) => ({
+    const events = (data ?? []).map((e: any) => ({
       id: e.id,
       title: e.title,
       description: e.description,
@@ -473,7 +473,7 @@ router.get('/past', async (c) => {
       );
     }
 
-    const events = (data ?? []).map((e) => ({
+    const events = (data ?? []).map((e: any) => ({
       id: e.id,
       title: e.title,
       description: e.description,

@@ -12,7 +12,7 @@
  */
 
 import { Context } from 'hono';
-import { config } from './config';
+import { config } from '../config';
 
 // ──────────────────────────────────────────────
 // Types
@@ -133,7 +133,7 @@ const sendToClient = (client: SseClient, event: SseEvent): boolean => {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const writer = (client.res as any).getWriter?.() as
-      | ReadableStreamDefaultWriter<string>
+      | WritableStreamDefaultWriter<string>
       | undefined;
     if (writer) {
       const serialized = JSON.stringify({

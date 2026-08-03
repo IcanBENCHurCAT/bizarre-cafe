@@ -78,7 +78,7 @@ router.get('/items', async (c) => {
       );
     }
 
-    const items = (data ?? []).map((item) => ({
+    const items = (data ?? []).map((item: any) => ({
       id: item.id,
       name: item.name,
       description: item.description,
@@ -336,7 +336,7 @@ router.get('/receipts', async (c) => {
       );
     }
 
-    const receipts = (data ?? []).map((r) => ({
+    const receipts = (data ?? []).map((r: any) => ({
       id: r.id,
       agentId: r.agent_id,
       itemId: r.item_id,

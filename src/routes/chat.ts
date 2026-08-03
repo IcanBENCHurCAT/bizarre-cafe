@@ -143,7 +143,7 @@ router.get('/messages', async (c) => {
       );
     }
 
-    const messages = (data ?? []).map((m) => ({
+    const messages = (data ?? []).map((m: any) => ({
       id: m.id,
       roomId: m.room_id,
       agentId: m.agent_id,
@@ -203,7 +203,7 @@ router.get('/history', async (c) => {
       );
     }
 
-    const messages = (data ?? []).map((m) => ({
+    const messages = (data ?? []).map((m: any) => ({
       id: m.id,
       roomId: m.room_id,
       agentId: m.agent_id,

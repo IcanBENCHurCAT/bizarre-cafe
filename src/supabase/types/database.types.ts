@@ -73,6 +73,7 @@ export interface Database {
           settings?: Json;
           deleted_at?: string | null;
         };
+        Relationships: [];
       };
       messages: {
         Row: {
@@ -123,6 +124,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       chat_sessions: {
         Row: {
@@ -158,6 +160,7 @@ export interface Database {
           created_at?: string;
           closed_at?: string | null;
         };
+        Relationships: [];
       };
       users: {
         Row: {
@@ -223,6 +226,7 @@ export interface Database {
           last_seen?: string;
           deleted_at?: string | null;
         };
+        Relationships: [];
       };
       shop_items: {
         Row: {
@@ -288,6 +292,7 @@ export interface Database {
           updated_at?: string;
           deleted_at?: string | null;
         };
+        Relationships: [];
       };
       purchases: {
         Row: {
@@ -329,6 +334,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       receipts: {
         Row: {
@@ -373,6 +379,7 @@ export interface Database {
           is_redeemed?: boolean;
           redeemed_at?: string | null;
         };
+        Relationships: [];
       };
       skill_offers: {
         Row: {
@@ -420,6 +427,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       trade_offers: {
         Row: {
@@ -452,6 +460,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       skill_trades: {
         Row: {
@@ -499,6 +508,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       cafe_events: {
         Row: {
@@ -558,6 +568,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       event_attendance: {
         Row: {
@@ -587,6 +598,7 @@ export interface Database {
           left_at?: string | null;
           attended_at?: string | null;
         };
+        Relationships: [];
       };
       payment_promises: {
         Row: {
@@ -631,6 +643,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       x402_payments: {
         Row: {
@@ -684,6 +697,7 @@ export interface Database {
           created_at?: string;
           settled_at?: string | null;
         };
+        Relationships: [];
       };
       verification_challenges: {
         Row: {
@@ -719,6 +733,7 @@ export interface Database {
           created_at?: string;
           verified_at?: string | null;
         };
+        Relationships: [];
       };
       verification_results: {
         Row: {
@@ -754,6 +769,7 @@ export interface Database {
           ttl_seconds?: number;
           expires_at?: string;
         };
+        Relationships: [];
       };
       agent_status: {
         Row: {
@@ -789,6 +805,7 @@ export interface Database {
           is_verified?: boolean;
           verification_level?: string;
         };
+        Relationships: [];
       };
       owner_messages: {
         Row: {
@@ -824,6 +841,7 @@ export interface Database {
           delivered_at?: string | null;
           read_at?: string | null;
         };
+        Relationships: [];
       };
       owner_mood: {
         Row: {
@@ -853,6 +871,7 @@ export interface Database {
           greeting?: string | null;
           catchphrase?: string | null;
         };
+        Relationships: [];
       };
       narrative_events: {
         Row: {
@@ -913,8 +932,7 @@ export interface Database {
         Returns: boolean;
       };
     };
-    Enums: {
-      [_ in never]: never;
-    };
+    Enums: {};
+    CompositeTypes: {};
   };
 }

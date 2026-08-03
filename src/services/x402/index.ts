@@ -46,6 +46,8 @@ export interface PaymentPromise {
   createdAt: number;
   /** When the payment expires */
   expiresAt: number;
+  /** When the payment was verified */
+  verifiedAt?: number;
   /** Current status */
   status: PaymentStatus;
   /** x402 receipt (if already verified) */
@@ -282,14 +284,6 @@ export const settlePayment = (paymentId: string): SettlementResult => {
       success: false,
       paymentId,
       error: 'Payment not verified. Cannot settle.',
-    };
-  }
-
-  if (payment.status === 'failed') {
-    return {
-      success: false,
-      paymentId,
-      error: 'Payment has failed. Cannot settle.',
     };
   }
 

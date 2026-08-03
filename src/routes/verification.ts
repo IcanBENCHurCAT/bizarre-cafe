@@ -405,7 +405,7 @@ router.get('/log', async (c) => {
       );
     }
 
-    const log = (data ?? []).map((entry) => ({
+    const log = (data ?? []).map((entry: any) => ({
       agentId: entry.agent_id,
       action: entry.action,
       reason: entry.reason,

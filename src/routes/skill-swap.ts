@@ -214,7 +214,7 @@ router.get('/offers', async (c) => {
       );
     }
 
-    const offers = (data ?? []).map((o) => ({
+    const offers = (data ?? []).map((o: any) => ({
       id: o.id,
       agentId: o.agent_id,
       skillName: o.skill_name,
@@ -273,7 +273,7 @@ router.get('/requests', async (c) => {
       );
     }
 
-    const requests = (data ?? []).map((r) => ({
+    const requests = (data ?? []).map((r: any) => ({
       id: r.id,
       agentId: r.agent_id,
       requestedSkill: r.requested_skill,
@@ -424,7 +424,7 @@ router.get('/trades', async (c) => {
       );
     }
 
-    const trades = (data ?? []).map((t) => ({
+    const trades = (data ?? []).map((t: any) => ({
       id: t.id,
       offerId: t.offer_id,
       requestId: t.request_id,

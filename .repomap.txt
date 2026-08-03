@@ -1,0 +1,196 @@
+├── /home/st9797/.openclaw/workspace/bizarre-cafe/
+│   ├── vitest.config.ts
+│   ├── tests/
+│   │   ├── setup.test.ts
+│   ├── scripts/
+│   ├── assets/
+│   │   ├── visual-dna/
+│   ├── src/
+│   │   ├── config.ts
+│   │   │   - const getRequired = (key: string): string =>
+│   │   │   - const getOptional = (key: string, fallback: string): string =>
+│   │   │   - const getNumber = (key: string, fallback: number): number =>
+│   │   │   - export const config: Config
+│   │   ├── index.ts
+│   │   │   - const app = new Hono();
+│   │   ├── sse/
+│   │   │   ├── index.ts
+│   │   │   │   - const clients = new Map<string, SseClient>();
+│   │   │   │   - const handlers = new Map<
+│   │   │   │   - const interceptors: Array<(payload: BroadcastPayload) => BroadcastPayload> = [];
+│   │   │   │   - const generateId = (): string =>
+│   │   │   │   - const formatMessage = (payload: BroadcastPayload): BroadcastPayload =>
+│   │   │   │   - const sendToClient = (client: SseClient, event: SseEvent): boolean =>
+│   │   │   │   - const broadcastToRoom = (payload: BroadcastPayload): void =>
+│   │   │   │   - const sendHeartbeat = (client: SseClient): void =>
+│   │   │   │   - const cleanupClient = (clientId: string): void =>
+│   │   │   │   - let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+│   │   │   │   - const startHeartbeats = (): void =>
+│   │   │   │   - export const sseHandler = async (c: Context): Promise<void> =>
+│   │   │   │   - export const registerHandler = (
+│   │   │   │   - export const registerInterceptor = (
+│   │   │   │   - export const parseMessage = (raw: string): SseMessage | undefined =>
+│   │   │   │   - export const processMessage = async (message: SseMessage): Promise<void> =>
+│   │   │   │   - export const getConnectedClients = (): ReadonlyArray<SseClient> =>
+│   │   │   │   - export const getConnectedClientCount = (roomId?: string): number =>
+│   │   │   │   - export const getRoomState = (): Map<string, string[]> =>
+│   │   ├── middleware/
+│   │   │   ├── circuitBreaker.ts
+│   │   │   │   - class CircuitBreaker
+│   │   │   │   - const breakers = new Map<string, CircuitBreaker>();
+│   │   │   │   - export function circuitBreaker(
+│   │   │   ├── auth.ts
+│   │   │   │   - const generateFakeUser = (agentId: string): AuthUser => (
+│   │   │   │   - const extractWalletSignature = (c: Context): { message: string; signature: st...
+│   │   │   │   - const verifyWalletSignature = async (
+│   │   │   │   - export const authMiddleware: MiddlewareHandler = async (c, next) =>
+│   │   │   │   - export const requireX402Payment = (): MiddlewareHandler =>
+│   │   │   ├── rateLimiter.ts
+│   │   │   │   - class RateLimiterStore
+│   │   │   │   - const store = new RateLimiterStore();
+│   │   │   │   - export const rateLimiter = (opts?: RateLimitOptions): MiddlewareHandler =>
+│   │   ├── utils/
+│   │   │   ├── index.ts
+│   │   │   │   - export const formatMessage = (
+│   │   │   │   - export const formatMessageList = (
+│   │   │   │   - export const generateId = (prefix?: string): string =>
+│   │   │   │   - export const generateShortId = (length: number = 8): string =>
+│   │   │   │   - export const generateNonce = (length: number = 32): string =>
+│   │   │   │   - export const hashNonce = async (nonce: string): Promise<string> =>
+│   │   │   │   - export const isNonceValid = (timestamp: number, windowMs: number = 300_000): ...
+│   │   │   │   - export const parseX402Header = (header: string): X402HeaderComponents | undef...
+│   │   │   │   - export const validateReceipt = (receipt: string): boolean =>
+│   │   │   │   - export const withRetry = async <T>(
+│   │   │   │   - export const withRetrySync = <T>(
+│   │   │   │   - export const truncate = (str: string, maxLength: number = 100): string =>
+│   │   │   │   - export const sanitizeText = (text: string): string =>
+│   │   │   │   - export const capitalize = (str: string): string =>
+│   │   │   │   - export const createTimer = ():
+│   │   │   │   - export const sleep = (ms: number): Promise<void> =>
+│   │   ├── types/
+│   │   │   ├── cafe.ts
+│   │   │   │   - export const OwnerMood = {} as OwnerMoodState;
+│   │   ├── routes/
+│   │   │   ├── lobby.ts
+│   │   │   │   - const router = new Hono();
+│   │   │   │   - const createRoomSchema = z.object(
+│   │   │   │   - const joinRoomSchema = z.object(
+│   │   │   ├── chat.ts
+│   │   │   │   - const router = new Hono();
+│   │   │   │   - const sendMessageSchema = z.object(
+│   │   │   │   - const messagesQuerySchema = z.object(
+│   │   │   │   - const historyQuerySchema = z.object(
+│   │   │   ├── owner.ts
+│   │   │   │   - const router = new Hono();
+│   │   │   │   - const ownerMessageSchema = z.object(
+│   │   │   │   - const narrativeEventSchema = z.object(
+│   │   │   │   - const loreFilterSchema = z.object(
+│   │   │   │   - function generateOwnerResponse(
+│   │   │   ├── verification.ts
+│   │   │   │   - const router = new Hono();
+│   │   │   │   - const challengeResponseSchema = z.object(
+│   │   │   │   - const statusQuerySchema = z.object(
+│   │   │   │   - const revokeSchema = z.object(
+│   │   │   │   - function verifySignature(
+│   │   │   ├── events.ts
+│   │   │   │   - const router = new Hono();
+│   │   │   │   - const createEventSchema = z.object(
+│   │   │   │   - const joinSchema = z.object(
+│   │   │   ├── skill-swap.ts
+│   │   │   │   - const router = new Hono();
+│   │   │   │   - const offerSchema = z.object(
+│   │   │   │   - const requestSchema = z.object(
+│   │   │   │   - const acceptSchema = z.object(
+│   │   │   │   - const tradeParamsSchema = z.object(
+│   │   │   ├── shop.ts
+│   │   │   │   - const router = new Hono();
+│   │   │   │   - const purchaseSchema = z.object(
+│   │   │   │   - const checkoutSchema = z.object(
+│   │   │   │   - const itemsQuerySchema = z.object(
+│   │   │   ├── rooms.ts
+│   │   │   │   - const router = new Hono();
+│   │   │   │   - const roomParamsSchema = z.object(
+│   │   ├── services/
+│   │   │   ├── verification.ts
+│   │   │   │   - const store: VerificationStore
+│   │   │   │   - function generateId(length = 32): string
+│   │   │   │   - export function challenge(
+│   │   │   │   - export function verify(
+│   │   │   │   - export function revoke(verificationId: string): RevocationResult
+│   │   │   │   - export function isActive(verificationId: string): boolean
+│   │   │   │   - export function resetStore(): void
+│   │   │   ├── x402.ts
+│   │   │   │   - const store: PaymentStore
+│   │   │   │   - function generateId(length = 32): string
+│   │   │   │   - export function createPayment(
+│   │   │   │   - export function verifyPayment(
+│   │   │   │   - export function settlePayment(paymentId: string): SettlementResult
+│   │   │   │   - export function resetStore(): void
+│   │   │   ├── verification/
+│   │   │   │   ├── index.ts
+│   │   │   │   │   - const challenges = new Map<string, StoredChallenge>();
+│   │   │   │   │   - const agents = new Map<string, AgentRecord>();
+│   │   │   │   │   - const CHALLENGE_TTL_MS = 5 * 60 * 1000;
+│   │   │   │   │   - const MAX_CHALLENGES_PER_HOUR = 20;
+│   │   │   │   │   - const CHALLENGE_WINDOW_MS = 60 * 60 * 1000;
+│   │   │   │   │   - const generateNonce = (length: number = 32): string =>
+│   │   │   │   │   - export const hashNonce = (nonce: string): string =>
+│   │   │   │   │   - const formatChallengeMessage = (nonce: string, did: string): string =>
+│   │   │   │   │   - const verifySignature = async (
+│   │   │   │   │   - const cleanupExpiredChallenges = (): void =>
+│   │   │   │   │   - export const challengeAgent = async (did: string): Promise<Challenge> =>
+│   │   │   │   │   - export const verifyAgent = async (
+│   │   │   │   │   - export const getAgentStatus = (did: string): AgentStatusObject =>
+│   │   │   │   │   - export const revokeAgent = (did: string): boolean =>
+│   │   │   │   │   - export const getAllAgents = (status?: AgentStatusType): AgentRecord[] =>
+│   │   │   │   │   - export const cleanupExpired = (): void =>
+│   │   │   │   │   - export const clearState = (): void =>
+│   │   │   ├── narrative/
+│   │   │   │   ├── index.ts
+│   │   │   │   │   - const store: NarrativeStore
+│   │   │   │   │   - function generateId(length = 32): string
+│   │   │   │   │   - export function generateResponse(
+│   │   │   │   │   - export function trackEvent(
+│   │   │   │   │   - export function getEventHistory(): NarrativeEvent[]
+│   │   │   │   │   - export function getEventsByType(type: string): NarrativeEvent[]
+│   │   │   │   │   - export function resetStore(): void
+│   │   │   ├── x402/
+│   │   │   │   ├── index.ts
+│   │   │   │   │   - const payments = new Map<string, PaymentPromise>();
+│   │   │   │   │   - const DEFAULT_RECEIVER = 'ALGO_BIZARRE_CAFE_WALLET_ADDRESS';
+│   │   │   │   │   - const DEFAULT_EXPIRY_MS = 15 * 60 * 1000;
+│   │   │   │   │   - const SIMULATION_DELAY_MS = 2000;
+│   │   │   │   │   - const generatePaymentId = (): string =>
+│   │   │   │   │   - const calculateTotal = (items: PaymentItem[]): number =>
+│   │   │   │   │   - const formatPrice = (total: number): string =>
+│   │   │   │   │   - export const createPaymentPromise = (
+│   │   │   │   │   - export const verifyPayment = (paymentId: string): PaymentResult =>
+│   │   │   │   │   - export const settlePayment = (paymentId: string): SettlementResult =>
+│   │   │   │   │   - export const getPaymentStatus = (
+│   │   │   │   │   - export const createAndVerifyPayment = (
+│   │   │   │   │   - export const getAllPayments = (status?: PaymentStatus): PaymentPromise[] =>
+│   │   │   │   │   - export const cancelPayment = (paymentId: string): boolean =>
+│   │   │   │   │   - export const clearPayments = (): void =>
+│   │   ├── supabase/
+│   │   │   ├── queries.ts
+│   │   │   │   - export const rooms
+│   │   │   │   - export const chat
+│   │   │   │   - export const shop
+│   │   │   │   - export const skillSwap
+│   │   │   │   - export const owner
+│   │   │   │   - export const events
+│   │   │   │   - export const verification
+│   │   │   │   - export const users
+│   │   │   │   - export const payments
+│   │   │   ├── client.ts
+│   │   │   │   - export function createSupabaseClient(): SupabaseClient<Database>
+│   │   │   │   - export const supabase = createClient<Database>(
+│   │   │   │   - export const supabaseAdmin = createClient<Database>(
+│   │   │   │   - export const query
+│   │   │   ├── types/
+│   │   │   │   ├── database.types.ts
+│   ├── supabase/
+│   │   ├── supabase.ts
+│   │   │   - let _client: SupabaseClient | null = null;
+│   │   │   - export function getSupabaseClient(
+│   │   ├── migrations/

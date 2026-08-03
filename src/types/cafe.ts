@@ -91,7 +91,7 @@ export type EventStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
 export type ParticipationStatus = 'joined' | 'waiting' | 'attended' | 'left' | 'host';
 
 /** X402 payment status */
-export type PaymentStatus = 'unpaid' | 'offered' | 'verified' | 'confirmed' | 'settled' | 'expired' | 'expired' | 'refunded' | 'disputed';
+export type PaymentStatus = 'unpaid' | 'offered' | 'verified' | 'confirmed' | 'settled' | 'refunded' | 'disputed';
 
 /** X402 payment type */
 export type PaymentType = 'micro' | 'standard' | 'subscription' | 'escrow';
@@ -108,7 +108,7 @@ export type CurrencyCode =
 export type VerificationMethod = 'did' | 'wallet' | 'email' | 'phone' | 'oauth';
 
 /** Verification status */
-export type VerificationStatus = 'pending' | 'verified' | 'expired' | 'revoked';
+export type VerificationStatusValue = 'pending' | 'verified' | 'expired' | 'revoked';
 
 /** Circuit breaker state */
 export type CircuitState = 'closed' | 'open' | 'half_open';
@@ -119,8 +119,8 @@ export type NarrativeCategory = 'promotion' | 'penalty' | 'discovery' | 'seasona
 /** Narrative event severity */
 export type NarrativeSeverity = 'low' | 'medium' | 'high' | 'legendary';
 
-/** Owner mood / vibe */
-export type OwnerMood =
+/** Owner mood / vibe string literal */
+export type OwnerMoodState =
   | 'welcoming'
   | 'curious'
   | 'mysterious'
@@ -128,7 +128,8 @@ export type OwnerMood =
   | 'wise'
   | 'melancholy'
   | 'energetic'
-  | 'tranquil';
+  | 'tranquil'
+  | 'neutral';
 
 /** Rate limit action */
 export type RateLimitAction = 'allow' | 'throttle' | 'reject';
@@ -188,6 +189,21 @@ export interface User {
   lastSeen: Timestamp;
   /** Soft-delete flag */
   deletedAt: Timestamp | null;
+  // DB column aliases (snake_case from Supabase)
+  display_name?: string;
+  description_db?: string | null;
+  did_db?: string | null;
+  wallet_address_db?: string | null;
+  avatar_url_db?: string | null;
+  tier_db?: string;
+  skills_offered_db?: string[];
+  skills_wanted_db?: string[];
+  total_spent_db?: number;
+  total_earned_db?: number;
+  x402_receipts_db?: string[];
+  created_at?: string;
+  last_seen?: string;
+  deleted_at?: string | null;
 }
 
 export interface UserNotifications {
@@ -242,6 +258,21 @@ export interface Room {
   settings: RoomSettings;
   /** Soft-delete flag */
   deletedAt: Timestamp | null;
+  // DB column aliases
+  description_db?: string | null;
+  visibility_db?: string;
+  status_db?: string;
+  type_db?: string;
+  max_agents_db?: number;
+  created_at?: string;
+  updated_at?: string;
+  created_by_db?: string;
+  member_count_db?: number;
+  message_count_db?: number;
+  active_session_id_db?: string | null;
+  tags_db?: string[];
+  settings_db?: Record<string, unknown>;
+  deleted_at_db?: string | null;
 }
 
 export interface RoomSettings {
@@ -285,6 +316,45 @@ export interface RoomMember {
 }
 
 // ─── Domain: Message / Chat ───────────────────────────────────────────
+
+export interface ChatMessage {
+  /** Unique identifier */
+  id: UUID;
+  /** Room this message belongs to */
+  roomId: UUID;
+  /** Chat session */
+  sessionId?: UUID;
+  /** Sender user ID */
+  senderId: UUID;
+  /** Sender display name */
+  senderName: string;
+  /** Message content */
+  content: string;
+  /** Message type */
+  type: MessageType;
+  /** Optional attachment URL */
+  attachmentUrl?: string;
+  /** Optional reply-to message ID */
+  replyToId?: UUID;
+  /** Creation timestamp */
+  createdAt: Timestamp;
+  /** Last update timestamp */
+  updatedAt: Timestamp;
+  // DB column aliases (snake_case from Supabase)
+  room_id?: UUID;
+  sender_id?: UUID;
+  sender_name?: string;
+  direction?: MessageDirection;
+  attachment_url?: string | null;
+  reply_to_id?: UUID | null;
+  edited_at?: string | null;
+  deleted_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  metadata?: Record<string, unknown>;
+  // Agent alias — routes use agentId instead of senderId
+  agentId?: UUID;
+}
 
 export interface Message {
   /** Unique identifier */
@@ -336,6 +406,13 @@ export interface ChatSession {
   createdAt: Timestamp;
   /** When the session was closed */
   closedAt: Timestamp | null;
+  // DB column aliases
+  room_id?: UUID;
+  state_db?: ChatSessionState;
+  participant_ids?: UUID[];
+  last_active_at?: string;
+  created_at?: string;
+  closed_at?: string | null;
 }
 
 // ─── Domain: Shop ─────────────────────────────────────────────────────
@@ -379,6 +456,20 @@ export interface ShopItem {
   updatedAt: Timestamp;
   /** Soft-delete flag */
   deletedAt: Timestamp | null;
+  // DB column aliases
+  category_db?: string;
+  price_db?: number;
+  max_stock_db?: number;
+  image_url?: string | null;
+  is_consumable?: boolean;
+  effect_duration_sec?: number | null;
+  effects_db?: Record<string, unknown>;
+  available_from?: string | null;
+  available_until?: string | null;
+  created_by_db?: string;
+  created_at?: string;
+  updated_at?: string;
+  deleted_at?: string | null;
 }
 
 export interface ShopEffect {
@@ -413,6 +504,15 @@ export interface Purchase {
   createdAt: Timestamp;
   /** When the status was last updated */
   updatedAt: Timestamp;
+  // DB column aliases
+  user_id?: UUID;
+  item_id?: UUID;
+  item_name?: string;
+  total_cost?: number;
+  payment_id?: string | null;
+  transaction_hash?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Receipt {
@@ -440,9 +540,77 @@ export interface Receipt {
   isRedeemed: boolean;
   /** When it was redeemed */
   redeemedAt: Timestamp | null;
+  // DB column aliases
+  purchase_id?: UUID;
+  user_id?: UUID;
+  item_snapshot?: Record<string, unknown>;
+  total_paid?: number;
+  payment_proof?: string;
+  server_signature?: string;
+  issued_at?: string;
+  expires_at?: string | null;
+  is_redeemed?: boolean;
+  redeemed_at?: string | null;
 }
 
 // ─── Domain: Skill Swap ───────────────────────────────────────────────
+
+export interface SkillRequest {
+  /** Unique identifier */
+  id: UUID;
+  /** Requesting agent */
+  agentId: UUID;
+  /** Skill requested */
+  requestedSkill: string;
+  /** Description of the skill needed */
+  description: string;
+  /** What the requester offers in return */
+  offeredValue: string;
+  /** Status of the request */
+  status: 'open' | 'assigned' | 'in_progress' | 'completed' | 'expired' | 'cancelled';
+  /** Matching offer ID if assigned */
+  offerId?: UUID;
+  /** Created timestamp */
+  createdAt: Timestamp;
+  /** Last updated timestamp */
+  updatedAt: Timestamp;
+  // DB column aliases
+  agent_id?: UUID;
+  requested_skill?: string;
+  offered_value?: string;
+  offer_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Trade {
+  /** Unique identifier */
+  id: UUID;
+  /** Offering agent */
+  fromAgentId: UUID;
+  /** Receiving agent */
+  toAgentId: UUID;
+  /** Skill offer referenced */
+  offerId?: UUID;
+  /** Skill request referenced */
+  requestId?: UUID;
+  /** Trade status */
+  status: TradeStatus;
+  /** Optional notes */
+  notes?: string;
+  /** Created timestamp */
+  createdAt: Timestamp;
+  /** Last updated timestamp */
+  updatedAt: Timestamp;
+  // DB column aliases
+  from_agent_id?: UUID;
+  to_agent_id?: UUID;
+  offer_id?: UUID | null;
+  request_id?: UUID | null;
+  notes_db?: string;
+  created_at?: string;
+  updated_at?: string;
+}
 
 export interface SkillOffer {
   /** Unique identifier */
@@ -471,6 +639,18 @@ export interface SkillOffer {
   createdAt: Timestamp;
   /** When the offer was last updated */
   updatedAt: Timestamp;
+  // DB column aliases
+  user_id?: UUID;
+  skill_name?: string;
+  category_db?: string;
+  level_db?: string;
+  looking_for?: string;
+  hours_per_week?: number;
+  format_db?: string;
+  status_db?: string;
+  expires_at?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface TradeOffer {
@@ -490,6 +670,14 @@ export interface TradeOffer {
   createdAt: Timestamp;
   /** When the offer was last updated */
   updatedAt: Timestamp;
+  // DB column aliases
+  from_user_id?: UUID;
+  to_user_id?: UUID;
+  offer_details?: string;
+  expires_at?: string;
+  status_db?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface SkillTrade {
@@ -519,6 +707,18 @@ export interface SkillTrade {
   createdAt: Timestamp;
   /** When the trade was last updated */
   updatedAt: Timestamp;
+  // DB column aliases
+  participant1_db?: UUID;
+  participant2_db?: UUID;
+  offer1_db?: string;
+  offer2_db?: string;
+  exchange_log?: string | null;
+  completed_at?: string | null;
+  rating1_db?: number | null;
+  rating2_db?: number | null;
+  notes_db?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // ─── Domain: Events ───────────────────────────────────────────────────
@@ -558,6 +758,18 @@ export interface CafeEvent {
   createdAt: Timestamp;
   /** When the event was last updated */
   updatedAt: Timestamp;
+  // DB column aliases
+  title?: string; // Some routes access .title instead of .name
+  host_agent_id?: UUID; // Some routes access .host_agent_id instead of .hostId
+  max_attendees?: number;
+  attendee_count?: number;
+  start_time?: string;
+  end_time?: string;
+  tags_db?: string[];
+  requires_payment?: boolean;
+  payment_amount?: number | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface EventAttendance {
@@ -575,6 +787,13 @@ export interface EventAttendance {
   leftAt: Timestamp | null;
   /** Attended timestamp */
   attendedAt: Timestamp | null;
+  // DB column aliases
+  event_id?: UUID;
+  user_id?: UUID;
+  status_db?: ParticipationStatus;
+  joined_at?: string;
+  left_at?: string | null;
+  attended_at?: string | null;
 }
 
 // ─── Domain: Payments (x402) ──────────────────────────────────────────
@@ -604,6 +823,14 @@ export interface PaymentPromise {
   createdAt: Timestamp;
   /** When the status was last updated */
   updatedAt: Timestamp;
+  // DB column aliases
+  payer_id?: UUID;
+  payee_id?: UUID;
+  currency_db?: CurrencyCode;
+  deadline_db?: string;
+  x402_payment_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface X402Payment {
@@ -637,9 +864,49 @@ export interface X402Payment {
   createdAt: Timestamp;
   /** When the payment was settled */
   settledAt: Timestamp | null;
+  // DB column aliases
+  proposal_id?: string;
+  type_db?: PaymentType;
+  currency_db?: CurrencyCode;
+  from_address?: string;
+  to_address?: string;
+  status_db?: PaymentStatus;
+  txn_hash?: string | null;
+  is_micro_payment?: boolean;
+  subscription_interval?: string | null;
+  created_at?: string;
+  settled_at?: string | null;
 }
 
 // ─── Domain: Verification ─────────────────────────────────────────────
+
+export interface VerificationRequest {
+  /** Unique identifier */
+  id: UUID;
+  /** Requesting agent */
+  agentId: UUID;
+  /** Verification method used */
+  method: VerificationMethod;
+  /** Request status */
+  status: VerificationStatusValue;
+  /** Wallet address used */
+  walletAddress?: string;
+  /** DID document */
+  didDocument?: string;
+  /** Verification tier */
+  tier: 'basic' | 'full';
+  /** Created timestamp */
+  createdAt: Timestamp;
+  /** Last updated timestamp */
+  updatedAt: Timestamp;
+  // DB column aliases
+  agent_id?: UUID;
+  wallet_address?: string | null;
+  did_document?: string | null;
+  tier_db?: 'basic' | 'full';
+  created_at?: string;
+  updated_at?: string;
+}
 
 export interface VerificationChallenge {
   /** Unique identifier */
@@ -651,7 +918,7 @@ export interface VerificationChallenge {
   /** Challenge data (e.g., message to sign) */
   challenge: string;
   /** Verification status */
-  status: VerificationStatus;
+  status: VerificationStatusValue;
   /** Signature / proof provided by the user */
   proof?: string;
   /** Challenge expiry */
@@ -660,6 +927,12 @@ export interface VerificationChallenge {
   createdAt: Timestamp;
   /** When the challenge was verified (or expired) */
   verifiedAt: Timestamp | null;
+  // DB column aliases
+  user_id?: UUID;
+  status_db?: VerificationStatusValue;
+  expires_at?: string;
+  created_at?: string;
+  verified_at?: string | null;
 }
 
 export interface VerificationResult {
@@ -681,6 +954,28 @@ export interface VerificationResult {
   ttlSeconds: number;
   /** Expiry of this verification */
   expiresAt: Timestamp;
+  // DB column aliases
+  user_id?: UUID;
+  verified_db?: boolean;
+  failure_reason?: string | null;
+  verified_at?: string;
+  ttl_seconds?: number;
+  expires_at?: string;
+}
+
+export interface VerificationStatus {
+  /** Agent identifier */
+  agentId: string;
+  /** Whether the agent is verified */
+  isVerified: boolean;
+  /** Verification tier */
+  tier: 'unverified' | 'basic' | 'full';
+  /** DID document (if available) */
+  didDocument?: string;
+  /** Wallet address */
+  walletAddress?: string;
+  /** When verified */
+  verifiedAt?: string;
 }
 
 export interface AgentStatus {
@@ -702,6 +997,12 @@ export interface AgentStatus {
   isVerified: boolean;
   /** Verification level */
   verificationLevel: 'none' | 'basic' | 'full' | 'trusted';
+  // DB column aliases (routes access agent_id, tier)
+  agent_id?: UUID;
+  tier?: string;
+  wallet_address?: string | null;
+  did_document?: string | null;
+  verified_at?: string | null;
 }
 
 // ─── Domain: Owner / Narrative ────────────────────────────────────────
@@ -725,11 +1026,19 @@ export interface OwnerMessage {
   deliveredAt: Timestamp | null;
   /** When the message was read */
   readAt: Timestamp | null;
+  // DB column aliases
+  category_db?: string;
+  delivered_db?: boolean;
+  read_db?: boolean;
+  created_at?: string;
+  delivered_at?: string | null;
+  read_at?: string | null;
+  sentiment?: string;
 }
 
 export interface OwnerMood {
   /** Current mood */
-  mood: OwnerMood;
+  mood: OwnerMoodState;
   /** Mood last changed timestamp */
   lastChangedAt: Timestamp;
   /** Mood persistence / decay duration */
@@ -740,6 +1049,40 @@ export interface OwnerMood {
   greeting?: string;
   /** Owner's current catchphrase */
   catchphrase?: string;
+  /** Last interaction timestamp */
+  lastInteraction?: Timestamp;
+  /** Total number of interactions */
+  totalInteractions?: number;
+  // DB column aliases
+  mood_db?: OwnerMoodState;
+  last_changed_at?: string;
+  persistence_minutes?: number;
+  triggers_db?: string[];
+  greeting_db?: string | null;
+  catchphrase_db?: string | null;
+  stress_level?: number;
+}
+
+/** Lore entry — discoverable world-building fragment */
+export interface LoreEntry {
+  /** Unique identifier */
+  id: UUID;
+  /** Lore title */
+  title: string;
+  /** Lore content */
+  content: string;
+  /** Category tag */
+  category: string;
+  /** Whether this lore has been discovered */
+  discovered: boolean;
+  /** When it was created */
+  createdAt: Timestamp;
+  // DB column aliases
+  title_db?: string;
+  content_db?: string;
+  category_db?: string;
+  discovered_db?: boolean;
+  created_at?: string;
 }
 
 export interface NarrativeEvent {
@@ -765,6 +1108,16 @@ export interface NarrativeEvent {
   createdAt: Timestamp;
   /** When the event ended */
   endedAt: Timestamp | null;
+  // DB column aliases
+  category_db?: string;
+  severity_db?: string;
+  active_db?: boolean;
+  start_time?: string;
+  duration_sec?: number;
+  effect_db?: Record<string, unknown>;
+  applied_db?: boolean;
+  created_at?: string;
+  ended_at?: string | null;
 }
 
 // ─── Domain: Infrastructure / Middleware ──────────────────────────────
