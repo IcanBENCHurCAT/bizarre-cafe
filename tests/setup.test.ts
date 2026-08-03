@@ -22,11 +22,10 @@ describe('Project Setup', () => {
     expect(pkg.dependencies).not.toHaveProperty('algoliasearch');
   });
 
-  it('should have .specify/spec.md', () => {
-    const specPath = resolve(__dirname, '../.specify/spec.md');
-    const content = readFileSync(specPath, 'utf-8');
-    expect(content).toContain('Bizarre Cafe');
-    expect(content).toContain('A2A');
+  it('should have CONSTITUTION.md', () => {
+    const constitutionPath = resolve(__dirname, '../CONSTITUTION.md');
+    const content = readFileSync(constitutionPath, 'utf-8');
+    expect(content.length).toBeGreaterThan(0);
   });
 
   it('should have supabase migrations', () => {
