@@ -12,7 +12,7 @@
  */
 
 import { Context } from 'hono';
-import { config } from './config';
+import { config } from '../config';
 
 // ──────────────────────────────────────────────
 // Types
@@ -84,6 +84,9 @@ export interface BroadcastPayload {
 
 /** Registered SSE client connections, keyed by client ID */
 const clients = new Map<string, SseClient>();
+
+/** Clients grouped by room ID for faster broadcasting */
+const roomClients = new Map<string | null, Set<SseClient>>();
 
 /** Registered handlers for specific event types */
 const handlers = new Map<
@@ -162,20 +165,31 @@ const sendToClient = (client: SseClient, event: SseEvent): boolean => {
 const broadcastToRoom = (payload: BroadcastPayload): void => {
   const formatted = formatMessage(payload);
 
-  for (const client of clients.values()) {
-    if (!client.active) continue;
+  const event: SseEvent = {
+    type: 'chat',
+    roomId: formatted.roomId || undefined,
+    data: {
+      agentId: formatted.agentId,
+      message: formatted.message,
+      timestamp: formatted.timestamp,
+    },
+  };
 
-    // Send to clients subscribed to this room or all-room listeners
-    if (client.roomId === null || client.roomId === formatted.roomId) {
-      sendToClient(client, {
-        type: 'chat',
-        roomId: formatted.roomId || undefined,
-        data: {
-          agentId: formatted.agentId,
-          message: formatted.message,
-          timestamp: formatted.timestamp,
-        },
-      });
+  // Send to clients explicitly in this room
+  if (formatted.roomId !== null) {
+    const specificRoomClients = roomClients.get(formatted.roomId);
+    if (specificRoomClients) {
+      for (const client of specificRoomClients) {
+        if (client.active) sendToClient(client, event);
+      }
+    }
+  }
+
+  // Send to all-room listeners
+  const allRoomClients = roomClients.get(null);
+  if (allRoomClients) {
+    for (const client of allRoomClients) {
+      if (client.active) sendToClient(client, event);
     }
   }
 };
@@ -202,6 +216,15 @@ const cleanupClient = (clientId: string): void => {
   if (client.heartbeatTimer) {
     clearInterval(client.heartbeatTimer);
     client.heartbeatTimer = null;
+  }
+
+  // Remove from room index
+  const roomSet = roomClients.get(client.roomId);
+  if (roomSet) {
+    roomSet.delete(client);
+    if (roomSet.size === 0) {
+      roomClients.delete(client.roomId);
+    }
   }
 
   clients.delete(clientId);
@@ -285,6 +308,14 @@ export const sseHandler = async (c: Context): Promise<void> => {
   };
 
   clients.set(clientId, client);
+
+  // Add to room index
+  let roomSet = roomClients.get(client.roomId);
+  if (!roomSet) {
+    roomSet = new Set();
+    roomClients.set(client.roomId, roomSet);
+  }
+  roomSet.add(client);
 
   // eslint-disable-next-line no-console
   console.info(

@@ -48,7 +48,7 @@ app.get('/sse', sseHandler);
 
 // Authenticated routes (requires x402 wallet signature)
 app.use('/api/*', authMiddleware);
-app.use('/api/*', circuitBreaker);
+app.use('/api/*', circuitBreaker());
 
 // Route mounts
 app.route('/api/lobby', lobbyRouter);
@@ -61,7 +61,7 @@ app.route('/api/events', eventsRouter);
 app.route('/api/verification', verificationRouter);
 
 // Rate limiting on all API routes
-app.use('/api/*', rateLimiter);
+app.use('/api/*', rateLimiter());
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
