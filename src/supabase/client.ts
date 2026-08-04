@@ -23,27 +23,23 @@ export function createSupabaseClient(): SupabaseClient<Database> {
 // ─── Anon Client ──────────────────────────────────────────────────────
 
 /** Standard Supabase client using the anon key (RLS enforced). */
-export const supabase = createClient<Database>(
-  config.supabaseUrl,
-  config.supabaseKey,
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
+export const supabase = createClient<Database>(config.supabaseUrl, config.supabaseKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+  },
+  db: {
+    schema: 'public',
+  },
+  global: {
+    fetch: async (url, init?) => {
+      // Inject auth headers for internal proxy calls if needed
+      const headers = new Headers(init?.headers);
+      headers.set('x-service-key', config.supabaseServiceRoleKey);
+      return fetch(url, { ...init, headers });
     },
-    db: {
-      schema: 'public',
-    },
-    global: {
-      fetch: async (url, init?) => {
-        // Inject auth headers for internal proxy calls if needed
-        const headers = new Headers(init?.headers);
-        headers.set('x-service-key', config.supabaseServiceRoleKey);
-        return fetch(url, { ...init, headers });
-      },
-    },
-  }
-);
+  },
+});
 
 // ─── Service Role Client ──────────────────────────────────────────────
 
@@ -62,9 +58,8 @@ export const supabaseAdmin = createClient<Database>(
     db: {
       schema: 'public',
     },
-  }
+  },
 );
-
 
 // ─── Type Helpers ─────────────────────────────────────────────────────
 

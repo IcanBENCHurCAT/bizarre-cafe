@@ -39,7 +39,9 @@ const generateFakeUser = (agentId: string): AuthUser => ({
   paidRoutes: ['*', '/api/shop/*', '/api/skill-swap/*'],
 });
 
-const extractWalletSignature = (c: Context): { message: string; signature: string; address: string } | null => {
+const extractWalletSignature = (
+  c: Context,
+): { message: string; signature: string; address: string } | null => {
   const sig = c.req.header('x-wallet-sig');
   const address = c.req.header('x-wallet-address');
   const message = c.req.header('x-wallet-message');
@@ -55,7 +57,7 @@ const extractWalletSignature = (c: Context): { message: string; signature: strin
 const verifyWalletSignature = async (
   message: string,
   signature: string,
-  address: string
+  address: string,
 ): Promise<boolean> => {
   try {
     // In production, verify against actual Algorand address
@@ -101,7 +103,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
       const isValid = await verifyWalletSignature(
         walletSig.message,
         walletSig.signature,
-        walletSig.address
+        walletSig.address,
       );
 
       if (isValid) {
@@ -134,12 +136,15 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
  */
 export const requireX402Payment = (): MiddlewareHandler => {
   return async (c, next) => {
-    const paymentHeader = c.req.header('x-x402-payment') || c.req.header('x-402-receipt') || c.req.header('x-payment-receipt');
+    const paymentHeader =
+      c.req.header('x-x402-payment') ||
+      c.req.header('x-402-receipt') ||
+      c.req.header('x-payment-receipt');
 
     if (!paymentHeader) {
       return c.json(
         { error: { code: 'PAYMENT_REQUIRED', message: 'x402 payment required for this endpoint' } },
-        402
+        402,
       );
     }
 

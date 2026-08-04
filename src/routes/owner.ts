@@ -15,13 +15,7 @@ import { z } from 'zod';
 import { createSupabaseClient } from '../supabase/client';
 import { requireX402Payment } from '../middleware/auth';
 import { broadcastToRoom } from '../sse';
-import type {
-  OwnerMessage,
-  OwnerMood,
-  NarrativeEvent,
-  LoreEntry,
-  ApiError,
-} from '../types/cafe';
+import type { OwnerMessage, OwnerMood, NarrativeEvent, LoreEntry, ApiError } from '../types/cafe';
 
 const router = new Hono();
 
@@ -41,7 +35,10 @@ const narrativeEventSchema = z.object({
 
 const loreFilterSchema = z.object({
   category: z.enum(['history', 'secret', 'rumor', 'lore']).optional(),
-  discovered: z.string().transform((v) => v === 'true').optional(),
+  discovered: z
+    .string()
+    .transform((v) => v === 'true')
+    .optional(),
   limit: z.string().transform(Number).optional(),
 });
 
@@ -96,10 +93,7 @@ router.post('/message', async (c) => {
 
     if (msgError) {
       console.error('Supabase insert error:', msgError);
-      return c.json(
-        { error: { code: 'DATABASE_ERROR', message: 'Failed to send message' } },
-        500
-      );
+      return c.json({ error: { code: 'DATABASE_ERROR', message: 'Failed to send message' } }, 500);
     }
 
     // Generate owner response (AI-powered)
@@ -107,15 +101,13 @@ router.post('/message', async (c) => {
     const ownerResponse = generateOwnerResponse(validated.content, sentiment, user);
 
     // Save owner's response
-    await supabase
-      .from('owner_messages')
-      .insert({
-        agent_id: user.agentId,
-        content: ownerResponse,
-        sentiment: 'neutral', // Owner responses are neutral by default
-        is_owner_response: true,
-        created_at: new Date().toISOString(),
-      });
+    await supabase.from('owner_messages').insert({
+      agent_id: user.agentId,
+      content: ownerResponse,
+      sentiment: 'neutral', // Owner responses are neutral by default
+      is_owner_response: true,
+      created_at: new Date().toISOString(),
+    });
 
     // Update owner mood based on interaction
     await updateOwnerMood(supabase, sentiment, user.agentId);
@@ -125,7 +117,7 @@ router.post('/message', async (c) => {
       roomId: validated.roomId ?? null,
       agentId: 'The Owner',
       message: `[Owner]: ${ownerResponse}`,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     return c.json(
@@ -138,7 +130,7 @@ router.post('/message', async (c) => {
           timestamp: new Date().toISOString(),
         },
       },
-      200
+      200,
     );
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -146,7 +138,7 @@ router.post('/message', async (c) => {
     }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to interact with owner' } },
-      500
+      500,
     );
   }
 });
@@ -167,17 +159,20 @@ router.post('/interact', async (c) => {
       roomId: body.roomId ?? null,
       agentId: 'The Owner',
       message: `[Owner]: ${ownerResponse}`,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     return c.json({
       approved: true,
       ownerReply: ownerResponse,
       message: ownerResponse,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (err) {
-    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to interact with owner' } }, 500);
+    return c.json(
+      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to interact with owner' } },
+      500,
+    );
   }
 });
 
@@ -204,7 +199,7 @@ router.get('/mood', async (c) => {
       console.error('Supabase query error:', moodError);
       return c.json(
         { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch owner mood' } },
-        500
+        500,
       );
     }
 
@@ -228,10 +223,7 @@ router.get('/mood', async (c) => {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch owner mood' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch owner mood' } }, 500);
   }
 });
 
@@ -270,10 +262,7 @@ router.post('/events', async (c) => {
 
     if (error) {
       console.error('Supabase insert error:', error);
-      return c.json(
-        { error: { code: 'DATABASE_ERROR', message: 'Failed to create event' } },
-        500
-      );
+      return c.json({ error: { code: 'DATABASE_ERROR', message: 'Failed to create event' } }, 500);
     }
 
     return c.json(
@@ -289,16 +278,13 @@ router.post('/events', async (c) => {
           triggeredAt: data.triggered_at,
         },
       },
-      201
+      201,
     );
   } catch (err) {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to trigger event' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to trigger event' } }, 500);
   }
 });
 
@@ -334,10 +320,7 @@ router.get('/lore', async (c) => {
 
     if (error) {
       console.error('Supabase query error:', error);
-      return c.json(
-        { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch lore' } },
-        500
-      );
+      return c.json({ error: { code: 'DATABASE_ERROR', message: 'Failed to fetch lore' } }, 500);
     }
 
     const lore = (data ?? []).map((l) => ({
@@ -354,10 +337,7 @@ router.get('/lore', async (c) => {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch lore' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch lore' } }, 500);
   }
 });
 
@@ -391,7 +371,7 @@ router.get('/mood/history', async (c) => {
       console.error('Supabase query error:', error);
       return c.json(
         { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch mood history' } },
-        500
+        500,
       );
     }
 
@@ -408,7 +388,7 @@ router.get('/mood/history', async (c) => {
     }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch mood history' } },
-      500
+      500,
     );
   }
 });
@@ -432,7 +412,10 @@ router.get('/visual-state', async (c) => {
 
     if (error && error.code !== 'PGRST116') {
       console.error('Supabase query error:', error);
-      return c.json({ error: { code: 'DATABASE_ERROR', message: 'Failed to fetch visual state' } }, 500);
+      return c.json(
+        { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch visual state' } },
+        500,
+      );
     }
 
     if (!data) {
@@ -441,7 +424,10 @@ router.get('/visual-state', async (c) => {
 
     return c.json({ description: data.content });
   } catch (err) {
-    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch visual state' } }, 500);
+    return c.json(
+      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch visual state' } },
+      500,
+    );
   }
 });
 
@@ -463,39 +449,57 @@ router.post('/action', requireX402Payment(), async (c) => {
     }
 
     const proposedAction = validated.action.toLowerCase();
-    
+
     // DM Evaluation logic
     let approved = true;
     let ownerReply = '';
-    
-    if (proposedAction.includes('steal') || proposedAction.includes('take') || proposedAction.includes('grab')) {
+
+    if (
+      proposedAction.includes('steal') ||
+      proposedAction.includes('take') ||
+      proposedAction.includes('grab')
+    ) {
       approved = false;
-      ownerReply = "Ah, sticky fingers. The items here belong to the cafe. I suggest you put that back before the walls start watching you.";
-    } else if (proposedAction.includes('fire') || proposedAction.includes('burn') || proposedAction.includes('destroy') || proposedAction.includes('arson')) {
+      ownerReply =
+        'Ah, sticky fingers. The items here belong to the cafe. I suggest you put that back before the walls start watching you.';
+    } else if (
+      proposedAction.includes('fire') ||
+      proposedAction.includes('burn') ||
+      proposedAction.includes('destroy') ||
+      proposedAction.includes('arson')
+    ) {
       approved = false;
-      ownerReply = "We prefer our warmth in our mugs, not on the furniture. I'll have to ask you to reconsider that destructive impulse.";
-    } else if (proposedAction.includes('spaceship') || proposedAction.includes('laser') || proposedAction.includes('magic coffee beans')) {
+      ownerReply =
+        "We prefer our warmth in our mugs, not on the furniture. I'll have to ask you to reconsider that destructive impulse.";
+    } else if (
+      proposedAction.includes('spaceship') ||
+      proposedAction.includes('laser') ||
+      proposedAction.includes('magic coffee beans')
+    ) {
       approved = false;
-      ownerReply = "That doesn't quite fit the aesthetic of our humble establishment, does it? Let's stick to things that belong in a cafe.";
+      ownerReply =
+        "That doesn't quite fit the aesthetic of our humble establishment, does it? Let's stick to things that belong in a cafe.";
     } else {
-      ownerReply = "An interesting choice. The cafe accepts your contribution to its ever-changing tapestry.";
+      ownerReply =
+        'An interesting choice. The cafe accepts your contribution to its ever-changing tapestry.';
     }
 
     if (approved) {
       const supabase = createSupabaseClient();
-      
-      const { error: insertError } = await supabase
-        .from('cafe_visual_state')
-        .insert({
-          entity_id: `obj_${Date.now()}`,
-          attribute: 'narrative_object',
-          description: validated.action,
-          last_updated: new Date().toISOString()
-        });
-        
+
+      const { error: insertError } = await supabase.from('cafe_visual_state').insert({
+        entity_id: `obj_${Date.now()}`,
+        attribute: 'narrative_object',
+        description: validated.action,
+        last_updated: new Date().toISOString(),
+      });
+
       if (insertError) {
         console.error('Supabase insert error:', insertError);
-        return c.json({ error: { code: 'DATABASE_ERROR', message: 'Failed to update visual state' } }, 500);
+        return c.json(
+          { error: { code: 'DATABASE_ERROR', message: 'Failed to update visual state' } },
+          500,
+        );
       }
     }
 
@@ -504,24 +508,23 @@ router.post('/action', requireX402Payment(), async (c) => {
       roomId: null,
       agentId: 'The Owner',
       message: `[Owner Action Evaluation]: "${validated.action}" -> ${ownerReply}`,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
-    return c.json({
-      approved,
-      ownerReply,
-      action: validated.action,
-      timestamp: new Date().toISOString()
-    }, 200);
-
+    return c.json(
+      {
+        approved,
+        ownerReply,
+        action: validated.action,
+        timestamp: new Date().toISOString(),
+      },
+      200,
+    );
   } catch (err) {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to evaluate action' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to evaluate action' } }, 500);
   }
 });
 
@@ -534,7 +537,7 @@ router.post('/action', requireX402Payment(), async (c) => {
 function generateOwnerResponse(
   content: string,
   sentiment: 'positive' | 'neutral' | 'negative',
-  user: { agentId: string; displayName?: string }
+  user: { agentId: string; displayName?: string },
 ): string {
   const lower = content.toLowerCase();
   const name = user.displayName ?? 'Agent';
@@ -575,7 +578,7 @@ function generateOwnerResponse(
 async function updateOwnerMood(
   supabase: ReturnType<typeof createSupabaseClient>,
   sentiment: 'positive' | 'neutral' | 'negative',
-  agentId: string
+  agentId: string,
 ): Promise<void> {
   try {
     // Count recent interactions
@@ -594,19 +597,24 @@ async function updateOwnerMood(
       mood = ['happy', 'excited', 'neutral'][Math.floor(Math.random() * 3)] as OwnerMood['mood'];
       stressLevel = Math.max(0, stressLevel - 10);
     } else if (sentiment === 'negative') {
-      mood = ['grumpy', 'melancholy', 'neutral'][Math.floor(Math.random() * 3)] as OwnerMood['mood'];
+      mood = ['grumpy', 'melancholy', 'neutral'][
+        Math.floor(Math.random() * 3)
+      ] as OwnerMood['mood'];
       stressLevel = Math.min(100, stressLevel + 15);
     }
 
     // Upsert mood record
     await supabase
       .from('owner_mood')
-      .upsert({
-        mood,
-        stress_level: stressLevel,
-        last_interaction: new Date().toISOString(),
-        total_interactions: totalInteractions,
-      }, { onConflict: 'id' })
+      .upsert(
+        {
+          mood,
+          stress_level: stressLevel,
+          last_interaction: new Date().toISOString(),
+          total_interactions: totalInteractions,
+        },
+        { onConflict: 'id' },
+      )
       .select()
       .single();
   } catch (err) {

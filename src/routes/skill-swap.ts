@@ -120,10 +120,7 @@ router.post('/offer', async (c) => {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
     console.error('[skill-swap] POST /offer unexpected error:', err);
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to post offer' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to post offer' } }, 500);
   }
 });
 
@@ -161,10 +158,7 @@ router.post('/request', async (c) => {
 
     if (error) {
       console.error('Supabase insert error:', error);
-      return c.json(
-        { error: { code: 'DATABASE_ERROR', message: 'Failed to post request' } },
-        500
-      );
+      return c.json({ error: { code: 'DATABASE_ERROR', message: 'Failed to post request' } }, 500);
     }
 
     return c.json(
@@ -181,16 +175,13 @@ router.post('/request', async (c) => {
           updatedAt: data.updated_at,
         },
       },
-      201
+      201,
     );
   } catch (err) {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to post request' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to post request' } }, 500);
   }
 });
 
@@ -203,7 +194,8 @@ router.post('/request', async (c) => {
 router.get('/offers', async (c) => {
   try {
     const query = c.req.query();
-    const limit = z.object({ limit: z.string().transform(Number).optional() }).parse(query).limit ?? 20;
+    const limit =
+      z.object({ limit: z.string().transform(Number).optional() }).parse(query).limit ?? 20;
     const search = z.object({ search: z.string().optional() }).parse(query).search;
 
     const supabase = createSupabaseClient();
@@ -236,7 +228,9 @@ router.get('/offers', async (c) => {
     })) satisfies Partial<SkillOffer>[];
 
     const inMemOffers = Array.from(memOffers.values()).filter(
-      (o) => o.status === 'available' && (!search || o.skillName.toLowerCase().includes(search.toLowerCase()))
+      (o) =>
+        o.status === 'available' &&
+        (!search || o.skillName.toLowerCase().includes(search.toLowerCase())),
     );
 
     const offers = [...dbOffers, ...inMemOffers].slice(0, limit);
@@ -246,10 +240,7 @@ router.get('/offers', async (c) => {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch offers' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch offers' } }, 500);
   }
 });
 
@@ -261,7 +252,8 @@ router.get('/offers', async (c) => {
 router.get('/requests', async (c) => {
   try {
     const query = c.req.query();
-    const limit = z.object({ limit: z.string().transform(Number).optional() }).parse(query).limit ?? 20;
+    const limit =
+      z.object({ limit: z.string().transform(Number).optional() }).parse(query).limit ?? 20;
     const search = z.object({ search: z.string().optional() }).parse(query).search;
 
     const supabase = createSupabaseClient();
@@ -283,7 +275,7 @@ router.get('/requests', async (c) => {
       console.error('Supabase query error:', error);
       return c.json(
         { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch requests' } },
-        500
+        500,
       );
     }
 
@@ -303,10 +295,7 @@ router.get('/requests', async (c) => {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch requests' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch requests' } }, 500);
   }
 });
 
@@ -331,11 +320,7 @@ router.post('/offers/:id/accept', async (c) => {
     const now = new Date().toISOString();
 
     // Look up offer in DB first, then in-memory fallback
-    const { data: dbOffer } = await supabase
-      .from('skill_offers')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const { data: dbOffer } = await supabase.from('skill_offers').select('*').eq('id', id).single();
 
     const offerSource = dbOffer || memOffers.get(id);
     if (!offerSource) {
@@ -348,7 +333,7 @@ router.post('/offers/:id/accept', async (c) => {
     if (offerAgentId === user.agentId) {
       return c.json(
         { error: { code: 'BAD_REQUEST', message: 'Cannot accept your own offer' } },
-        400
+        400,
       );
     }
 
@@ -404,10 +389,7 @@ router.post('/offers/:id/accept', async (c) => {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to accept offer' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to accept offer' } }, 500);
   }
 });
 
@@ -447,7 +429,7 @@ router.get('/trades', async (c) => {
     })) satisfies Partial<Trade>[];
 
     const inMemTradesForAgent = Array.from(memTrades.values()).filter(
-      (t) => t.fromAgentId === user.agentId || t.toAgentId === user.agentId
+      (t) => t.fromAgentId === user.agentId || t.toAgentId === user.agentId,
     );
 
     const trades = [...dbTrades, ...inMemTradesForAgent].slice(0, limit);
@@ -457,10 +439,7 @@ router.get('/trades', async (c) => {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch trades' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch trades' } }, 500);
   }
 });
 
@@ -494,17 +473,19 @@ router.post('/trades/:id/complete', async (c) => {
 
     // Check if agent is part of this trade
     if (trade.from_agent_id !== user.agentId && trade.to_agent_id !== user.agentId) {
-      return c.json(
-        { error: { code: 'FORBIDDEN', message: 'Not involved in this trade' } },
-        403
-      );
+      return c.json({ error: { code: 'FORBIDDEN', message: 'Not involved in this trade' } }, 403);
     }
 
     // Only pending or active trades can be completed
     if (trade.status !== 'pending' && trade.status !== 'active') {
       return c.json(
-        { error: { code: 'BAD_REQUEST', message: `Cannot complete trade with status: ${trade.status}` } },
-        400
+        {
+          error: {
+            code: 'BAD_REQUEST',
+            message: `Cannot complete trade with status: ${trade.status}`,
+          },
+        },
+        400,
       );
     }
 
@@ -521,7 +502,7 @@ router.post('/trades/:id/complete', async (c) => {
       console.error('Supabase update error:', updateError);
       return c.json(
         { error: { code: 'DATABASE_ERROR', message: 'Failed to complete trade' } },
-        500
+        500,
       );
     }
 
@@ -542,10 +523,7 @@ router.post('/trades/:id/complete', async (c) => {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to complete trade' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to complete trade' } }, 500);
   }
 });
 
@@ -576,16 +554,13 @@ router.post('/trades/:id/cancel', async (c) => {
     }
 
     if (trade.from_agent_id !== user.agentId && trade.to_agent_id !== user.agentId) {
-      return c.json(
-        { error: { code: 'FORBIDDEN', message: 'Not involved in this trade' } },
-        403
-      );
+      return c.json({ error: { code: 'FORBIDDEN', message: 'Not involved in this trade' } }, 403);
     }
 
     if (trade.status === 'completed') {
       return c.json(
         { error: { code: 'BAD_REQUEST', message: 'Cannot cancel a completed trade' } },
-        400
+        400,
       );
     }
 
@@ -607,10 +582,7 @@ router.post('/trades/:id/cancel', async (c) => {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to cancel trade' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to cancel trade' } }, 500);
   }
 });
 

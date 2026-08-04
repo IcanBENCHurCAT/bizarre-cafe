@@ -79,7 +79,8 @@ export type SkillCategory =
 export type SkillLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
 
 /** Skill trade status */
-export type TradeStatus = 'draft' | 'offered' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
+export type TradeStatus =
+  'draft' | 'offered' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
 
 /** Event type */
 export type EventType = 'workshop' | 'hackathon' | 'showcase' | 'social' | 'competition' | 'meetup';
@@ -91,18 +92,22 @@ export type EventStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
 export type ParticipationStatus = 'joined' | 'waiting' | 'attended' | 'left' | 'host';
 
 /** X402 payment status */
-export type PaymentStatus = 'unpaid' | 'offered' | 'verified' | 'confirmed' | 'settled' | 'expired' | 'expired' | 'refunded' | 'disputed';
+export type PaymentStatus =
+  | 'unpaid'
+  | 'offered'
+  | 'verified'
+  | 'confirmed'
+  | 'settled'
+  | 'expired'
+  | 'expired'
+  | 'refunded'
+  | 'disputed';
 
 /** X402 payment type */
 export type PaymentType = 'micro' | 'standard' | 'subscription' | 'escrow';
 
 /** Payment currency (Algorand native or ARC-38 token) */
-export type CurrencyCode =
-  | 'ALGO'
-  | 'USDC'
-  | 'DAI'
-  | 'USDT'
-  | string; // user-defined asset ID
+export type CurrencyCode = 'ALGO' | 'USDC' | 'DAI' | 'USDT' | string; // user-defined asset ID
 
 /** Verification method */
 export type VerificationMethod = 'did' | 'wallet' | 'email' | 'phone' | 'oauth';

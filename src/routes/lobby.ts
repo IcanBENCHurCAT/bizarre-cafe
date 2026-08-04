@@ -50,7 +50,7 @@ router.post('/rooms', async (c) => {
       description: validated.description,
       visibility: validated.isPrivate ? 'private' : 'public',
       max_agents: validated.maxAgents,
-      owner_id: user?.agentId
+      owner_id: user?.agentId,
     });
 
     return c.json(
@@ -58,7 +58,7 @@ router.post('/rooms', async (c) => {
         message: 'Room created',
         room,
       },
-      201
+      201,
     );
   } catch (err) {
     if (err instanceof z.ZodError) {

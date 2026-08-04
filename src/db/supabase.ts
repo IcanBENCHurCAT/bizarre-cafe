@@ -7,12 +7,12 @@ export const supabaseDb: DatabaseAdapter = {
     list: async (params) => {
       const result = await rooms.list(params);
       return {
-        data: result.data.map(r => ({
+        data: result.data.map((r) => ({
           ...r,
           owner_id: r.owner_id ?? null,
           max_agents: r.max_agents ?? null,
         })) as RoomData[],
-        pagination: result.pagination
+        pagination: result.pagination,
       };
     },
     create: async (data) => {
@@ -25,14 +25,14 @@ export const supabaseDb: DatabaseAdapter = {
         status: data.status || 'active',
         owner_id: data.owner_id || null,
         max_agents: data.max_agents || null,
-        is_narrative_driven: false
+        is_narrative_driven: false,
       });
       return result as unknown as RoomData;
     },
     get: async (id) => {
       const room = await rooms.get(id);
       return room as unknown as RoomData | null;
-    }
+    },
   },
   chat: {
     sendMessage: async (data) => {
@@ -57,7 +57,7 @@ export const supabaseDb: DatabaseAdapter = {
         .is('read_at', null);
       if (error) throw error;
       return count || 0;
-    }
+    },
   },
   agents: {
     getActive: async () => {
@@ -68,9 +68,9 @@ export const supabaseDb: DatabaseAdapter = {
     updateStatus: async (userId, data) => {
       const result = await verification.updateAgentStatus(userId, {
         status: data.status,
-        current_room_id: data.current_room_id
+        current_room_id: data.current_room_id,
       });
       return result as unknown as AgentStatusData;
-    }
-  }
+    },
+  },
 };

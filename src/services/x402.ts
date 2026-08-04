@@ -78,10 +78,7 @@ export function createPayment(
  * In production this would validate a cryptographic receipt.
  * For testing, any non-empty receipt string is considered valid.
  */
-export function verifyPayment(
-  paymentId: string,
-  receipt: string,
-): VerificationResult {
+export function verifyPayment(paymentId: string, receipt: string): VerificationResult {
   const payment = store.payments.get(paymentId);
   if (!payment) {
     return { paymentId, verified: false };

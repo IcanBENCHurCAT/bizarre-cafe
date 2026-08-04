@@ -53,10 +53,7 @@ function generateId(length = 32): string {
  * Returns a challenge object with an ID, random challenge string,
  * and expiration time.
  */
-export function challenge(
-  agentId: string,
-  ttlSeconds = 300,
-): Challenge {
+export function challenge(agentId: string, ttlSeconds = 300): Challenge {
   const id = generateId();
   const nonce = generateId(16);
 
@@ -82,10 +79,7 @@ export function challenge(
  * For testing, any non-empty response is considered valid if the
  * challenge hasn't expired and is associated with the correct agent.
  */
-export function verify(
-  challengeId: string,
-  response: string,
-): VerificationResult {
+export function verify(challengeId: string, response: string): VerificationResult {
   const challengeRecord = store.challenges.get(challengeId);
   if (!challengeRecord) {
     return {

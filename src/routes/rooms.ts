@@ -24,9 +24,9 @@ router.get('/', async (c) => {
 router.get('/:roomId', async (c) => {
   const { roomId } = roomParamsSchema.parse({ roomId: c.req.param('roomId') });
   const room = await db.rooms.get(roomId);
-  
+
   if (!room) return c.json({ error: 'Room not found' }, 404);
-  
+
   return c.json(room);
 });
 
@@ -35,7 +35,7 @@ router.post('/:roomId/join', async (c) => {
   const { roomId } = roomParamsSchema.parse({ roomId: c.req.param('roomId') });
   const body = await c.req.json();
   const agentId = body.agentId || c.user?.agentId || 'anonymous';
-  
+
   await db.agents.updateStatus(agentId, { current_room_id: roomId });
 
   return c.json({
@@ -50,7 +50,7 @@ router.post('/:roomId/leave', async (c) => {
   const { roomId } = roomParamsSchema.parse({ roomId: c.req.param('roomId') });
   const body = await c.req.json().catch(() => ({}));
   const agentId = body.agentId || c.user?.agentId || 'anonymous';
-  
+
   await db.agents.updateStatus(agentId, { current_room_id: null });
 
   return c.json({ message: 'Left room', roomId });

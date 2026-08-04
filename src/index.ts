@@ -83,7 +83,7 @@ if (process.env.NODE_ENV !== 'production' || process.env.START_SERVER === 'true'
   OwnerCronService.start();
   serve({
     fetch: app.fetch,
-    port: config.port
+    port: config.port,
   });
 }
 

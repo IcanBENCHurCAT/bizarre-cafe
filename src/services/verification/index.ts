@@ -20,12 +20,7 @@ import { config } from '../../config';
 // ──────────────────────────────────────────────
 
 /** Verification status of an agent */
-export type AgentStatusType =
-  | 'unverified'
-  | 'challenged'
-  | 'verified'
-  | 'revoked'
-  | 'expired';
+export type AgentStatusType = 'unverified' | 'challenged' | 'verified' | 'revoked' | 'expired';
 
 /** Challenge issued to an agent */
 export interface Challenge {
@@ -178,11 +173,7 @@ const formatChallengeMessage = (nonce: string, did: string): string => {
  * @param nonce - The nonce that was signed
  * @returns true if the signature is valid
  */
-const verifySignature = async (
-  did: string,
-  signature: string,
-  nonce: string
-): Promise<boolean> => {
+const verifySignature = async (did: string, signature: string, nonce: string): Promise<boolean> => {
   try {
     // Resolve DID to wallet address (production: use DID resolver)
     // For dev, derive from DID string
@@ -256,9 +247,7 @@ export const challengeAgent = async (did: string): Promise<Challenge> => {
     const recentChallenges = agentRecord.challengeCount;
 
     if (recentChallenges > MAX_CHALLENGES_PER_HOUR) {
-      throw new Error(
-        'Too many challenges. Rate limit exceeded. Try again later.'
-      );
+      throw new Error('Too many challenges. Rate limit exceeded. Try again later.');
     }
   }
 
@@ -317,17 +306,13 @@ export const challengeAgent = async (did: string): Promise<Challenge> => {
 export const verifyAgent = async (
   did: string,
   signature: string,
-  nonce: string
+  nonce: string,
 ): Promise<VerificationResult> => {
   // Find a valid, non-expired challenge matching this nonce
   let validChallenge: StoredChallenge | undefined;
 
   for (const challenge of challenges.values()) {
-    if (
-      challenge.did === did &&
-      challenge.nonce === nonce &&
-      Date.now() <= challenge.expiresAt
-    ) {
+    if (challenge.did === did && challenge.nonce === nonce && Date.now() <= challenge.expiresAt) {
       validChallenge = challenge;
       break;
     }

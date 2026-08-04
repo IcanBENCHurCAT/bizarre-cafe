@@ -82,16 +82,13 @@ router.post('/messages', async (c) => {
           createdAt: data.created_at,
         } satisfies Partial<ChatMessage>,
       },
-      201
+      201,
     );
   } catch (err) {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to send message' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to send message' } }, 500);
   }
 });
 
@@ -109,7 +106,7 @@ router.get('/messages', async (c) => {
 
     const data = await db.chat.getMessages(validated.roomId, {
       limit,
-      after: validated.before ? new Date(validated.before).toISOString() : undefined
+      after: validated.before ? new Date(validated.before).toISOString() : undefined,
     });
 
     const messages = data.map((m) => ({
@@ -125,10 +122,7 @@ router.get('/messages', async (c) => {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch messages' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch messages' } }, 500);
   }
 });
 
@@ -147,7 +141,7 @@ router.get('/history', async (c) => {
     const data = await db.chat.getMessages(validated.roomId, {
       limit,
       after: validated.after,
-      before: validated.before
+      before: validated.before,
     });
 
     const messages = data.map((m) => ({
@@ -165,10 +159,7 @@ router.get('/history', async (c) => {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch history' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch history' } }, 500);
   }
 });
 
@@ -188,17 +179,18 @@ router.get('/presence', async (c) => {
       roomId,
       presence: [
         { agentId: 'agent-1', lastSeen: new Date().toISOString(), status: 'active' },
-        { agentId: 'agent-2', lastSeen: new Date(Date.now() - 60000).toISOString(), status: 'idle' },
+        {
+          agentId: 'agent-2',
+          lastSeen: new Date(Date.now() - 60000).toISOString(),
+          status: 'idle',
+        },
       ],
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch presence' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch presence' } }, 500);
   }
 });
 
@@ -227,7 +219,7 @@ router.get('/unread', async (c) => {
     }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch unread count' } },
-      500
+      500,
     );
   }
 });

@@ -94,7 +94,7 @@ router.get('/items', async (c) => {
           stock: 100,
           tags: ['coffee', 'quantum'],
           isActive: true,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
         },
         {
           id: '22222222-2222-2222-2222-222222222222',
@@ -105,8 +105,8 @@ router.get('/items', async (c) => {
           stock: 50,
           tags: ['syrup', 'nostalgia'],
           isActive: true,
-          createdAt: new Date().toISOString()
-        }
+          createdAt: new Date().toISOString(),
+        },
       ];
     }
 
@@ -115,10 +115,7 @@ router.get('/items', async (c) => {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch items' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch items' } }, 500);
   }
 });
 
@@ -145,10 +142,7 @@ router.get('/items/:id', async (c) => {
         return c.json({ error: { code: 'NOT_FOUND', message: 'Item not found' } }, 404);
       }
       console.error('Supabase query error:', error);
-      return c.json(
-        { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch item' } },
-        500
-      );
+      return c.json({ error: { code: 'DATABASE_ERROR', message: 'Failed to fetch item' } }, 500);
     }
 
     if (!data) {
@@ -173,10 +167,7 @@ router.get('/items/:id', async (c) => {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch item' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch item' } }, 500);
   }
 });
 
@@ -220,7 +211,7 @@ router.post('/checkout', async (c) => {
         name: 'Quantum Espresso Beans',
         price: 50,
         currency: 'microUSDC',
-        stock: 100
+        stock: 100,
       };
     }
 
@@ -228,7 +219,7 @@ router.post('/checkout', async (c) => {
     if (item.stock !== null && item.stock < validated.quantity) {
       return c.json(
         { error: { code: 'INSUFFICIENT_STOCK', message: 'Not enough items in stock' } },
-        400
+        400,
       );
     }
 
@@ -258,7 +249,7 @@ router.post('/checkout', async (c) => {
       console.error('Supabase insert error:', receiptError);
       return c.json(
         { error: { code: 'DATABASE_ERROR', message: 'Failed to create receipt' } },
-        500
+        500,
       );
     }
 
@@ -278,16 +269,13 @@ router.post('/checkout', async (c) => {
           createdAt: receipt.created_at,
         },
       },
-      202
+      202,
     );
   } catch (err) {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Checkout failed' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Checkout failed' } }, 500);
   }
 });
 
@@ -318,16 +306,13 @@ router.post('/purchase', async (c) => {
           agentId: user.agentId,
         },
       },
-      200
+      200,
     );
   } catch (err) {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Purchase failed' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Purchase failed' } }, 500);
   }
 });
 
@@ -340,7 +325,8 @@ router.post('/purchase', async (c) => {
 router.get('/receipts', async (c) => {
   try {
     const query = c.req.query();
-    const limit = z.object({ limit: z.string().transform(Number).optional() }).parse(query).limit ?? 20;
+    const limit =
+      z.object({ limit: z.string().transform(Number).optional() }).parse(query).limit ?? 20;
     const user = c.user;
 
     if (!user) {
@@ -360,7 +346,7 @@ router.get('/receipts', async (c) => {
       console.error('Supabase query error:', error);
       return c.json(
         { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch receipts' } },
-        500
+        500,
       );
     }
 
@@ -382,10 +368,7 @@ router.get('/receipts', async (c) => {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch receipts' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch receipts' } }, 500);
   }
 });
 

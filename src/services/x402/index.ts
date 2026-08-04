@@ -165,7 +165,7 @@ export const createPaymentPromise = (
     receiverWallet?: string;
     /** Reference ID for idempotency */
     reference?: string;
-  }
+  },
 ): PaymentPromise => {
   const total = calculateTotal(items);
   const now = Date.now();
@@ -242,8 +242,7 @@ export const verifyPayment = (paymentId: string): PaymentResult => {
     // In production, verify the x402 receipt signature here
     // For now, accept receipts that match the expected format
     const isValid =
-      payment.receipt.startsWith('receipt_') &&
-      payment.receipt.includes(payment.paymentId);
+      payment.receipt.startsWith('receipt_') && payment.receipt.includes(payment.paymentId);
 
     if (isValid) {
       payment.status = 'verified';
@@ -320,9 +319,7 @@ export const settlePayment = (paymentId: string): SettlementResult => {
  * @returns PaymentStatusObject with complete payment details,
  *          or undefined if the payment does not exist
  */
-export const getPaymentStatus = (
-  paymentId: string
-): PaymentStatusObject | undefined => {
+export const getPaymentStatus = (paymentId: string): PaymentStatusObject | undefined => {
   const payment = payments.get(paymentId);
 
   if (!payment) return undefined;
@@ -353,7 +350,7 @@ export const getPaymentStatus = (
 export const createAndVerifyPayment = (
   items: PaymentItem[],
   payerWallet: string,
-  options?: { expiryMs?: number; receiverWallet?: string }
+  options?: { expiryMs?: number; receiverWallet?: string },
 ): PaymentResult => {
   const promise = createPaymentPromise(items, payerWallet, options);
   return verifyPayment(promise.paymentId);
