@@ -203,7 +203,7 @@ export const chat = {
   },
 
   /** Get messages for a room/session */
-  async getMessages(roomId: string, { limit = 50, after }: { limit?: number; after?: string } = {}) {
+  async getMessages(roomId: string, { limit = 50, after, before }: { limit?: number; after?: string; before?: string } = {}) {
     let query = supabase
       .from('messages')
       .select('*')
@@ -214,6 +214,10 @@ export const chat = {
     if (after) {
       const timestamp = new Date(after).toISOString();
       query = query.gt('created_at', timestamp);
+    }
+    if (before) {
+      const timestamp = new Date(before).toISOString();
+      query = query.lt('created_at', timestamp);
     }
 
     const { data, error } = await query.limit(limit);
