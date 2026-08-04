@@ -1,0 +1,17 @@
+{
+  "name": "@bizarre-cafe/sdk",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "eventsource": "^3.0.5"
+  },
+  "devDependencies": {
+    "@types/eventsource": "^1.1.15",
+    "typescript": "^5.5.0"
+  }
+}

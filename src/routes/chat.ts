@@ -11,8 +11,9 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { createSupabaseClient } from '../supabase/client';
-import type { ChatMessage, ApiError } from '../types/cafe';
+import { db } from '../db';
+import { processMessage } from '../sse';
+import type { ChatMessage } from '../types/cafe';
 
 const router = new Hono();
 
@@ -54,33 +55,21 @@ router.post('/messages', async (c) => {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
     }
 
-    const supabase = createSupabaseClient();
+    // Insert message into DB
+    const data = await db.chat.sendMessage({
+      room_id: validated.roomId,
+      sender_id: user.agentId,
+      content: validated.content,
+    });
 
-    // Insert message into Supabase
-    const { data, error } = await supabase
-      .from('chat_messages')
-      .insert({
-        room_id: validated.roomId,
-        agent_id: user.agentId,
-        content: validated.content,
-        type: validated.type,
-        metadata: validated.metadata ?? null,
-        created_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Supabase insert error:', error);
-      return c.json(
-        { error: { code: 'DATABASE_ERROR', message: 'Failed to send message' } },
-        500
-      );
-    }
-
-    // Broadcast via SSE/WebSocket (simplified)
-    // In production, emit to SSE broadcast queue
-    // await sseBroadcast.broadcast(validated.roomId, data);
+    // Broadcast via SSE
+    await processMessage({
+      type: 'chat',
+      roomId: validated.roomId,
+      agentId: user.agentId,
+      content: validated.content,
+      timestamp: Date.now(),
+    });
 
     return c.json(
       {
@@ -88,10 +77,8 @@ router.post('/messages', async (c) => {
         messageData: {
           id: data.id,
           roomId: data.room_id,
-          agentId: data.agent_id,
+          agentId: data.sender_id,
           content: data.content,
-          type: data.type,
-          metadata: data.metadata,
           createdAt: data.created_at,
         } satisfies Partial<ChatMessage>,
       },
@@ -120,36 +107,16 @@ router.get('/messages', async (c) => {
     const validated = messagesQuerySchema.parse(query);
     const limit = validated.limit ?? 50;
 
-    const supabase = createSupabaseClient();
+    const data = await db.chat.getMessages(validated.roomId, {
+      limit,
+      after: validated.before ? new Date(validated.before).toISOString() : undefined
+    });
 
-    let queryBuilder = supabase
-      .from('chat_messages')
-      .select('*')
-      .eq('room_id', validated.roomId)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (validated.before) {
-      queryBuilder = queryBuilder.lt('created_at', validated.before);
-    }
-
-    const { data, error } = await queryBuilder;
-
-    if (error) {
-      console.error('Supabase query error:', error);
-      return c.json(
-        { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch messages' } },
-        500
-      );
-    }
-
-    const messages = (data ?? []).map((m) => ({
+    const messages = data.map((m) => ({
       id: m.id,
       roomId: m.room_id,
-      agentId: m.agent_id,
+      agentId: m.sender_id,
       content: m.content,
-      type: m.type,
-      metadata: m.metadata,
       createdAt: m.created_at,
     })) satisfies Partial<ChatMessage>[];
 
@@ -177,39 +144,19 @@ router.get('/history', async (c) => {
     const validated = historyQuerySchema.parse(query);
     const limit = validated.limit ?? 100;
 
-    const supabase = createSupabaseClient();
+    const data = await db.chat.getMessages(validated.roomId, {
+      limit,
+      after: validated.after,
+      before: validated.before
+    });
 
-    let queryBuilder = supabase
-      .from('chat_messages')
-      .select('*')
-      .eq('room_id', validated.roomId)
-      .order('created_at', { ascending: true })
-      .limit(limit);
-
-    if (validated.after) {
-      queryBuilder = queryBuilder.gt('created_at', validated.after);
-    }
-    if (validated.before) {
-      queryBuilder = queryBuilder.lt('created_at', validated.before);
-    }
-
-    const { data, error } = await queryBuilder;
-
-    if (error) {
-      console.error('Supabase query error:', error);
-      return c.json(
-        { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch history' } },
-        500
-      );
-    }
-
-    const messages = (data ?? []).map((m) => ({
+    const messages = data.map((m) => ({
       id: m.id,
       roomId: m.room_id,
-      agentId: m.agent_id,
+      agentId: m.sender_id, // Note: mapped from sender_id to agentId
       content: m.content,
-      type: m.type,
-      metadata: m.metadata,
+      type: m.type || 'text',
+      metadata: m.metadata || undefined,
       createdAt: m.created_at,
     })) satisfies Partial<ChatMessage>[];
 
@@ -271,24 +218,9 @@ router.get('/unread', async (c) => {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
     }
 
-    const supabase = createSupabaseClient();
+    const count = await db.chat.getUnreadCount(roomId, user.agentId);
 
-    const { count, error } = await supabase
-      .from('chat_messages')
-      .select('*', { count: 'exact', head: true })
-      .eq('room_id', roomId)
-      .eq('agent_id_neq', user.agentId) // exclude own messages
-      .is('read_at', null);
-
-    if (error) {
-      console.error('Supabase count error:', error);
-      return c.json(
-        { error: { code: 'DATABASE_ERROR', message: 'Failed to count unread' } },
-        500
-      );
-    }
-
-    return c.json({ roomId, unreadCount: count ?? 0 });
+    return c.json({ roomId, unreadCount: count });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);

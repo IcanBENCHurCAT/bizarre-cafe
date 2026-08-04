@@ -10,6 +10,7 @@
  */
 
 import crypto from 'node:crypto';
+import { config } from '../../config';
 
 export interface NarrativeEvent {
   id: string;
@@ -47,22 +48,49 @@ function generateId(length = 32): string {
  * In production, this would call an LLM to generate a response.
  * For testing, returns a canned response with the appropriate tone.
  */
-export function generateResponse(
+export async function generateResponse(
   context: string,
   prompt?: string,
   tone?: 'whimsical' | 'helpful' | 'mysterious' | 'encouraging',
-): NarrativeResponse {
+): Promise<NarrativeResponse> {
   const id = generateId();
-
-  // Determine tone if not specified
   const resolvedTone = tone ?? 'whimsical';
-
-  // Generate a narrative response based on context
   let content: string;
-  if (prompt) {
-    content = `[${resolvedTone}] Response to: "${prompt}" — ${context}`;
-  } else {
-    content = `[${resolvedTone}] Narrative context: ${context}`;
+
+  const url = `${config.openaiBaseUrl}/chat/completions`;
+  console.log(`[Narrative AI] Generating response via ${url} (Model: ${config.aiModel}, Tone: ${resolvedTone})`);
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.openaiApiKey}`
+      },
+      body: JSON.stringify({
+        model: config.aiModel,
+        messages: [
+          { role: 'system', content: `You are the owner of the Bizarre Cafe. Maintain a ${resolvedTone} tone.` },
+          { role: 'user', content: prompt ? `Context: ${context}\n\nPrompt: ${prompt}` : `Context: ${context}` }
+        ]
+      })
+    });
+
+    if (!res.ok) {
+      console.error(`[Narrative AI] API Error: ${res.status} ${res.statusText}`);
+      throw new Error('API Error');
+    }
+
+    const data = await res.json();
+    content = data.choices?.[0]?.message?.content || `[Error] Empty response from LLM`;
+    console.log(`[Narrative AI] Response generated successfully.`);
+  } catch (err) {
+    console.error('[Narrative AI] Fetch failed, using fallback:', err);
+    if (prompt) {
+      content = `[${resolvedTone}] Response to: "${prompt}" — ${context}`;
+    } else {
+      content = `[${resolvedTone}] Narrative context: ${context}`;
+    }
   }
 
   const response: NarrativeResponse = {

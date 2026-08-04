@@ -46,6 +46,8 @@ export interface PaymentPromise {
   createdAt: number;
   /** When the payment expires */
   expiresAt: number;
+  /** When the payment was verified */
+  verifiedAt?: number;
   /** Current status */
   status: PaymentStatus;
   /** x402 receipt (if already verified) */

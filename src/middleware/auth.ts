@@ -134,7 +134,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
  */
 export const requireX402Payment = (): MiddlewareHandler => {
   return async (c, next) => {
-    const paymentHeader = c.req.header('x-x402-payment');
+    const paymentHeader = c.req.header('x-x402-payment') || c.req.header('x-402-receipt') || c.req.header('x-payment-receipt');
 
     if (!paymentHeader) {
       return c.json(
