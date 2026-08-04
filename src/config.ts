@@ -4,12 +4,9 @@
  * Reads from process.env with sensible defaults and validates required keys at startup.
  */
 
-import 'dotenv/config';
-
 export interface Config {
   port: number;
   nodeEnv: 'development' | 'production' | 'test';
-  useLocalDb: boolean;
   databaseUrl: string;
   supabaseUrl: string;
   supabaseKey: string;
@@ -19,7 +16,6 @@ export interface Config {
   aiModel: string;
   algorandNetwork: string;
   algorandRpcUrl: string;
-  algorandAlgodToken: string;
   x402Config: string;
   jwtSecret: string;
   jwtExpiry: string;
@@ -54,22 +50,17 @@ const getNumber = (key: string, fallback: number): number => {
 export const config: Config = {
   port: getNumber('PORT', 3000),
   nodeEnv: (getOptional('NODE_ENV', 'development') as Config['nodeEnv']),
-  useLocalDb: getOptional('USE_LOCAL_DB', 'false') === 'true',
-  databaseUrl: getOptional('DATABASE_URL', 'sqlite.db'),
-  supabaseUrl: getOptional('SUPABASE_URL', ''),
-  supabaseKey: getOptional('SUPABASE_KEY', ''),
-  supabaseServiceRoleKey: getOptional('SUPABASE_SERVICE_ROLE_KEY', ''),
-  openaiApiKey: getOptional('OPENAI_API_KEY', 'dummy-key'),
+  databaseUrl: getRequired('DATABASE_URL'),
+  supabaseUrl: getRequired('SUPABASE_URL'),
+  supabaseKey: getRequired('SUPABASE_KEY'),
+  supabaseServiceRoleKey: getRequired('SUPABASE_SERVICE_ROLE_KEY'),
+  openaiApiKey: getRequired('OPENAI_API_KEY'),
   openaiBaseUrl: getOptional('OPENAI_BASE_URL', 'http://localhost:8080/v1'),
   aiModel: getOptional('AI_MODEL', 'qwen3.6-35b-a3b-nvfp4'),
-  algorandNetwork: getOptional('ALGORAND_NETWORK', 'localnet'),
+  algorandNetwork: getOptional('ALGORAND_NETWORK', 'testnet'),
   algorandRpcUrl: getOptional(
     'ALGORAND_RPC_URL',
-    'http://localhost:4001'
-  ),
-  algorandAlgodToken: getOptional(
-    'ALGORAND_ALGOD_TOKEN',
-    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    'https://testnet-api.algonode.cloud'
   ),
   x402Config: getOptional('X402_CONFIG', '{}'),
   jwtSecret: getRequired('JWT_SECRET'),

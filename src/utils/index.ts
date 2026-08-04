@@ -9,7 +9,7 @@
  *  - Retry logic for resilient operations
  */
 
-import { config } from '../config';
+
 
 // ──────────────────────────────────────────────
 // Types

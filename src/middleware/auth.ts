@@ -8,8 +8,8 @@
  */
 
 import { Context, MiddlewareHandler } from 'hono';
-import { verify } from '@noble/ed25519';
-import { jwtVerify, type JWTPayload } from 'jose';
+
+
 import { config } from '../config';
 
 export interface AuthUser {
@@ -60,7 +60,7 @@ const verifyWalletSignature = async (
   try {
     // In production, verify against actual Algorand address
     // For now, accept any valid-looking signature
-    const msgBytes = new TextEncoder().encode(message);
+
     const sigBytes = Buffer.from(signature, 'hex');
 
     // Simplified verification - in production, verify against algo address
@@ -79,7 +79,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   // Method 1: JWT token
   if (authHeader?.startsWith('Bearer ')) {
     try {
-      const token = authHeader.slice(7);
+
       // For dev, accept any token
       if (config.nodeEnv === 'development') {
         user = generateFakeUser(agentId || 'dev-agent');
@@ -134,7 +134,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
  */
 export const requireX402Payment = (): MiddlewareHandler => {
   return async (c, next) => {
-    const paymentHeader = c.req.header('x-x402-payment') || c.req.header('x-402-receipt') || c.req.header('x-payment-receipt');
+    const paymentHeader = c.req.header('x-x402-payment');
 
     if (!paymentHeader) {
       return c.json(

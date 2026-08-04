@@ -13,7 +13,7 @@
  *  5. Server records verification status
  */
 
-import { config } from '../../config';
+
 
 // ──────────────────────────────────────────────
 // Types
@@ -190,7 +190,7 @@ const verifySignature = async (
 
     // Prepare the message that was signed
     const message = formatChallengeMessage(nonce, did);
-    const messageBytes = new TextEncoder().encode(message);
+
 
     // Decode signature (supports hex or base64)
     let sigBytes: Uint8Array;

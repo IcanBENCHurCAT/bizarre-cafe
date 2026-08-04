@@ -12,16 +12,10 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { randomUUID } from 'crypto';
 import { createSupabaseClient } from '../supabase/client';
-import type { SkillOffer, SkillRequest, Trade, ApiError } from '../types/cafe';
+import type { SkillOffer,  } from '../types/cafe';
 
 const router = new Hono();
-
-// In-memory fallback stores — used when Supabase skill_offers/skill_trades tables
-// don't exist yet (pre migration 003). Offers and trades persist for the server lifetime.
-const memOffers = new Map<string, any>();
-const memTrades = new Map<string, any>();
 
 // Zod schemas
 const offerSchema = z.object({
@@ -64,7 +58,6 @@ router.post('/offer', async (c) => {
     }
 
     const supabase = createSupabaseClient();
-    const now = new Date().toISOString();
 
     const { data, error } = await supabase
       .from('skill_offers')
@@ -76,15 +69,24 @@ router.post('/offer', async (c) => {
         wanted_skill: validated.wantedSkill ?? null,
         wanted_description: validated.wantedDescription ?? null,
         status: 'available',
-        created_at: now,
-        updated_at: now,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
       .select()
       .single();
 
-    // Fallback to in-memory store when skill_offers table doesn't exist yet
-    const offer = data
-      ? {
+    if (error) {
+      console.error('Supabase insert error:', error);
+      return c.json(
+        { error: { code: 'DATABASE_ERROR', message: 'Failed to post offer' } },
+        500
+      );
+    }
+
+    return c.json(
+      {
+        message: 'Offer posted',
+        offer: {
           id: data.id,
           agentId: data.agent_id,
           skillName: data.skill_name,
@@ -95,31 +97,14 @@ router.post('/offer', async (c) => {
           status: data.status,
           createdAt: data.created_at,
           updatedAt: data.updated_at,
-        }
-      : {
-          id: randomUUID(),
-          agentId: user.agentId,
-          skillName: validated.skillName,
-          description: validated.description,
-          tags: validated.tags ?? [],
-          wantedSkill: validated.wantedSkill ?? null,
-          wantedDescription: validated.wantedDescription ?? null,
-          status: 'available',
-          createdAt: now,
-          updatedAt: now,
-        };
-
-    if (!data) {
-      console.warn('[skill-swap] Supabase unavailable, storing offer in-memory:', offer.id);
-      memOffers.set(offer.id, offer);
-    }
-
-    return c.json({ message: 'Offer posted', offer }, 201);
+        },
+      },
+      201
+    );
   } catch (err) {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    console.error('[skill-swap] POST /offer unexpected error:', err);
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to post offer' } },
       500
@@ -221,8 +206,15 @@ router.get('/offers', async (c) => {
 
     const { data, error } = await queryBuilder;
 
-    // Merge DB results with in-memory fallback offers
-    const dbOffers = (data ?? []).map((o) => ({
+    if (error) {
+      console.error('Supabase query error:', error);
+      return c.json(
+        { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch offers' } },
+        500
+      );
+    }
+
+    const offers = (data ?? []).map((o) => ({
       id: o.id,
       agentId: o.agent_id,
       skillName: o.skill_name,
@@ -234,12 +226,6 @@ router.get('/offers', async (c) => {
       createdAt: o.created_at,
       updatedAt: o.updated_at,
     })) satisfies Partial<SkillOffer>[];
-
-    const inMemOffers = Array.from(memOffers.values()).filter(
-      (o) => o.status === 'available' && (!search || o.skillName.toLowerCase().includes(search.toLowerCase()))
-    );
-
-    const offers = [...dbOffers, ...inMemOffers].slice(0, limit);
 
     return c.json({ offers, total: offers.length });
   } catch (err) {
@@ -328,78 +314,73 @@ router.post('/offers/:id/accept', async (c) => {
     }
 
     const supabase = createSupabaseClient();
-    const now = new Date().toISOString();
 
-    // Look up offer in DB first, then in-memory fallback
-    const { data: dbOffer } = await supabase
+    // Get the offer
+    const { data: offer, error: offerError } = await supabase
       .from('skill_offers')
       .select('*')
       .eq('id', id)
       .single();
 
-    const offerSource = dbOffer || memOffers.get(id);
-    if (!offerSource) {
+    if (offerError || !offer) {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Offer not found' } }, 404);
     }
 
-    const offerAgentId = dbOffer ? dbOffer.agent_id : offerSource.agentId;
-
     // Can't accept your own offer
-    if (offerAgentId === user.agentId) {
+    if (offer.agent_id === user.agentId) {
       return c.json(
         { error: { code: 'BAD_REQUEST', message: 'Cannot accept your own offer' } },
         400
       );
     }
 
-    // Create trade — try DB first, fall back to in-memory
-    const { data: dbTrade } = await supabase
+    // Create trade
+    const { data: trade, error: tradeError } = await supabase
       .from('trades')
       .insert({
         offer_id: id,
-        request_id: null,
-        from_agent_id: offerAgentId,
+        request_id: null, // Will be linked to a matching request
+        from_agent_id: offer.agent_id,
         to_agent_id: user.agentId,
         status: 'pending',
         notes: validated.notes ?? null,
-        created_at: now,
-        updated_at: now,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
       .select()
       .single();
 
-    const trade = dbTrade
-      ? {
-          id: dbTrade.id,
-          offerId: dbTrade.offer_id,
-          fromAgentId: dbTrade.from_agent_id,
-          toAgentId: dbTrade.to_agent_id,
-          status: dbTrade.status,
-          notes: dbTrade.notes,
-          createdAt: dbTrade.created_at,
-          updatedAt: dbTrade.updated_at,
-        }
-      : {
-          id: randomUUID(),
-          offerId: id,
-          fromAgentId: offerAgentId,
-          toAgentId: user.agentId,
-          status: 'pending',
-          notes: validated.notes ?? null,
-          createdAt: now,
-          updatedAt: now,
-        };
-
-    if (!dbTrade) {
-      console.warn('[skill-swap] Supabase unavailable, storing trade in-memory:', trade.id);
-      memTrades.set(trade.id, trade);
-      // Mark in-memory offer as pending
-      if (memOffers.has(id)) {
-        memOffers.get(id).status = 'pending';
-      }
+    if (tradeError) {
+      console.error('Supabase insert error:', tradeError);
+      return c.json(
+        { error: { code: 'DATABASE_ERROR', message: 'Failed to accept offer' } },
+        500
+      );
     }
 
-    return c.json({ message: 'Offer accepted', trade }, 201);
+    // Update offer status
+    await supabase
+      .from('skill_offers')
+      .update({ status: 'pending', updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    return c.json(
+      {
+        message: 'Offer accepted',
+        trade: {
+          id: trade.id,
+          offerId: trade.offer_id,
+          requestId: trade.request_id,
+          fromAgentId: trade.from_agent_id,
+          toAgentId: trade.to_agent_id,
+          status: trade.status,
+          notes: trade.notes,
+          createdAt: trade.created_at,
+          updatedAt: trade.updated_at,
+        },
+      },
+      201
+    );
   } catch (err) {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
@@ -435,9 +416,18 @@ router.get('/trades', async (c) => {
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    const dbTrades = (data ?? []).map((t) => ({
+    if (error) {
+      console.error('Supabase query error:', error);
+      return c.json(
+        { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch trades' } },
+        500
+      );
+    }
+
+    const trades = (data ?? []).map((t) => ({
       id: t.id,
       offerId: t.offer_id,
+      requestId: t.request_id,
       fromAgentId: t.from_agent_id,
       toAgentId: t.to_agent_id,
       status: t.status,
@@ -445,12 +435,6 @@ router.get('/trades', async (c) => {
       createdAt: t.created_at,
       updatedAt: t.updated_at,
     })) satisfies Partial<Trade>[];
-
-    const inMemTradesForAgent = Array.from(memTrades.values()).filter(
-      (t) => t.fromAgentId === user.agentId || t.toAgentId === user.agentId
-    );
-
-    const trades = [...dbTrades, ...inMemTradesForAgent].slice(0, limit);
 
     return c.json({ trades, total: trades.length });
   } catch (err) {

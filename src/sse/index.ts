@@ -1,33 +1,76 @@
+/**
+ * SSE (Server-Sent Events) Handler
+ *
+ * Manages real-time chat connections via Server-Sent Events.
+ * Provides:
+ *  - Client connection lifecycle (connect, message, disconnect)
+ *  - Heartbeat ping to keep connections alive
+ *  - Message routing to appropriate room handlers
+ *  - Subscription management for per-room event delivery
+ *
+ * Endpoint: GET /sse
+ */
+
 import { Context } from 'hono';
-import { streamSSE } from 'hono/streaming';
 import { config } from '../config';
 
+// ──────────────────────────────────────────────
+// Types
+// ──────────────────────────────────────────────
 
+/** Represents a connected SSE client */
 export interface SseClient {
+  /** Unique client identifier */
   id: string;
+  /** Agent/user that owns this connection */
   agentId: string;
+  /** Room the client is listening to (null = all rooms) */
   roomId: string | null;
+  /** The response stream for sending events */
+  res: Response;
+  /** Whether the client is actively listening */
   active: boolean;
+  /** Last activity timestamp */
   lastSeen: number;
+  /** Interval handle for heartbeat (nullable for cleanup) */
   heartbeatTimer: ReturnType<typeof setInterval> | null;
-  stream: any;
 }
 
+/** Parsed SSE message from client */
 export interface SseMessage {
+  /** Event type */
   type: 'chat' | 'join' | 'leave' | 'typing' | 'ping' | 'pong';
+  /** Room identifier (if applicable) */
   roomId?: string;
+  /** Message content */
   content?: string;
+  /** Sender agent ID */
   agentId?: string;
+  /** Optional timestamp */
   timestamp?: number;
 }
 
+/** Server-to-client SSE event */
 export interface SseEvent {
+  /** Event type */
   type: 'chat' | 'system' | 'heartbeat' | 'room_update' | 'error';
+  /** Optional room this event belongs to */
   roomId?: string;
+  /** Event payload */
   data: Record<string, unknown>;
+  /** Optional retry interval in ms (default from config) */
   retry?: number;
 }
 
+/** Message sent by client to the server */
+export interface ClientMessage {
+  text: string;
+  roomId?: string;
+  agentId: string;
+  timestamp: number;
+}
+
+/** Internal broadcast payload for room fan-out */
 export interface BroadcastPayload {
   roomId: string | null;
   agentId: string;
@@ -35,6 +78,11 @@ export interface BroadcastPayload {
   timestamp: number;
 }
 
+// ──────────────────────────────────────────────
+// Module State
+// ──────────────────────────────────────────────
+
+/** Registered SSE client connections, keyed by client ID */
 const clients = new Map<string, SseClient>();
 
 /** Clients grouped by room ID for faster broadcasting */
@@ -49,33 +97,72 @@ const handlers = new Map<
 /** Global message interceptor — runs before delivery */
 const interceptors: Array<(payload: BroadcastPayload) => BroadcastPayload> = [];
 
-const generateId = (): string => crypto.randomUUID();
+// ──────────────────────────────────────────────
+// Helpers
+// ──────────────────────────────────────────────
 
-const formatMessage = (payload: BroadcastPayload): BroadcastPayload => {
-  let result = { ...payload };
-  for (const interceptor of interceptors) result = interceptor(result);
-  return result;
-};
-
-const sendToClient = (client: SseClient, event: SseEvent): boolean => {
-  if (!client.active) return false;
+/**
+ * Generate a unique client ID for SSE connections.
+ * Uses crypto.randomUUID when available.
+ */
+const generateId = (): string => {
   try {
-    const serialized = JSON.stringify({
-      type: event.type,
-      room: event.roomId,
-      ...event.data,
-    });
-    console.log(`[BACKEND SSE]: Sending to ${client.id} (agent ${client.agentId}):`, serialized);
-    client.stream.writeSSE({ data: serialized });
-    return true;
-  } catch (e) {
-    console.error(`[BACKEND SSE ERROR]:`, e);
-    client.active = false;
-    return false;
+    return crypto.randomUUID();
+  } catch {
+    // Fallback for environments without crypto
+    return `sse_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
   }
 };
 
-export const broadcastToRoom = (payload: BroadcastPayload): void => {
+/**
+ * Format a chat message for SSE delivery.
+ * Applies available interceptors and returns a clean payload.
+ */
+const formatMessage = (payload: BroadcastPayload): BroadcastPayload => {
+  let result = { ...payload };
+  for (const interceptor of interceptors) {
+    result = interceptor(result);
+  }
+  return result;
+};
+
+/**
+ * Send a data event to a single client.
+ * Silently ignores errors from disconnected clients.
+ */
+const sendToClient = (client: SseClient, event: SseEvent): boolean => {
+  if (!client.active) return false;
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const writer = (client.res as any).getWriter?.() as
+      | ReadableStreamDefaultWriter<string>
+      | undefined;
+    if (writer) {
+      const serialized = JSON.stringify({
+        type: event.type,
+        room: event.roomId,
+        ...event.data,
+      });
+      writer.write(`data: ${serialized}\n\n`);
+      return true;
+    }
+  } catch {
+    // Client likely disconnected
+    client.active = false;
+    return false;
+  }
+
+  // If no writer available, store for later
+  // This is a simplified approach — production code might buffer
+  return false;
+};
+
+/**
+ * Broadcast a message to all clients in a room (or all clients if room is null).
+ * Applies message formatting and delivers via available writers.
+ */
+const broadcastToRoom = (payload: BroadcastPayload): void => {
   const formatted = formatMessage(payload);
 
   const event: SseEvent = {
@@ -107,13 +194,23 @@ export const broadcastToRoom = (payload: BroadcastPayload): void => {
   }
 };
 
+/**
+ * Send a heartbeat ping to a specific client.
+ */
 const sendHeartbeat = (client: SseClient): void => {
-  sendToClient(client, { type: 'heartbeat', data: { ts: Date.now() } });
+  sendToClient(client, {
+    type: 'heartbeat',
+    data: { ts: Date.now() },
+  });
 };
 
+/**
+ * Clean up a disconnected client.
+ */
 const cleanupClient = (clientId: string): void => {
   const client = clients.get(clientId);
   if (!client) return;
+
   client.active = false;
 
   if (client.heartbeatTimer) {
@@ -131,26 +228,72 @@ const cleanupClient = (clientId: string): void => {
   }
 
   clients.delete(clientId);
-  console.info(`[sse] Client ${clientId} (agent ${client.agentId}) disconnected`);
+
+  // eslint-disable-next-line no-console
+  console.info(
+    `[sse] Client ${clientId} (agent ${client.agentId}) disconnected`
+  );
 };
 
+/**
+ * Start the periodic heartbeat for all connected clients.
+ * Runs independently and respects config.sseHeartbeatMs.
+ */
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+
 const startHeartbeats = (): void => {
   if (heartbeatInterval) return;
+
   heartbeatInterval = setInterval(() => {
     const now = Date.now();
+
     for (const client of clients.values()) {
       if (!client.active) {
         cleanupClient(client.id);
         continue;
       }
+
       sendHeartbeat(client);
+
+      // Evict stale clients (no heartbeat received within 2x the interval)
+      if (now - client.lastSeen > config.sseHeartbeatMs * 2) {
+        cleanupClient(client.id);
+      }
     }
   }, config.sseHeartbeatMs);
 };
 
-export const sseHandler = async (c: Context) => {
-  const agentId = c.req.header('x-agent-id') ?? c.req.header('X-Agent-ID') ?? 'anonymous';
+// ──────────────────────────────────────────────
+// Public API
+// ──────────────────────────────────────────────
+
+/**
+ * SSE request handler.
+ *
+ * Sets up the SSE stream, starts the heartbeat, and waits for
+ * client disconnect. Sends a welcome message on connection.
+ *
+ * @param c — Hono Context with SSE-compatible Response
+ * @returns void (the SSE stream runs until disconnect)
+ */
+export const sseHandler = async (c: Context): Promise<void> => {
+  // Set SSE headers
+  c.res = new Response(null, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    },
+  });
+
+  // Ensure heartbeat is running globally
+  startHeartbeats();
+
+  // Register this client
+  const agentId =
+    c.req.header('x-agent-id') ?? c.req.header('X-Agent-ID') ?? 'anonymous';
   const roomId = c.req.header('x-room-id');
   const clientId = generateId();
 
@@ -189,32 +332,71 @@ export const sseHandler = async (c: Context) => {
     },
   });
 
-    await sendToClient(client, {
-      type: 'system',
-      data: { message: 'Connected to Bizarre Cafe SSE stream.', clientId, timestamp: Date.now() },
-    });
+  // Attach cleanup handler for response abort
+  c.req.raw.signal?.addEventListener(
+    'abort',
+    () => {
+      cleanupClient(clientId);
+    },
+    { once: true }
+  );
 
-    await new Promise<void>((resolve) => {
-      c.req.raw.signal?.addEventListener('abort', () => {
-        cleanupClient(clientId);
-        resolve();
-      });
-    });
+  // Wait until the connection is closed (no event loop needed — Hono streams)
+  await new Promise<void>((resolve) => {
+    // On most platforms, the response signal fires on disconnect
+    const signal = c.req.raw.signal;
+    if (signal) {
+      signal.addEventListener('abort', () => resolve(), { once: true });
+    }
+    // Safety timeout in case the abort signal never fires
+    setTimeout(() => resolve(), config.sseTimeoutMs);
   });
+
+  cleanupClient(clientId);
 };
 
-export const registerHandler = (type: string, handler: (client: SseClient, message: SseMessage) => Promise<void>): void => {
+/**
+ * Register a handler for a specific event type.
+ * Handlers receive the client and a parsed message, and are
+ * called whenever a message of that type is received from a client.
+ *
+ * @param type - Event type (e.g. 'chat', 'join', 'leave')
+ * @param handler - Async callback
+ */
+export const registerHandler = (
+  type: string,
+  handler: (client: SseClient, message: SseMessage) => Promise<void>
+): void => {
   handlers.set(type, handler);
 };
 
-export const registerInterceptor = (interceptor: (payload: BroadcastPayload) => BroadcastPayload): void => {
+/**
+ * Register a message interceptor.
+ * Interceptors run before any message is delivered and may
+ * modify the payload. They run in registration order.
+ *
+ * @param interceptor - Function that receives and returns a BroadcastPayload
+ */
+export const registerInterceptor = (
+  interceptor: (payload: BroadcastPayload) => BroadcastPayload
+): void => {
   interceptors.push(interceptor);
 };
 
+/**
+ * Parse a raw SSE message string into a structured SseMessage.
+ *
+ * @param raw - Raw message string from the client
+ * @returns Parsed message or undefined if parsing fails
+ */
 export const parseMessage = (raw: string): SseMessage | undefined => {
   try {
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed.type !== 'string') return undefined;
+
+    if (!parsed || typeof parsed.type !== 'string') {
+      return undefined;
+    }
+
     return {
       type: parsed.type,
       roomId: parsed.roomId,
@@ -227,9 +409,16 @@ export const parseMessage = (raw: string): SseMessage | undefined => {
   }
 };
 
+/**
+ * Process an incoming client message and route it to the
+ * appropriate handler or broadcast it to the room.
+ *
+ * @param message - Parsed SSE message
+ */
 export const processMessage = async (message: SseMessage): Promise<void> => {
   const handler = handlers.get(message.type);
   if (handler) {
+    // Find the client associated with this message
     for (const client of clients.values()) {
       if (client.agentId === message.agentId && client.active) {
         await handler(client, message);
@@ -237,6 +426,8 @@ export const processMessage = async (message: SseMessage): Promise<void> => {
       }
     }
   }
+
+  // Default: broadcast chat messages to the room
   if (message.type === 'chat' && message.content) {
     broadcastToRoom({
       roomId: message.roomId ?? null,
@@ -274,6 +465,7 @@ export const getConnectedClientCount = (_roomId?: string): number => {
  */
 export const getRoomState = (): Map<string, string[]> => {
   const roomMap = new Map<string, string[]>();
+
   for (const client of clients.values()) {
     if (!client.active) continue;
     const key = client.roomId ?? 'all';
@@ -281,5 +473,6 @@ export const getRoomState = (): Map<string, string[]> => {
     existing.push(client.id);
     roomMap.set(key, existing);
   }
+
   return roomMap;
 };

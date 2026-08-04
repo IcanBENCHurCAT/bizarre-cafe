@@ -5,13 +5,10 @@
  * Fails open to avoid blocking legitimate traffic.
  */
 
-import { Context, MiddlewareHandler } from 'hono';
+import { MiddlewareHandler } from 'hono';
 import { config } from '../config';
 
-interface RateLimiterOptions {
-  windowMs?: number;
-  maxRequests?: number;
-}
+
 
 interface RateLimitEntry {
   count: number;
@@ -48,7 +45,7 @@ const store = new RateLimiterStore();
 export const rateLimiter = (opts?: RateLimitOptions): MiddlewareHandler => {
   const windowMs = opts?.windowMs ?? config.rateLimitWindowMs;
   const maxRequests = opts?.maxRequests ?? config.rateLimitMaxRequests;
-  const windowStart = Date.now();
+
 
   // Periodic cleanup
   setInterval(() => store.cleanup(), windowMs).unref();

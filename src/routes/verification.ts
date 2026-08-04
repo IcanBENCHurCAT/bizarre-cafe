@@ -122,7 +122,7 @@ router.post('/verify', async (c) => {
   try {
     const body = await c.req.json();
     const validated = challengeResponseSchema.parse(body);
-    const user = c.user;
+
 
     // Allow verification even without full auth (initial step)
     const agentId = validated.agentId;
@@ -295,7 +295,7 @@ router.post('/revoke', async (c) => {
   try {
     const body = await c.req.json();
     const validated = revokeSchema.parse(body);
-    const user = c.user;
+
 
     if (!user) {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
@@ -434,7 +434,7 @@ router.post('/upgrade', async (c) => {
   try {
     const body = await c.req.json();
     const { tier } = z.object({ tier: z.enum(['basic', 'full']) }).parse(body);
-    const user = c.user;
+
 
     if (!user) {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);

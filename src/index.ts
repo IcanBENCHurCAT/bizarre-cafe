@@ -11,7 +11,7 @@ import { Hono } from 'hono';
 import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
-import { poweredBy } from 'hono/powered-by';
+import { powered } from 'hono/powered-by';
 
 import { authMiddleware } from './middleware/auth';
 import { rateLimiter } from './middleware/rateLimiter';
@@ -37,7 +37,7 @@ const app = new Hono();
 app.use('*', logger());
 app.use('*', cors());
 app.use('*', secureHeaders());
-app.use('*', poweredBy());
+app.use('*', powered());
 
 // Health check
 app.get('/health', (c) => c.json({ status: 'ok', version: '0.1.0' }));
@@ -72,19 +72,6 @@ process.on('SIGINT', () => {
   console.info('SIGINT received, shutting down gracefully…');
   process.exit(0);
 });
-
-import { serve } from '@hono/node-server';
-import { OwnerCronService } from './services/owner_cron';
-
-// Start server if running directly (e.g. local dev)
-if (process.env.NODE_ENV !== 'production' || process.env.START_SERVER === 'true') {
-  console.log(`Starting local server on port ${config.port}`);
-  OwnerCronService.start();
-  serve({
-    fetch: app.fetch,
-    port: config.port
-  });
-}
 
 // Export for Cloud Run / serverless
 export default app;

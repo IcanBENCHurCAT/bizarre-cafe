@@ -203,7 +203,7 @@ export const chat = {
   },
 
   /** Get messages for a room/session */
-  async getMessages(roomId: string, { limit = 50, after, before }: { limit?: number; after?: string; before?: string } = {}) {
+  async getMessages(roomId: string, { limit = 50, after }: { limit?: number; after?: string } = {}) {
     let query = supabase
       .from('messages')
       .select('*')
@@ -214,10 +214,6 @@ export const chat = {
     if (after) {
       const timestamp = new Date(after).toISOString();
       query = query.gt('created_at', timestamp);
-    }
-    if (before) {
-      const timestamp = new Date(before).toISOString();
-      query = query.lt('created_at', timestamp);
     }
 
     const { data, error } = await query.limit(limit);
@@ -320,7 +316,7 @@ export const shop = {
 
     if (category) query = query.eq('category', category);
 
-    const { data, error } = await query;
+    const { error } = await query;
     if (error) throw error;
     return data as ShopItemRow[];
   },
@@ -444,7 +440,7 @@ export const skillSwap = {
     if (category) query = query.eq('category', category);
     if (level) query = query.eq('level', level);
 
-    const { data, error } = await query;
+    const { error } = await query;
     if (error) throw error;
     return data as SkillOfferRow[];
   },
@@ -688,7 +684,7 @@ export const events = {
 
     if (status) query = query.eq('status', status);
 
-    const { data, error } = await query;
+    const { error } = await query;
     if (error) throw error;
     return data as CafeEventRow[];
   },

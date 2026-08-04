@@ -13,7 +13,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { createSupabaseClient } from '../supabase/client';
-import type { CafeEvent, EventAttendance, ApiError } from '../types/cafe';
+import type { CafeEvent } from '../types/cafe';
 
 const router = new Hono();
 
@@ -27,9 +27,7 @@ const createEventSchema = z.object({
   scheduledAt: z.string().datetime().optional(),
 });
 
-const joinSchema = z.object({
-  agentId: z.string(),
-});
+
 
 /**
  * POST /create — Create a new cafe event

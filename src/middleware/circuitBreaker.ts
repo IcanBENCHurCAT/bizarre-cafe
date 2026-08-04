@@ -82,7 +82,7 @@ export function circuitBreaker(
 
   if (serviceName) breakers.set(serviceName, breaker);
 
-  return async (c: Context, next: Function) => {
+  return async (c: Context, next: () => Promise<Response | void>) => {
     const key = serviceName ?? c.req.path;
 
     if (!breaker.canExecute()) {
