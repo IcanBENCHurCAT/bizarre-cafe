@@ -54,9 +54,7 @@ export const rateLimiter = (opts?: RateLimitOptions): MiddlewareHandler => {
   setInterval(() => store.cleanup(), windowMs).unref();
 
   return async (c, next) => {
-    const clientKey = c.req.header('x-forwarded-for')
-      ?? c.req.header('x-agent-id')
-      ?? c.req.url;
+    const clientKey = c.req.header('x-forwarded-for') ?? c.req.header('x-agent-id') ?? c.req.url;
 
     const now = Date.now();
     const entry = store.get(clientKey);
@@ -77,7 +75,7 @@ export const rateLimiter = (opts?: RateLimitOptions): MiddlewareHandler => {
         429,
         {
           'Retry-After': String(Math.ceil((entry.resetTime - now) / 1000)),
-        }
+        },
       );
     }
 

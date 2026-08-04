@@ -82,7 +82,7 @@ router.post('/challenge', async (c) => {
       console.error('Supabase insert error:', error);
       return c.json(
         { error: { code: 'DATABASE_ERROR', message: 'Failed to create challenge' } },
-        500
+        500,
       );
     }
 
@@ -98,7 +98,7 @@ router.post('/challenge', async (c) => {
           createdAt: data.created_at,
         },
       },
-      200
+      200,
     );
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -106,7 +106,7 @@ router.post('/challenge', async (c) => {
     }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to generate challenge' } },
-      500
+      500,
     );
   }
 });
@@ -142,7 +142,7 @@ router.post('/verify', async (c) => {
     if (challengeError || !challenge) {
       return c.json(
         { error: { code: 'NOT_FOUND', message: 'Valid challenge not found. Request a new one.' } },
-        404
+        404,
       );
     }
 
@@ -150,13 +150,13 @@ router.post('/verify', async (c) => {
     const signatureValid = verifySignature(
       validated.challenge,
       validated.signature,
-      validated.walletAddress
+      validated.walletAddress,
     );
 
     if (!signatureValid) {
       return c.json(
         { error: { code: 'INVALID_SIGNATURE', message: 'Wallet signature verification failed' } },
-        400
+        400,
       );
     }
 
@@ -191,18 +191,16 @@ router.post('/verify', async (c) => {
         .eq('agent_id', agentId);
     } else {
       // Create new verification record
-      await supabase
-        .from('agent_verification')
-        .insert({
-          agent_id: agentId,
-          is_verified: true,
-          wallet_address: validated.walletAddress,
-          did_document: validated.didDocument ?? null,
-          verified_at: now,
-          tier: 'basic',
-          created_at: now,
-          updated_at: now,
-        });
+      await supabase.from('agent_verification').insert({
+        agent_id: agentId,
+        is_verified: true,
+        wallet_address: validated.walletAddress,
+        did_document: validated.didDocument ?? null,
+        verified_at: now,
+        tier: 'basic',
+        created_at: now,
+        updated_at: now,
+      });
     }
 
     return c.json(
@@ -216,16 +214,13 @@ router.post('/verify', async (c) => {
           tier: 'basic' as const,
         },
       },
-      200
+      200,
     );
   } catch (err) {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Verification failed' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Verification failed' } }, 500);
   }
 });
 
@@ -262,7 +257,7 @@ router.get('/status', async (c) => {
       console.error('Supabase query error:', verError);
       return c.json(
         { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch verification status' } },
-        500
+        500,
       );
     }
 
@@ -280,7 +275,7 @@ router.get('/status', async (c) => {
     }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch verification status' } },
-      500
+      500,
     );
   }
 });
@@ -304,8 +299,8 @@ router.post('/revoke', async (c) => {
     // Only the verified agent or an admin can revoke
     if (user.agentId !== validated.agentId) {
       return c.json(
-        { error: { code: 'FORBIDDEN', message: 'Cannot revoke another agent\'s verification' } },
-        403
+        { error: { code: 'FORBIDDEN', message: "Cannot revoke another agent's verification" } },
+        403,
       );
     }
 
@@ -322,7 +317,7 @@ router.post('/revoke', async (c) => {
     if (!verification || !verification.is_verified) {
       return c.json(
         { error: { code: 'NOT_FOUND', message: 'No active verification to revoke' } },
-        404
+        404,
       );
     }
 
@@ -344,19 +339,17 @@ router.post('/revoke', async (c) => {
       console.error('Supabase update error:', updateError);
       return c.json(
         { error: { code: 'DATABASE_ERROR', message: 'Failed to revoke verification' } },
-        500
+        500,
       );
     }
 
     // Log revocation
-    await supabase
-      .from('verification_log')
-      .insert({
-        agent_id: validated.agentId,
-        action: 'revoke',
-        reason: validated.reason ?? 'Agent requested revocation',
-        created_at: now,
-      });
+    await supabase.from('verification_log').insert({
+      agent_id: validated.agentId,
+      action: 'revoke',
+      reason: validated.reason ?? 'Agent requested revocation',
+      created_at: now,
+    });
 
     return c.json({
       message: 'Verification revoked',
@@ -371,7 +364,7 @@ router.post('/revoke', async (c) => {
     }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to revoke verification' } },
-      500
+      500,
     );
   }
 });
@@ -386,7 +379,8 @@ router.get('/log', async (c) => {
   try {
     const query = c.req.query();
     const { agentId } = statusQuerySchema.parse(query);
-    const limit = z.object({ limit: z.string().transform(Number).optional() }).parse(query).limit ?? 50;
+    const limit =
+      z.object({ limit: z.string().transform(Number).optional() }).parse(query).limit ?? 50;
 
     const supabase = createSupabaseClient();
 
@@ -401,7 +395,7 @@ router.get('/log', async (c) => {
       console.error('Supabase query error:', error);
       return c.json(
         { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch verification log' } },
-        500
+        500,
       );
     }
 
@@ -419,7 +413,7 @@ router.get('/log', async (c) => {
     }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch verification log' } },
-      500
+      500,
     );
   }
 });
@@ -452,21 +446,21 @@ router.post('/upgrade', async (c) => {
     if (verError || !verification) {
       return c.json(
         { error: { code: 'NOT_FOUND', message: 'No verification record found. Verify first.' } },
-        404
+        404,
       );
     }
 
     if (!verification.is_verified) {
       return c.json(
         { error: { code: 'BAD_REQUEST', message: 'Agent is not verified. Verify first.' } },
-        400
+        400,
       );
     }
 
     if (verification.tier === 'full') {
       return c.json(
         { error: { code: 'BAD_REQUEST', message: 'Agent already has full verification' } },
-        400
+        400,
       );
     }
 
@@ -483,14 +477,12 @@ router.post('/upgrade', async (c) => {
       .eq('agent_id', user.agentId);
 
     // Log the upgrade
-    await supabase
-      .from('verification_log')
-      .insert({
-        agent_id: user.agentId,
-        action: 'upgrade',
-        reason: `Upgraded to ${tier} tier`,
-        created_at: now,
-      });
+    await supabase.from('verification_log').insert({
+      agent_id: user.agentId,
+      action: 'upgrade',
+      reason: `Upgraded to ${tier} tier`,
+      created_at: now,
+    });
 
     return c.json({
       message: `Upgraded to ${tier} verification`,
@@ -502,10 +494,7 @@ router.post('/upgrade', async (c) => {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Upgrade failed' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Upgrade failed' } }, 500);
   }
 });
 
@@ -515,11 +504,7 @@ router.post('/upgrade', async (c) => {
  * In production, this should use proper Ed25519 verification against
  * the Algorand network or a DID resolver.
  */
-function verifySignature(
-  message: string,
-  signature: string,
-  walletAddress: string
-): boolean {
+function verifySignature(message: string, signature: string, walletAddress: string): boolean {
   try {
     // Validate format
     if (!walletAddress.startsWith('ALGO:')) {

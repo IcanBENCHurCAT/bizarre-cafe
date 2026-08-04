@@ -31,13 +31,19 @@ export interface AgentStatusData {
 
 export interface DatabaseAdapter {
   rooms: {
-    list: (params?: { offset?: number; limit?: number }) => Promise<{ data: RoomData[]; pagination: any }>;
+    list: (params?: {
+      offset?: number;
+      limit?: number;
+    }) => Promise<{ data: RoomData[]; pagination: any }>;
     create: (data: Partial<RoomData>) => Promise<RoomData>;
     get: (id: string) => Promise<RoomData | null>;
   };
   chat: {
     sendMessage: (data: Partial<MessageData>) => Promise<MessageData>;
-    getMessages: (roomId: string, params?: { limit?: number; after?: string; before?: string }) => Promise<MessageData[]>;
+    getMessages: (
+      roomId: string,
+      params?: { limit?: number; after?: string; before?: string },
+    ) => Promise<MessageData[]>;
     getUnreadCount: (roomId: string, agentId: string) => Promise<number>;
   };
   agents: {

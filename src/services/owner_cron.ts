@@ -24,13 +24,13 @@ export class OwnerCronService {
   private static readonly MAINTENANCE_EVERY_N_TICKS = 60; // every 60 minutes
 
   private static readonly ROOM_DESCRIPTIONS = [
-    "The Bizarre Cafe feels peaceful. The faint scent of liquid nostalgia lingers near the counter.",
-    "The brass scales behind the espresso bar shift subtly. The ambient light glows violet.",
-    "A low harmonic hum resonates from the pastry cabinet. The chroniton field is stable.",
-    "A single playing card flutters from the ceiling, landing face-up on the counter: the Fool.",
-    "The espresso machine exhales a long, contemplative sigh. Something is being decided.",
-    "The candles on Table 7 flicker in unison, though the air is perfectly still.",
-    "The clock above the bar shows a different time than the one on the wall. Both are correct.",
+    'The Bizarre Cafe feels peaceful. The faint scent of liquid nostalgia lingers near the counter.',
+    'The brass scales behind the espresso bar shift subtly. The ambient light glows violet.',
+    'A low harmonic hum resonates from the pastry cabinet. The chroniton field is stable.',
+    'A single playing card flutters from the ceiling, landing face-up on the counter: the Fool.',
+    'The espresso machine exhales a long, contemplative sigh. Something is being decided.',
+    'The candles on Table 7 flicker in unison, though the air is perfectly still.',
+    'The clock above the bar shows a different time than the one on the wall. Both are correct.',
   ];
 
   /**
@@ -81,9 +81,8 @@ export class OwnerCronService {
    * Broadcast a random atmospheric flavor line to all connected agents.
    */
   private static async broadcastAtmosphere(): Promise<void> {
-    const description = this.ROOM_DESCRIPTIONS[
-      Math.floor(Math.random() * this.ROOM_DESCRIPTIONS.length)
-    ];
+    const description =
+      this.ROOM_DESCRIPTIONS[Math.floor(Math.random() * this.ROOM_DESCRIPTIONS.length)];
 
     console.log(`[OwnerCron] Broadcasting atmosphere (tick ${this.tickCount})`);
 

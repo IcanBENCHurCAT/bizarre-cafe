@@ -58,22 +58,30 @@ export async function generateResponse(
   let content: string;
 
   const url = `${config.openaiBaseUrl}/chat/completions`;
-  console.log(`[Narrative AI] Generating response via ${url} (Model: ${config.aiModel}, Tone: ${resolvedTone})`);
+  console.log(
+    `[Narrative AI] Generating response via ${url} (Model: ${config.aiModel}, Tone: ${resolvedTone})`,
+  );
 
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.openaiApiKey}`
+        Authorization: `Bearer ${config.openaiApiKey}`,
       },
       body: JSON.stringify({
         model: config.aiModel,
         messages: [
-          { role: 'system', content: `You are the owner of the Bizarre Cafe. Maintain a ${resolvedTone} tone.` },
-          { role: 'user', content: prompt ? `Context: ${context}\n\nPrompt: ${prompt}` : `Context: ${context}` }
-        ]
-      })
+          {
+            role: 'system',
+            content: `You are the owner of the Bizarre Cafe. Maintain a ${resolvedTone} tone.`,
+          },
+          {
+            role: 'user',
+            content: prompt ? `Context: ${context}\n\nPrompt: ${prompt}` : `Context: ${context}`,
+          },
+        ],
+      }),
     });
 
     if (!res.ok) {
@@ -109,10 +117,7 @@ export async function generateResponse(
  * Events are stored in memory and can include contextual data
  * that the narrative engine can reference later.
  */
-export function trackEvent(
-  type: string,
-  data: Record<string, unknown> = {},
-): NarrativeEvent {
+export function trackEvent(type: string, data: Record<string, unknown> = {}): NarrativeEvent {
   const event: NarrativeEvent = {
     id: generateId(),
     type,

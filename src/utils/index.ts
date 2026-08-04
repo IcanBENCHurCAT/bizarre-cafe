@@ -78,7 +78,7 @@ export const formatMessage = (
     roomId?: string;
     timestamp?: number;
     isSystem?: boolean;
-  }
+  },
 ): FormattedMessage => {
   const now = options?.timestamp ?? Date.now();
 
@@ -101,7 +101,7 @@ export const formatMessage = (
  */
 export const formatMessageList = (
   messages: FormattedMessage[],
-  separator: string = '\n'
+  separator: string = '\n',
 ): string => {
   if (messages.length === 0) return '';
 
@@ -309,10 +309,7 @@ export const validateReceipt = (receipt: string): boolean => {
  * @returns Result of the function
  * @throws The last error if all retries are exhausted
  */
-export const withRetry = async <T>(
-  fn: () => Promise<T>,
-  options?: RetryOptions
-): Promise<T> => {
+export const withRetry = async <T>(fn: () => Promise<T>, options?: RetryOptions): Promise<T> => {
   const maxRetries = options?.maxRetries ?? 3;
   const baseDelay = options?.baseDelay ?? 1000;
   const maxDelay = options?.maxDelay ?? 30000;
@@ -332,18 +329,14 @@ export const withRetry = async <T>(
       }
 
       // Calculate delay with exponential backoff and jitter
-      const delay = Math.min(
-        baseDelay * Math.pow(multiplier, attempt),
-        maxDelay
-      );
+      const delay = Math.min(baseDelay * Math.pow(multiplier, attempt), maxDelay);
 
       // Add jitter (±20%)
       const jitter = delay * 0.2 * (Math.random() * 2 - 1);
       const actualDelay = Math.max(0, delay + jitter);
 
-      // eslint-disable-next-line no-console
       console.warn(
-        `[retry] Attempt ${attempt + 1}/${maxRetries + 1} failed: ${lastError.message}. Retrying in ${Math.round(actualDelay)}ms...`
+        `[retry] Attempt ${attempt + 1}/${maxRetries + 1} failed: ${lastError.message}. Retrying in ${Math.round(actualDelay)}ms...`,
       );
 
       await new Promise((resolve) => setTimeout(resolve, actualDelay));
@@ -361,10 +354,7 @@ export const withRetry = async <T>(
  * @returns Result of the function
  * @throws The last error if all retries are exhausted
  */
-export const withRetrySync = <T>(
-  fn: () => T,
-  options?: RetryOptions
-): T => {
+export const withRetrySync = <T>(fn: () => T, options?: RetryOptions): T => {
   const maxRetries = options?.maxRetries ?? 3;
   const baseDelay = options?.baseDelay ?? 500;
   const maxDelay = options?.maxDelay ?? 10000;
@@ -382,16 +372,13 @@ export const withRetrySync = <T>(
         break;
       }
 
-      const delay = Math.min(
-        baseDelay * Math.pow(multiplier, attempt),
-        maxDelay
-      );
+      const delay = Math.min(baseDelay * Math.pow(multiplier, attempt), maxDelay);
       const jitter = delay * 0.2 * (Math.random() * 2 - 1);
 
       // Note: sleep would block the thread; skip sleep for sync
-      // eslint-disable-next-line no-console
+
       console.warn(
-        `[retry-sync] Attempt ${attempt + 1}/${maxRetries + 1} failed: ${lastError.message}.`
+        `[retry-sync] Attempt ${attempt + 1}/${maxRetries + 1} failed: ${lastError.message}.`,
       );
     }
   }

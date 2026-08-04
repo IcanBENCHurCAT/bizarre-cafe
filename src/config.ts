@@ -53,7 +53,7 @@ const getNumber = (key: string, fallback: number): number => {
 
 export const config: Config = {
   port: getNumber('PORT', 3000),
-  nodeEnv: (getOptional('NODE_ENV', 'development') as Config['nodeEnv']),
+  nodeEnv: getOptional('NODE_ENV', 'development') as Config['nodeEnv'],
   useLocalDb: getOptional('USE_LOCAL_DB', 'false') === 'true',
   databaseUrl: getOptional('DATABASE_URL', 'sqlite.db'),
   supabaseUrl: getOptional('SUPABASE_URL', ''),
@@ -63,13 +63,10 @@ export const config: Config = {
   openaiBaseUrl: getOptional('OPENAI_BASE_URL', 'http://localhost:8080/v1'),
   aiModel: getOptional('AI_MODEL', 'qwen3.6-35b-a3b-nvfp4'),
   algorandNetwork: getOptional('ALGORAND_NETWORK', 'localnet'),
-  algorandRpcUrl: getOptional(
-    'ALGORAND_RPC_URL',
-    'http://localhost:4001'
-  ),
+  algorandRpcUrl: getOptional('ALGORAND_RPC_URL', 'http://localhost:4001'),
   algorandAlgodToken: getOptional(
     'ALGORAND_ALGOD_TOKEN',
-    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   ),
   x402Config: getOptional('X402_CONFIG', '{}'),
   jwtSecret: getRequired('JWT_SECRET'),

@@ -71,10 +71,7 @@ router.post('/create', async (c) => {
 
     if (error) {
       console.error('Supabase insert error:', error);
-      return c.json(
-        { error: { code: 'DATABASE_ERROR', message: 'Failed to create event' } },
-        500
-      );
+      return c.json({ error: { code: 'DATABASE_ERROR', message: 'Failed to create event' } }, 500);
     }
 
     return c.json(
@@ -94,16 +91,13 @@ router.post('/create', async (c) => {
           updatedAt: data.updated_at,
         },
       },
-      201
+      201,
     );
   } catch (err) {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to create event' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to create event' } }, 500);
   }
 });
 
@@ -116,8 +110,11 @@ router.post('/create', async (c) => {
 router.get('/upcoming', async (c) => {
   try {
     const query = c.req.query();
-    const limit = z.object({ limit: z.string().transform(Number).optional() }).parse(query).limit ?? 20;
-    const eventType = z.object({ type: z.enum(['meetup', 'workshop', 'game', 'social']).optional() }).parse(query).type;
+    const limit =
+      z.object({ limit: z.string().transform(Number).optional() }).parse(query).limit ?? 20;
+    const eventType = z
+      .object({ type: z.enum(['meetup', 'workshop', 'game', 'social']).optional() })
+      .parse(query).type;
 
     const supabase = createSupabaseClient();
 
@@ -139,7 +136,7 @@ router.get('/upcoming', async (c) => {
       console.error('Supabase query error:', error);
       return c.json(
         { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch upcoming events' } },
-        500
+        500,
       );
     }
 
@@ -164,7 +161,7 @@ router.get('/upcoming', async (c) => {
     }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch upcoming events' } },
-      500
+      500,
     );
   }
 });
@@ -237,10 +234,7 @@ router.get('/:id', async (c) => {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch event' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch event' } }, 500);
   }
 });
 
@@ -275,8 +269,10 @@ router.post('/:id/join', async (c) => {
 
     if (event.status === 'past' || event.status === 'cancelled') {
       return c.json(
-        { error: { code: 'BAD_REQUEST', message: `Cannot join event with status: ${event.status}` } },
-        400
+        {
+          error: { code: 'BAD_REQUEST', message: `Cannot join event with status: ${event.status}` },
+        },
+        400,
       );
     }
 
@@ -291,15 +287,12 @@ router.post('/:id/join', async (c) => {
       console.error('Supabase query error:', countError);
       return c.json(
         { error: { code: 'DATABASE_ERROR', message: 'Failed to check capacity' } },
-        500
+        500,
       );
     }
 
     if ((attendanceCount ?? 0) >= event.capacity) {
-      return c.json(
-        { error: { code: 'FULL', message: 'Event is at full capacity' } },
-        400
-      );
+      return c.json({ error: { code: 'FULL', message: 'Event is at full capacity' } }, 400);
     }
 
     // Check if already joined
@@ -313,7 +306,7 @@ router.post('/:id/join', async (c) => {
     if (existing?.status === 'joined') {
       return c.json(
         { error: { code: 'ALREADY_JOINED', message: 'You have already joined this event' } },
-        400
+        400,
       );
     }
 
@@ -331,10 +324,7 @@ router.post('/:id/join', async (c) => {
 
     if (attError) {
       console.error('Supabase insert error:', attError);
-      return c.json(
-        { error: { code: 'DATABASE_ERROR', message: 'Failed to join event' } },
-        500
-      );
+      return c.json({ error: { code: 'DATABASE_ERROR', message: 'Failed to join event' } }, 500);
     }
 
     return c.json(
@@ -348,16 +338,13 @@ router.post('/:id/join', async (c) => {
           joinedAt: attendance.joined_at,
         },
       },
-      201
+      201,
     );
   } catch (err) {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to join event' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to join event' } }, 500);
   }
 });
 
@@ -390,14 +377,14 @@ router.post('/:id/leave', async (c) => {
     if (attError || !attendance) {
       return c.json(
         { error: { code: 'NOT_FOUND', message: 'You are not attending this event' } },
-        404
+        404,
       );
     }
 
     if (attendance.status === 'left' || attendance.status === 'no-show') {
       return c.json(
         { error: { code: 'BAD_REQUEST', message: 'You have already left this event' } },
-        400
+        400,
       );
     }
 
@@ -412,10 +399,7 @@ router.post('/:id/leave', async (c) => {
 
     if (updateError) {
       console.error('Supabase update error:', updateError);
-      return c.json(
-        { error: { code: 'DATABASE_ERROR', message: 'Failed to leave event' } },
-        500
-      );
+      return c.json({ error: { code: 'DATABASE_ERROR', message: 'Failed to leave event' } }, 500);
     }
 
     return c.json({
@@ -428,10 +412,7 @@ router.post('/:id/leave', async (c) => {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to leave event' } },
-      500
-    );
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to leave event' } }, 500);
   }
 });
 
@@ -459,7 +440,7 @@ router.get('/past', async (c) => {
     // Filter to events user joined or created (if authenticated)
     if (user) {
       queryBuilder = queryBuilder.or(
-        `host_agent_id.eq.${user.agentId},id.in.(select event_id from event_attendance where agent_id.eq.${user.agentId})`
+        `host_agent_id.eq.${user.agentId},id.in.(select event_id from event_attendance where agent_id.eq.${user.agentId})`,
       );
     }
 
@@ -469,7 +450,7 @@ router.get('/past', async (c) => {
       console.error('Supabase query error:', error);
       return c.json(
         { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch past events' } },
-        500
+        500,
       );
     }
 
@@ -494,7 +475,7 @@ router.get('/past', async (c) => {
     }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch past events' } },
-      500
+      500,
     );
   }
 });

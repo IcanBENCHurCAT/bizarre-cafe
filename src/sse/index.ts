@@ -69,7 +69,9 @@ const sendToClient = (client: SseClient, event: SseEvent): boolean => {
 
 export const broadcastToRoom = (payload: BroadcastPayload): void => {
   const formatted = formatMessage(payload);
-  console.log(`[BACKEND SSE]: broadcastToRoom called for room ${formatted.roomId}. Active clients: ${clients.size}`);
+  console.log(
+    `[BACKEND SSE]: broadcastToRoom called for room ${formatted.roomId}. Active clients: ${clients.size}`,
+  );
 
   const sendToTarget = (clientId: string) => {
     const client = clients.get(clientId);
@@ -197,11 +199,16 @@ export const sseHandler = async (c: Context) => {
   });
 };
 
-export const registerHandler = (type: string, handler: (client: SseClient, message: SseMessage) => Promise<void>): void => {
+export const registerHandler = (
+  type: string,
+  handler: (client: SseClient, message: SseMessage) => Promise<void>,
+): void => {
   handlers.set(type, handler);
 };
 
-export const registerInterceptor = (interceptor: (payload: BroadcastPayload) => BroadcastPayload): void => {
+export const registerInterceptor = (
+  interceptor: (payload: BroadcastPayload) => BroadcastPayload,
+): void => {
   interceptors.push(interceptor);
 };
 

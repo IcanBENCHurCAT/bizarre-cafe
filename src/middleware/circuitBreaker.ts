@@ -24,7 +24,7 @@ class CircuitBreaker {
   constructor(
     private failureThreshold: number = 5,
     private resetTimeout: number = 30000,
-    private halfOpenMaxCalls: number = 3
+    private halfOpenMaxCalls: number = 3,
   ) {}
 
   getState(): CircuitState {
@@ -70,19 +70,15 @@ const breakers = new Map<string, CircuitBreaker>();
 
 export function circuitBreaker(
   serviceName?: string,
-  opts?: CircuitBreakerOptions
+  opts?: CircuitBreakerOptions,
 ): MiddlewareHandler {
   const breaker =
     breakers.get(serviceName!) ??
-    new CircuitBreaker(
-      opts?.failureThreshold,
-      opts?.resetTimeout,
-      opts?.halfOpenMaxCalls
-    );
+    new CircuitBreaker(opts?.failureThreshold, opts?.resetTimeout, opts?.halfOpenMaxCalls);
 
   if (serviceName) breakers.set(serviceName, breaker);
 
-  return async (c: Context, next: Function) => {
+  return async (c: Context, next: MiddlewareHandler) => {
     const key = serviceName ?? c.req.path;
 
     if (!breaker.canExecute()) {
@@ -95,7 +91,7 @@ export function circuitBreaker(
           },
         },
         503,
-        { 'Retry-After': '30' }
+        { 'Retry-After': '30' },
       );
     }
 

@@ -90,10 +90,16 @@ type PaginatedResult<T> = {
 
 export const rooms = {
   /** Create a new room */
-  async create(data: Omit<RoomInsert, 'id' | 'created_at' | 'updated_at' | 'member_count' | 'message_count'>) {
+  async create(
+    data: Omit<RoomInsert, 'id' | 'created_at' | 'updated_at' | 'member_count' | 'message_count'>,
+  ) {
     const { data: room, error } = await supabase
       .from('rooms')
-      .insert({ ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .insert({
+        ...data,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
       .select()
       .single();
 
@@ -138,7 +144,12 @@ export const rooms = {
   },
 
   /** List rooms with pagination */
-  async list({ offset = 0, limit = 20, visibility, status }: {
+  async list({
+    offset = 0,
+    limit = 20,
+    visibility,
+    status,
+  }: {
     offset?: number;
     limit?: number;
     visibility?: string;
@@ -169,7 +180,10 @@ export const rooms = {
   },
 
   /** Search rooms by name/description */
-  async search(query: string, { offset = 0, limit = 20 }: { offset?: number; limit?: number } = {}) {
+  async search(
+    query: string,
+    { offset = 0, limit = 20 }: { offset?: number; limit?: number } = {},
+  ) {
     const { data, error } = await supabase
       .from('rooms')
       .select('*')
@@ -203,7 +217,10 @@ export const chat = {
   },
 
   /** Get messages for a room/session */
-  async getMessages(roomId: string, { limit = 50, after, before }: { limit?: number; after?: string; before?: string } = {}) {
+  async getMessages(
+    roomId: string,
+    { limit = 50, after, before }: { limit?: number; after?: string; before?: string } = {},
+  ) {
     let query = supabase
       .from('messages')
       .select('*')
@@ -226,7 +243,10 @@ export const chat = {
   },
 
   /** Get chat history for a user (across all rooms) */
-  async getHistory(userId: string, { limit = 50, offset = 0 }: { limit?: number; offset?: number } = {}) {
+  async getHistory(
+    userId: string,
+    { limit = 50, offset = 0 }: { limit?: number; offset?: number } = {},
+  ) {
     const { data, error } = await supabase
       .from('messages')
       .select('*, rooms(name, type)')
@@ -267,7 +287,9 @@ export const chat = {
   },
 
   /** Create a new chat session */
-  async createSession(data: Omit<ChatSessionInsert, 'id' | 'created_at' | 'last_active_at' | 'closed_at'>) {
+  async createSession(
+    data: Omit<ChatSessionInsert, 'id' | 'created_at' | 'last_active_at' | 'closed_at'>,
+  ) {
     const sessionData = {
       ...data,
       created_at: new Date().toISOString(),
@@ -305,7 +327,11 @@ export const chat = {
 
 export const shop = {
   /** List shop items */
-  async listItems({ category, offset = 0, limit = 20 }: {
+  async listItems({
+    category,
+    offset = 0,
+    limit = 20,
+  }: {
     category?: string;
     offset?: number;
     limit?: number;
@@ -355,10 +381,12 @@ export const shop = {
     if (purchaseError) throw purchaseError;
 
     // Decrement stock
-    const { error: stockError } = await supabase.rpc('decrement_stock', {
-      p_item_id: data.item_id,
-      p_quantity: data.quantity,
-    }).throw();
+    const { error: stockError } = await supabase
+      .rpc('decrement_stock', {
+        p_item_id: data.item_id,
+        p_quantity: data.quantity,
+      })
+      .throw();
 
     if (stockError) {
       // Rollback: delete the purchase
@@ -370,7 +398,10 @@ export const shop = {
   },
 
   /** Get purchase receipts for a user */
-  async getReceipts(userId: string, { limit = 20, offset = 0 }: { limit?: number; offset?: number } = {}) {
+  async getReceipts(
+    userId: string,
+    { limit = 20, offset = 0 }: { limit?: number; offset?: number } = {},
+  ) {
     const { data, error } = await supabase
       .from('receipts')
       .select('*')
@@ -384,11 +415,7 @@ export const shop = {
 
   /** Get receipt by ID */
   async getReceipt(id: string) {
-    const { data, error } = await supabase
-      .from('receipts')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const { data, error } = await supabase.from('receipts').select('*').eq('id', id).single();
 
     if (error) throw error;
     return data as ReceiptRow | null;
@@ -417,18 +444,19 @@ export const skillSwap = {
 
   /** Get a skill offer by ID */
   async getOffer(id: string) {
-    const { data, error } = await supabase
-      .from('skill_offers')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const { data, error } = await supabase.from('skill_offers').select('*').eq('id', id).single();
 
     if (error) throw error;
     return data as SkillOfferRow | null;
   },
 
   /** List skill offers with filters */
-  async listOffers({ category, level, offset = 0, limit = 20 }: {
+  async listOffers({
+    category,
+    level,
+    offset = 0,
+    limit = 20,
+  }: {
     category?: string;
     level?: string;
     offset?: number;
@@ -473,7 +501,9 @@ export const skillSwap = {
   },
 
   /** Create a trade */
-  async createTrade(data: Omit<SkillTradeInsert, 'id' | 'created_at' | 'updated_at' | 'status' | 'completed_at'>) {
+  async createTrade(
+    data: Omit<SkillTradeInsert, 'id' | 'created_at' | 'updated_at' | 'status' | 'completed_at'>,
+  ) {
     const { data: trade, error } = await supabase
       .from('skill_trades')
       .insert({
@@ -517,7 +547,9 @@ export const skillSwap = {
 
 export const owner = {
   /** Track a narrative event */
-  async trackEvent(data: Omit<NarrativeEventInsert, 'id' | 'created_at' | 'active' | 'applied' | 'ended_at'>) {
+  async trackEvent(
+    data: Omit<NarrativeEventInsert, 'id' | 'created_at' | 'active' | 'applied' | 'ended_at'>,
+  ) {
     const { data: event, error } = await supabase
       .from('narrative_events')
       .insert({
@@ -563,7 +595,12 @@ export const owner = {
   },
 
   /** Log an owner message */
-  async logMessage(data: Omit<OwnerMessageInsert, 'id' | 'created_at' | 'delivered' | 'read' | 'delivered_at' | 'read_at'>) {
+  async logMessage(
+    data: Omit<
+      OwnerMessageInsert,
+      'id' | 'created_at' | 'delivered' | 'read' | 'delivered_at' | 'read_at'
+    >,
+  ) {
     const { data: message, error } = await supabase
       .from('owner_messages')
       .insert({
@@ -598,7 +635,9 @@ export const owner = {
 
 export const events = {
   /** Create an event */
-  async create(data: Omit<CafeEventInsert, 'id' | 'created_at' | 'updated_at' | 'status' | 'attendee_count'>) {
+  async create(
+    data: Omit<CafeEventInsert, 'id' | 'created_at' | 'updated_at' | 'status' | 'attendee_count'>,
+  ) {
     const { data: event, error } = await supabase
       .from('cafe_events')
       .insert({
@@ -643,9 +682,11 @@ export const events = {
     if (error) throw error;
 
     // Increment attendee count
-    await supabase.rpc('increment_attendee_count', {
-      p_event_id: eventId,
-    }).throw();
+    await supabase
+      .rpc('increment_attendee_count', {
+        p_event_id: eventId,
+      })
+      .throw();
 
     return attendance as EventAttendanceRow;
   },
@@ -667,15 +708,21 @@ export const events = {
     if (error) throw error;
 
     // Decrement attendee count
-    await supabase.rpc('decrement_attendee_count', {
-      p_event_id: eventId,
-    }).throw();
+    await supabase
+      .rpc('decrement_attendee_count', {
+        p_event_id: eventId,
+      })
+      .throw();
 
     return attendance as EventAttendanceRow;
   },
 
   /** List events */
-  async list({ status, offset = 0, limit = 20 }: {
+  async list({
+    status,
+    offset = 0,
+    limit = 20,
+  }: {
     status?: string;
     offset?: number;
     limit?: number;
@@ -695,11 +742,7 @@ export const events = {
 
   /** Get event by ID */
   async get(id: string) {
-    const { data, error } = await supabase
-      .from('cafe_events')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const { data, error } = await supabase.from('cafe_events').select('*').eq('id', id).single();
 
     if (error) throw error;
     return data as CafeEventRow | null;
@@ -722,7 +765,12 @@ export const events = {
 
 export const verification = {
   /** Create a verification challenge */
-  async createChallenge(data: Omit<VerificationChallengeInsert, 'id' | 'created_at' | 'status' | 'expires_at' | 'verified_at'>) {
+  async createChallenge(
+    data: Omit<
+      VerificationChallengeInsert,
+      'id' | 'created_at' | 'status' | 'expires_at' | 'verified_at'
+    >,
+  ) {
     const challengeData: VerificationChallengeInsert = {
       ...data,
       created_at: new Date().toISOString(),
@@ -757,11 +805,14 @@ export const verification = {
     const { data: result, error } = await supabase
       .from('verification_results')
       .insert({
-        user_id: (await supabase
-          .from('verification_challenges')
-          .select('user_id')
-          .eq('id', challengeId)
-          .single())?.data?.user_id || '',
+        user_id:
+          (
+            await supabase
+              .from('verification_challenges')
+              .select('user_id')
+              .eq('id', challengeId)
+              .single()
+          )?.data?.user_id || '',
         method: 'did',
         verified,
         failure_reason: failureReason,
@@ -839,7 +890,12 @@ export const users = {
   },
 
   /** Create or update user */
-  async upsert(data: Omit<UserInsert, 'id' | 'created_at' | 'updated_at' | 'balance' | 'total_spent' | 'total_earned' | 'deleted_at'>) {
+  async upsert(
+    data: Omit<
+      UserInsert,
+      'id' | 'created_at' | 'updated_at' | 'balance' | 'total_spent' | 'total_earned' | 'deleted_at'
+    >,
+  ) {
     const { data: user, error } = await supabase
       .from('users')
       .upsert({
@@ -879,7 +935,9 @@ export const users = {
 
 export const payments = {
   /** Create a payment promise */
-  async createPromise(data: Omit<PaymentPromiseInsert, 'id' | 'created_at' | 'updated_at' | 'status'>) {
+  async createPromise(
+    data: Omit<PaymentPromiseInsert, 'id' | 'created_at' | 'updated_at' | 'status'>,
+  ) {
     const { data: promise, error } = await supabase
       .from('payment_promises')
       .insert({
@@ -912,7 +970,9 @@ export const payments = {
   },
 
   /** Create an x402 payment record */
-  async createX402Payment(data: Omit<X402PaymentInsert, 'id' | 'created_at' | 'settled_at' | 'status'>) {
+  async createX402Payment(
+    data: Omit<X402PaymentInsert, 'id' | 'created_at' | 'settled_at' | 'status'>,
+  ) {
     const { data: payment, error } = await supabase
       .from('x402_payments')
       .insert({
