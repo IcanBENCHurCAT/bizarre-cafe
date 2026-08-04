@@ -5,7 +5,7 @@
  * Each query is typed using the Database types from supabase-js.
  */
 
-import { supabase, supabaseAdmin } from './client';
+import { supabase } from './client';
 import type { Database } from './types/database.types';
 
 // ─── Type Aliases (convenience) ──────────────────────────────────────
@@ -22,19 +22,23 @@ type ChatSessionRow = Tables['chat_sessions']['Row'];
 type ChatSessionInsert = Tables['chat_sessions']['Insert'];
 
 type ShopItemRow = Tables['shop_items']['Row'];
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type ShopItemInsert = Tables['shop_items']['Insert'];
 
 type PurchaseRow = Tables['purchases']['Row'];
 type PurchaseInsert = Tables['purchases']['Insert'];
 
 type ReceiptRow = Tables['receipts']['Row'];
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type ReceiptInsert = Tables['receipts']['Insert'];
 
 type SkillOfferRow = Tables['skill_offers']['Row'];
 type SkillOfferInsert = Tables['skill_offers']['Insert'];
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type SkillOfferUpdate = Tables['skill_offers']['Update'];
 
 type TradeOfferRow = Tables['trade_offers']['Row'];
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type TradeOfferInsert = Tables['trade_offers']['Insert'];
 
 type SkillTradeRow = Tables['skill_trades']['Row'];
@@ -42,9 +46,11 @@ type SkillTradeInsert = Tables['skill_trades']['Insert'];
 
 type CafeEventRow = Tables['cafe_events']['Row'];
 type CafeEventInsert = Tables['cafe_events']['Insert'];
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type CafeEventUpdate = Tables['cafe_events']['Update'];
 
 type EventAttendanceRow = Tables['event_attendance']['Row'];
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type EventAttendanceInsert = Tables['event_attendance']['Insert'];
 
 type UserRow = Tables['users']['Row'];
@@ -61,9 +67,11 @@ type VerificationChallengeRow = Tables['verification_challenges']['Row'];
 type VerificationChallengeInsert = Tables['verification_challenges']['Insert'];
 
 type VerificationResultRow = Tables['verification_results']['Row'];
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type VerificationResultInsert = Tables['verification_results']['Insert'];
 
 type AgentStatusRow = Tables['agent_status']['Row'];
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type AgentStatusInsert = Tables['agent_status']['Insert'];
 type AgentStatusUpdate = Tables['agent_status']['Update'];
 
@@ -76,6 +84,7 @@ type OwnerMoodInsert = Tables['owner_mood']['Insert'];
 type NarrativeEventRow = Tables['narrative_events']['Row'];
 type NarrativeEventInsert = Tables['narrative_events']['Insert'];
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type PaginatedResult<T> = {
   data: T[];
   pagination: {
@@ -504,7 +513,7 @@ export const skillSwap = {
   },
 
   /** Complete a trade */
-  async completeTrade(tradeId: string, notes = '') {
+  async completeTrade(tradeId: string, _notes = '') {
     return this.updateTradeStatus(tradeId, 'completed');
   },
 };
@@ -803,7 +812,7 @@ export const verification = {
 
   /** Check if a user has valid verification */
   async isValidVerification(userId: string) {
-    const { data, error } = await supabase
+    const { data: _data, error } = await supabase
       .from('verification_results')
       .select('*')
       .eq('user_id', userId)

@@ -25,10 +25,10 @@ router.get('/', async (c) => {
 
 // GET /api/rooms/:roomId — Get room details
 router.get('/:roomId', async (c) => {
-  const { roomId } = roomParamsSchema.parse({ roomId: c.req.param('roomId') });
+  const { roomId: _roomId } = roomParamsSchema.parse({ roomId: c.req.param('roomId') });
 
   return c.json({
-    id: roomId,
+    id: _roomId,
     name: 'The Java Chip',
     description: 'A cozy room for serious conversations',
     agentCount: 3,
@@ -57,7 +57,7 @@ router.post('/:roomId/leave', async (c) => {
 
 // GET /api/rooms/:roomId/agents — List room participants
 router.get('/:roomId/agents', async (c) => {
-  const { roomId } = roomParamsSchema.parse({ roomId: c.req.param('roomId') });
+  const { roomId: _roomId } = roomParamsSchema.parse({ roomId: c.req.param('roomId') });
 
   return c.json({ agents: [] });
 });

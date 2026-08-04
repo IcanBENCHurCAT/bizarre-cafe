@@ -423,7 +423,7 @@ export const getConnectedClients = (): ReadonlyArray<SseClient> => {
  * @param roomId - Optional room ID to filter by
  * @returns Count of active clients
  */
-export const getConnectedClientCount = (roomId?: string): number => {
+export const getConnectedClientCount = (_roomId?: string): number => {
   return clients.size;
 };
 

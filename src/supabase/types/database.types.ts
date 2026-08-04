@@ -932,7 +932,9 @@ export interface Database {
         Returns: boolean;
       };
     };
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     Enums: {};
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     CompositeTypes: {};
   };
 }

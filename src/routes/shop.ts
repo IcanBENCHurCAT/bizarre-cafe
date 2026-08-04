@@ -12,7 +12,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { createSupabaseClient } from '../supabase/client';
 import { requireX402Payment } from '../middleware/auth';
-import type { ShopItem, Receipt, ApiError } from '../types/cafe';
+import type { ShopItem, Receipt } from '../types/cafe';
 
 const router = new Hono();
 

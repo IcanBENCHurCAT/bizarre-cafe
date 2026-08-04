@@ -13,7 +13,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { createSupabaseClient } from '../supabase/client';
-import type { SkillOffer, SkillRequest, Trade, ApiError } from '../types/cafe';
+import type { SkillOffer, SkillRequest, Trade } from '../types/cafe';
 
 const router = new Hono();
 

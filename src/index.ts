@@ -11,9 +11,9 @@ import { Hono } from 'hono';
 import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
-import { poweredBy } from 'hono/powered-by';
+import { poweredBy as _poweredBy } from 'hono/powered-by';
 
-import { config } from './config';
+import { config as _config } from './config';
 import { authMiddleware } from './middleware/auth';
 import { rateLimiter } from './middleware/rateLimiter';
 import { circuitBreaker } from './middleware/circuitBreaker';

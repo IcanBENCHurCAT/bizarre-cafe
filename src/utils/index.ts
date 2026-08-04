@@ -9,7 +9,7 @@
  *  - Retry logic for resilient operations
  */
 
-import { config } from '../config';
+import { config as _config } from '../config';
 
 // ──────────────────────────────────────────────
 // Types
@@ -341,7 +341,7 @@ export const withRetry = async <T>(
       const jitter = delay * 0.2 * (Math.random() * 2 - 1);
       const actualDelay = Math.max(0, delay + jitter);
 
-      // eslint-disable-next-line no-console
+       
       console.warn(
         `[retry] Attempt ${attempt + 1}/${maxRetries + 1} failed: ${lastError.message}. Retrying in ${Math.round(actualDelay)}ms...`
       );
@@ -386,10 +386,10 @@ export const withRetrySync = <T>(
         baseDelay * Math.pow(multiplier, attempt),
         maxDelay
       );
-      const jitter = delay * 0.2 * (Math.random() * 2 - 1);
+      const _jitter = delay * 0.2 * (Math.random() * 2 - 1);
 
       // Note: sleep would block the thread; skip sleep for sync
-      // eslint-disable-next-line no-console
+       
       console.warn(
         `[retry-sync] Attempt ${attempt + 1}/${maxRetries + 1} failed: ${lastError.message}.`
       );

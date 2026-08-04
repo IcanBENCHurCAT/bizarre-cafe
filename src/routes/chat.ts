@@ -12,7 +12,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { createSupabaseClient } from '../supabase/client';
-import type { ChatMessage, ApiError } from '../types/cafe';
+import type { ChatMessage } from '../types/cafe';
 
 const router = new Hono();
 

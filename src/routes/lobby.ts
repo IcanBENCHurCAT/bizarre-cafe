@@ -21,7 +21,7 @@ const createRoomSchema = z.object({
 });
 
 // Schema for joining a room
-const joinRoomSchema = z.object({
+const _joinRoomSchema = z.object({
   roomId: z.string().uuid(),
   agentId: z.string(),
   message: z.string().max(200).optional(),

@@ -5,7 +5,7 @@
  * States: CLOSED (normal), OPEN (failing), HALF_OPEN (testing recovery)
  */
 
-import { Context, MiddlewareHandler } from 'hono';
+import { Context, MiddlewareHandler, type Next } from 'hono';
 
 export type CircuitState = 'closed' | 'open' | 'half_open';
 
@@ -72,6 +72,7 @@ export function circuitBreaker(
   serviceName?: string,
   opts?: CircuitBreakerOptions
 ): MiddlewareHandler {
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const breaker =
     breakers.get(serviceName!) ??
     new CircuitBreaker(
@@ -82,7 +83,7 @@ export function circuitBreaker(
 
   if (serviceName) breakers.set(serviceName, breaker);
 
-  return async (c: Context, next: Function) => {
+  return async (c: Context, next: Next) => {
     const key = serviceName ?? c.req.path;
 
     if (!breaker.canExecute()) {
