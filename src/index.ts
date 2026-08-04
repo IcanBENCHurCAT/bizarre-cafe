@@ -13,7 +13,6 @@ import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
 import { powered } from 'hono/powered-by';
 
-import { config } from './config';
 import { authMiddleware } from './middleware/auth';
 import { rateLimiter } from './middleware/rateLimiter';
 import { circuitBreaker } from './middleware/circuitBreaker';
