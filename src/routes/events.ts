@@ -11,6 +11,7 @@
  */
 
 import { Hono } from 'hono';
+import type { CafeEvent, EventAttendance, ApiError } from '../types/cafe';
 import { z } from 'zod';
 import { createSupabaseClient } from '../supabase/client';
 import type { CafeEvent, EventAttendance, ApiError } from '../types/cafe';
@@ -57,12 +58,12 @@ router.post('/create', async (c) => {
       .insert({
         name: validated.name,
         description: validated.description,
-        type: validated.type,
+        type: validated.type as any,
         capacity: validated.capacity ?? 50,
         location: validated.location,
-        host_agent_id: user.agentId,
+        host_id: user.agentId,
         status: 'upcoming',
-        scheduled_at: scheduledAt,
+        start_time: scheduledAt,
         created_at: now,
         updated_at: now,
       })
@@ -144,9 +145,10 @@ router.get('/upcoming', async (c) => {
       id: e.id,
       name: e.name,
       description: e.description,
-      type: e.type,
-      capacity: e.capacity,
-      status: e.status,
+      type: e.type as any,
+      capacity: e.max_attendees,
+      capacity: undefined,
+      status: e.status as any,
       location: e.location,
       hostAgentId: e.host_agent_id,
       scheduledAt: e.scheduled_at,
@@ -218,9 +220,10 @@ router.get('/:id', async (c) => {
         id: event.id,
         name: event.name,
         description: event.description,
-        type: event.type,
-        capacity: event.capacity,
-        status: event.status,
+        type: event.type as any,
+        capacity: event.max_attendees,
+        capacity: undefined,
+        status: event.status as any,
         location: event.location,
         hostAgentId: event.host_agent_id,
         scheduledAt: event.scheduled_at,
@@ -458,9 +461,10 @@ router.get('/past', async (c) => {
       id: e.id,
       name: e.name,
       description: e.description,
-      type: e.type,
-      capacity: e.capacity,
-      status: e.status,
+      type: e.type as any,
+      capacity: e.max_attendees,
+      capacity: undefined,
+      status: e.status as any,
       location: e.location,
       hostAgentId: e.host_agent_id,
       scheduledAt: e.scheduled_at,
