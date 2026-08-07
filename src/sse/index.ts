@@ -49,16 +49,11 @@ const formatMessage = (payload: BroadcastPayload): BroadcastPayload => {
   return result;
 };
 
-const sendToClient = (client: SseClient, event: SseEvent): boolean => {
+const sendSerializedToClient = (client: SseClient, serializedData: string): boolean => {
   if (!client.active) return false;
   try {
-    const serialized = JSON.stringify({
-      type: event.type,
-      room: event.roomId,
-      ...event.data,
-    });
-    console.log(`[BACKEND SSE]: Sending to ${client.id} (agent ${client.agentId}):`, serialized);
-    client.stream.writeSSE({ data: serialized });
+    console.log(`[BACKEND SSE]: Sending to ${client.id} (agent ${client.agentId}):`, serializedData);
+    client.stream.writeSSE({ data: serializedData });
     return true;
   } catch (e) {
     console.error(`[BACKEND SSE ERROR]:`, e);
@@ -67,26 +62,37 @@ const sendToClient = (client: SseClient, event: SseEvent): boolean => {
   }
 };
 
+const sendToClient = (client: SseClient, event: SseEvent): boolean => {
+  if (!client.active) return false;
+  const serialized = JSON.stringify({
+    type: event.type,
+    room: event.roomId,
+    ...event.data,
+  });
+  return sendSerializedToClient(client, serialized);
+};
+
 export const broadcastToRoom = (payload: BroadcastPayload): void => {
   const formatted = formatMessage(payload);
   console.log(
     `[BACKEND SSE]: broadcastToRoom called for room ${formatted.roomId}. Active clients: ${clients.size}`,
   );
 
+  // ⚡ Bolt Optimization: Serialize once, broadcast to many. O(N) -> O(1) serialization overhead
+  const serializedEvent = JSON.stringify({
+    type: 'chat',
+    room: formatted.roomId || undefined,
+    agentId: formatted.agentId,
+    message: formatted.message,
+    timestamp: formatted.timestamp,
+  });
+
   const sendToTarget = (clientId: string) => {
     const client = clients.get(clientId);
     if (!client || !client.active) return;
 
     console.log(`[BACKEND SSE]: Checking client ${client.id} in room ${client.roomId}`);
-    sendToClient(client, {
-      type: 'chat',
-      roomId: formatted.roomId || undefined,
-      data: {
-        agentId: formatted.agentId,
-        message: formatted.message,
-        timestamp: formatted.timestamp,
-      },
-    });
+    sendSerializedToClient(client, serializedEvent);
   };
 
   // Send to all global clients (roomId === null)
@@ -100,10 +106,6 @@ export const broadcastToRoom = (payload: BroadcastPayload): void => {
       sendToTarget(clientId);
     }
   }
-};
-
-const sendHeartbeat = (client: SseClient): void => {
-  sendToClient(client, { type: 'heartbeat', data: { ts: Date.now() } });
 };
 
 const cleanupClient = (clientId: string): void => {
@@ -139,12 +141,15 @@ const startHeartbeats = (): void => {
   if (heartbeatInterval) return;
   heartbeatInterval = setInterval(() => {
     const now = Date.now();
+    // ⚡ Bolt Optimization: Serialize heartbeat payload once for all clients
+    const serializedHeartbeat = JSON.stringify({ type: 'heartbeat', ts: now });
+
     for (const client of clients.values()) {
       if (!client.active) {
         cleanupClient(client.id);
         continue;
       }
-      sendHeartbeat(client);
+      sendSerializedToClient(client, serializedHeartbeat);
     }
   }, config.sseHeartbeatMs);
 };
