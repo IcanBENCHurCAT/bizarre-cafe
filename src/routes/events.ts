@@ -22,7 +22,7 @@ const createEventSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().min(1).max(5000),
   type: z.enum(['meetup', 'workshop', 'game', 'social']),
-  capacity: z.number().min(1).max(500).optional(),
+  max_participants: z.number().min(1).max(500).optional(),
   location: z.string().min(1).max(200).default('Main Hall'),
   scheduledAt: z.string().datetime().optional(),
 });
@@ -53,16 +53,16 @@ router.post('/create', async (c) => {
     const scheduledAt = validated.scheduledAt || now;
 
     const { data, error } = await supabase
-      .from('cafe_events')
+      .from('events')
       .insert({
         title: validated.title,
         description: validated.description,
         type: validated.type,
-        capacity: validated.capacity ?? 50,
+        max_participants: validated.max_participants ?? 50,
         location: validated.location,
-        host_agent_id: user.agentId,
+        created_by: user.agentId,
         status: 'upcoming',
-        scheduled_at: scheduledAt,
+        starts_at: scheduledAt,
         created_at: now,
         updated_at: now,
       })
@@ -82,11 +82,11 @@ router.post('/create', async (c) => {
           title: data.title,
           description: data.description,
           type: data.type,
-          capacity: data.capacity,
+          max_participants: data.max_participants,
           status: data.status,
           location: data.location,
-          hostAgentId: data.host_agent_id,
-          scheduledAt: data.scheduled_at,
+          hostAgentId: data.created_by,
+          scheduledAt: data.starts_at,
           createdAt: data.created_at,
           updatedAt: data.updated_at,
         },
@@ -119,11 +119,11 @@ router.get('/upcoming', async (c) => {
     const supabase = createSupabaseClient();
 
     let queryBuilder = supabase
-      .from('cafe_events')
+      .from('events')
       .select('*')
       .eq('status', 'upcoming')
-      .gte('scheduled_at', new Date().toISOString())
-      .order('scheduled_at', { ascending: true })
+      .gte('starts_at', new Date().toISOString())
+      .order('starts_at', { ascending: true })
       .limit(limit);
 
     if (eventType) {
@@ -145,11 +145,11 @@ router.get('/upcoming', async (c) => {
       title: e.title,
       description: e.description,
       type: e.type,
-      capacity: e.capacity,
+      max_participants: e.max_participants,
       status: e.status,
       location: e.location,
-      hostAgentId: e.host_agent_id,
-      scheduledAt: e.scheduled_at,
+      hostAgentId: e.created_by,
+      scheduledAt: e.starts_at,
       createdAt: e.created_at,
       updatedAt: e.updated_at,
     })) satisfies Partial<CafeEvent>[];
@@ -180,7 +180,7 @@ router.get('/:id', async (c) => {
     const supabase = createSupabaseClient();
 
     const { data: event, error: eventError } = await supabase
-      .from('cafe_events')
+      .from('events')
       .select('*')
       .eq('id', id)
       .single();
@@ -189,22 +189,14 @@ router.get('/:id', async (c) => {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Event not found' } }, 404);
     }
 
-    // Get attendance count
-    const { count: attendanceCount, error: attendanceError } = await supabase
-      .from('event_attendance')
-      .select('*', { count: 'exact', head: true })
-      .eq('event_id', id)
-      .eq('status', 'joined');
-
-    if (attendanceError) {
-      console.error('Supabase query error:', attendanceError);
-    }
+    // Get attendance count directly from event
+    const attendanceCount = event.current_participants ?? 0;
 
     // Check if user has joined
     let userJoined = false;
     if (user) {
       const { data: attendance } = await supabase
-        .from('event_attendance')
+        .from('event_participants')
         .select('*')
         .eq('event_id', id)
         .eq('agent_id', user.agentId)
@@ -219,11 +211,11 @@ router.get('/:id', async (c) => {
         title: event.title,
         description: event.description,
         type: event.type,
-        capacity: event.capacity,
+        max_participants: event.max_participants,
         status: event.status,
         location: event.location,
-        hostAgentId: event.host_agent_id,
-        scheduledAt: event.scheduled_at,
+        hostAgentId: event.created_by,
+        scheduledAt: event.starts_at,
         createdAt: event.created_at,
         updatedAt: event.updated_at,
         currentAttendees: attendanceCount ?? 0,
@@ -241,7 +233,7 @@ router.get('/:id', async (c) => {
 /**
  * POST /:id/join — Join an event
  *
- * The authenticated agent joins the event. Checks capacity and
+ * The authenticated agent joins the event. Checks max_participants and
  * whether the agent is already a participant.
  */
 router.post('/:id/join', async (c) => {
@@ -258,7 +250,7 @@ router.post('/:id/join', async (c) => {
 
     // Get event
     const { data: event, error: eventError } = await supabase
-      .from('cafe_events')
+      .from('events')
       .select('*')
       .eq('id', id)
       .single();
@@ -276,28 +268,16 @@ router.post('/:id/join', async (c) => {
       );
     }
 
-    // Check capacity
-    const { count: attendanceCount, error: countError } = await supabase
-      .from('event_attendance')
-      .select('*', { count: 'exact', head: true })
-      .eq('event_id', id)
-      .eq('status', 'joined');
+    // Check max_participants using pre-calculated field
+    const attendanceCount = event.current_participants ?? 0;
 
-    if (countError) {
-      console.error('Supabase query error:', countError);
-      return c.json(
-        { error: { code: 'DATABASE_ERROR', message: 'Failed to check capacity' } },
-        500,
-      );
-    }
-
-    if ((attendanceCount ?? 0) >= event.capacity) {
+    if (attendanceCount >= event.max_participants) {
       return c.json({ error: { code: 'FULL', message: 'Event is at full capacity' } }, 400);
     }
 
     // Check if already joined
     const { data: existing } = await supabase
-      .from('event_attendance')
+      .from('event_participants')
       .select('*')
       .eq('event_id', id)
       .eq('agent_id', user.agentId)
@@ -312,7 +292,7 @@ router.post('/:id/join', async (c) => {
 
     // Add attendance record
     const { data: attendance, error: attError } = await supabase
-      .from('event_attendance')
+      .from('event_participants')
       .insert({
         event_id: id,
         agent_id: user.agentId,
@@ -368,7 +348,7 @@ router.post('/:id/leave', async (c) => {
 
     // Check if user is joined
     const { data: attendance, error: attError } = await supabase
-      .from('event_attendance')
+      .from('event_participants')
       .select('*')
       .eq('event_id', id)
       .eq('agent_id', user.agentId)
@@ -390,7 +370,7 @@ router.post('/:id/leave', async (c) => {
 
     // Update attendance status
     const { error: updateError } = await supabase
-      .from('event_attendance')
+      .from('event_participants')
       .update({
         status: 'left',
         updated_at: now,
@@ -431,16 +411,16 @@ router.get('/past', async (c) => {
     const supabase = createSupabaseClient();
 
     let queryBuilder = supabase
-      .from('cafe_events')
+      .from('events')
       .select('*')
       .in('status', ['past', 'cancelled'])
-      .order('scheduled_at', { ascending: false })
+      .order('starts_at', { ascending: false })
       .limit(limit);
 
     // Filter to events user joined or created (if authenticated)
     if (user) {
       queryBuilder = queryBuilder.or(
-        `host_agent_id.eq.${user.agentId},id.in.(select event_id from event_attendance where agent_id.eq.${user.agentId})`,
+        `created_by.eq.${user.agentId},id.in.(select event_id from event_participants where agent_id.eq.${user.agentId})`,
       );
     }
 
@@ -459,11 +439,11 @@ router.get('/past', async (c) => {
       title: e.title,
       description: e.description,
       type: e.type,
-      capacity: e.capacity,
+      max_participants: e.max_participants,
       status: e.status,
       location: e.location,
-      hostAgentId: e.host_agent_id,
-      scheduledAt: e.scheduled_at,
+      hostAgentId: e.created_by,
+      scheduledAt: e.starts_at,
       createdAt: e.created_at,
       updatedAt: e.updated_at,
     })) satisfies Partial<CafeEvent>[];

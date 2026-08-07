@@ -40,12 +40,12 @@ type TradeOfferInsert = Tables['trade_offers']['Insert'];
 type SkillTradeRow = Tables['skill_trades']['Row'];
 type SkillTradeInsert = Tables['skill_trades']['Insert'];
 
-type CafeEventRow = Tables['cafe_events']['Row'];
-type CafeEventInsert = Tables['cafe_events']['Insert'];
-type CafeEventUpdate = Tables['cafe_events']['Update'];
+type CafeEventRow = Tables['events']['Row'];
+type CafeEventInsert = Tables['events']['Insert'];
+type CafeEventUpdate = Tables['events']['Update'];
 
-type EventAttendanceRow = Tables['event_attendance']['Row'];
-type EventAttendanceInsert = Tables['event_attendance']['Insert'];
+type EventAttendanceRow = Tables['event_participants']['Row'];
+type EventAttendanceInsert = Tables['event_participants']['Insert'];
 
 type UserRow = Tables['users']['Row'];
 type UserInsert = Tables['users']['Insert'];
@@ -405,7 +405,7 @@ export const shop = {
     const { data, error } = await supabase
       .from('receipts')
       .select('*')
-      .eq('user_id', userId)
+      .eq('agent_id', userId)
       .order('issued_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -487,8 +487,8 @@ export const skillSwap = {
     const { data: tradeOffer, error } = await supabase
       .from('trade_offers')
       .insert({
-        from_user_id: fromUserId,
-        to_user_id: offer.user_id,
+        from_agent_id: fromUserId,
+        to_agent_id: offer.agent_id,
         offer_details: `Accepting skill offer: ${offer.skill_name}`,
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         status: 'pending',
@@ -636,16 +636,16 @@ export const owner = {
 export const events = {
   /** Create an event */
   async create(
-    data: Omit<CafeEventInsert, 'id' | 'created_at' | 'updated_at' | 'status' | 'attendee_count'>,
+    data: Omit<CafeEventInsert, 'id' | 'created_at' | 'updated_at' | 'status' | 'current_participants'>,
   ) {
     const { data: event, error } = await supabase
-      .from('cafe_events')
+      .from('events')
       .insert({
         ...data,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         status: 'upcoming',
-        attendee_count: 0,
+        current_participants: 0,
       })
       .select()
       .single();
@@ -658,21 +658,21 @@ export const events = {
   async joinEvent(eventId: string, userId: string) {
     // Check capacity
     const { data: event } = await supabase
-      .from('cafe_events')
-      .select('attendee_count, max_attendees')
+      .from('events')
+      .select('current_participants, max_participants')
       .eq('id', eventId)
       .single();
 
-    if (!event || event.attendee_count >= event.max_attendees) {
+    if (!event || event.current_participants >= event.max_participants) {
       throw new Error('Event is full');
     }
 
     // Add attendance record
     const { data: attendance, error } = await supabase
-      .from('event_attendance')
+      .from('event_participants')
       .insert({
         event_id: eventId,
-        user_id: userId,
+        agent_id: userId,
         status: 'joined',
         joined_at: new Date().toISOString(),
       })
@@ -681,12 +681,7 @@ export const events = {
 
     if (error) throw error;
 
-    // Increment attendee count
-    await supabase
-      .rpc('increment_attendee_count', {
-        p_event_id: eventId,
-      })
-      .throw();
+
 
     return attendance as EventAttendanceRow;
   },
@@ -695,24 +690,19 @@ export const events = {
   async leaveEvent(eventId: string, userId: string) {
     // Update attendance status
     const { data: attendance, error } = await supabase
-      .from('event_attendance')
+      .from('event_participants')
       .update({
         status: 'left',
         left_at: new Date().toISOString(),
       })
       .eq('event_id', eventId)
-      .eq('user_id', userId)
+      .eq('agent_id', userId)
       .select()
       .single();
 
     if (error) throw error;
 
-    // Decrement attendee count
-    await supabase
-      .rpc('decrement_attendee_count', {
-        p_event_id: eventId,
-      })
-      .throw();
+
 
     return attendance as EventAttendanceRow;
   },
@@ -728,9 +718,9 @@ export const events = {
     limit?: number;
   } = {}) {
     let query = supabase
-      .from('cafe_events')
+      .from('events')
       .select('*')
-      .order('start_time', { ascending: true })
+      .order('starts_at', { ascending: true })
       .range(offset, offset + limit - 1);
 
     if (status) query = query.eq('status', status);
@@ -742,7 +732,7 @@ export const events = {
 
   /** Get event by ID */
   async get(id: string) {
-    const { data, error } = await supabase.from('cafe_events').select('*').eq('id', id).single();
+    const { data, error } = await supabase.from('events').select('*').eq('id', id).single();
 
     if (error) throw error;
     return data as CafeEventRow | null;
@@ -751,7 +741,7 @@ export const events = {
   /** Get attendees for an event */
   async getAttendees(eventId: string) {
     const { data, error } = await supabase
-      .from('event_attendance')
+      .from('event_participants')
       .select('*, users:users(name, avatar_url, tier)')
       .eq('event_id', eventId)
       .eq('status', 'joined');
@@ -805,14 +795,14 @@ export const verification = {
     const { data: result, error } = await supabase
       .from('verification_results')
       .insert({
-        user_id:
+        agent_id:
           (
             await supabase
               .from('verification_challenges')
-              .select('user_id')
+              .select('agent_id')
               .eq('id', challengeId)
               .single()
-          )?.data?.user_id || '',
+          )?.data?.agent_id || '',
         method: 'did',
         verified,
         failure_reason: failureReason,
@@ -833,7 +823,7 @@ export const verification = {
     const { data, error } = await supabase
       .from('agent_status')
       .select('*')
-      .eq('user_id', userId)
+      .eq('agent_id', userId)
       .single();
 
     if (error) throw error;
@@ -845,7 +835,7 @@ export const verification = {
     const { data: status, error } = await supabase
       .from('agent_status')
       .upsert({
-        user_id: userId,
+        agent_id: userId,
         ...data,
         last_seen: new Date().toISOString(),
       })
@@ -861,7 +851,7 @@ export const verification = {
     const { data, error } = await supabase
       .from('verification_results')
       .select('*')
-      .eq('user_id', userId)
+      .eq('agent_id', userId)
       .eq('verified', true)
       .gte('expires_at', new Date().toISOString())
       .order('verified_at', { ascending: false })

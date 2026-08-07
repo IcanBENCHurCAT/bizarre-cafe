@@ -15,7 +15,7 @@ export interface Database {
       rooms: {
         Row: {
           id: string;
-          name: string;
+          title: string;
           description: string | null;
           visibility: string;
           status: string;
@@ -33,7 +33,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          name: string;
+          title: string;
           description?: string | null;
           visibility?: string;
           status?: string;
@@ -51,7 +51,7 @@ export interface Database {
         };
         Update: {
           id?: string;
-          name?: string;
+          title?: string;
           description?: string | null;
           visibility?: string;
           status?: string;
@@ -74,7 +74,7 @@ export interface Database {
           room_id: string;
           session_id: string | null;
           sender_id: string;
-          sender_name: string;
+          sender_title: string;
           content: string;
           type: string;
           direction: string;
@@ -90,7 +90,7 @@ export interface Database {
           room_id: string;
           session_id?: string | null;
           sender_id: string;
-          sender_name: string;
+          sender_title: string;
           content: string;
           type?: string;
           direction?: string;
@@ -106,7 +106,7 @@ export interface Database {
           room_id?: string;
           session_id?: string | null;
           sender_id?: string;
-          sender_name?: string;
+          sender_title?: string;
           content?: string;
           type?: string;
           direction?: string;
@@ -156,7 +156,7 @@ export interface Database {
       users: {
         Row: {
           id: string;
-          display_name: string;
+          display_title: string;
           description: string | null;
           did: string | null;
           wallet_address: string | null;
@@ -177,7 +177,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          display_name: string;
+          display_title: string;
           description?: string | null;
           did?: string | null;
           wallet_address?: string | null;
@@ -198,7 +198,7 @@ export interface Database {
         };
         Update: {
           id?: string;
-          display_name?: string;
+          display_title?: string;
           description?: string | null;
           did?: string | null;
           wallet_address?: string | null;
@@ -221,7 +221,7 @@ export interface Database {
       shop_items: {
         Row: {
           id: string;
-          name: string;
+          title: string;
           description: string;
           category: string;
           price: number;
@@ -242,7 +242,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          name: string;
+          title: string;
           description: string;
           category?: string;
           price?: number;
@@ -263,7 +263,7 @@ export interface Database {
         };
         Update: {
           id?: string;
-          name?: string;
+          title?: string;
           description?: string;
           category?: string;
           price?: number;
@@ -286,9 +286,9 @@ export interface Database {
       purchases: {
         Row: {
           id: string;
-          user_id: string;
+          agent_id: string;
           item_id: string;
-          item_name: string;
+          item_title: string;
           quantity: number;
           total_cost: number;
           status: string;
@@ -299,9 +299,9 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          user_id: string;
+          agent_id: string;
           item_id: string;
-          item_name: string;
+          item_title: string;
           quantity?: number;
           total_cost?: number;
           status?: string;
@@ -312,9 +312,9 @@ export interface Database {
         };
         Update: {
           id?: string;
-          user_id?: string;
+          agent_id?: string;
           item_id?: string;
-          item_name?: string;
+          item_title?: string;
           quantity?: number;
           total_cost?: number;
           status?: string;
@@ -328,7 +328,7 @@ export interface Database {
         Row: {
           id: string;
           purchase_id: string;
-          user_id: string;
+          agent_id: string;
           item_snapshot: Json;
           quantity: number;
           total_paid: number;
@@ -342,7 +342,7 @@ export interface Database {
         Insert: {
           id?: string;
           purchase_id: string;
-          user_id: string;
+          agent_id: string;
           item_snapshot: Json;
           quantity?: number;
           total_paid?: number;
@@ -356,7 +356,7 @@ export interface Database {
         Update: {
           id?: string;
           purchase_id?: string;
-          user_id?: string;
+          agent_id?: string;
           item_snapshot?: Json;
           quantity?: number;
           total_paid?: number;
@@ -371,8 +371,8 @@ export interface Database {
       skill_offers: {
         Row: {
           id: string;
-          user_id: string;
-          skill_name: string;
+          agent_id: string;
+          skill_title: string;
           category: string;
           level: string;
           description: string;
@@ -386,8 +386,8 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          user_id: string;
-          skill_name: string;
+          agent_id: string;
+          skill_title: string;
           category?: string;
           level?: string;
           description: string;
@@ -401,8 +401,8 @@ export interface Database {
         };
         Update: {
           id?: string;
-          user_id?: string;
-          skill_name?: string;
+          agent_id?: string;
+          skill_title?: string;
           category?: string;
           level?: string;
           description?: string;
@@ -418,8 +418,8 @@ export interface Database {
       trade_offers: {
         Row: {
           id: string;
-          from_user_id: string;
-          to_user_id: string;
+          from_agent_id: string;
+          to_agent_id: string;
           offer_details: string;
           expires_at: string;
           status: string;
@@ -428,8 +428,8 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          from_user_id: string;
-          to_user_id: string;
+          from_agent_id: string;
+          to_agent_id: string;
           offer_details: string;
           expires_at: string;
           status?: string;
@@ -438,8 +438,8 @@ export interface Database {
         };
         Update: {
           id?: string;
-          from_user_id?: string;
-          to_user_id?: string;
+          from_agent_id?: string;
+          to_agent_id?: string;
           offer_details?: string;
           expires_at?: string;
           status?: string;
@@ -494,17 +494,17 @@ export interface Database {
           updated_at?: string;
         };
       };
-      cafe_events: {
+      events: {
         Row: {
           id: string;
-          name: string;
+          title: string;
           description: string;
           type: string;
           status: string;
-          host_id: string;
-          max_attendees: number;
-          attendee_count: number;
-          start_time: string;
+          created_by: string;
+          max_participants: number;
+          current_participants: number;
+          starts_at: string;
           end_time: string;
           location: string | null;
           tags: string[];
@@ -516,14 +516,14 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          name: string;
+          title: string;
           description: string;
           type?: string;
           status?: string;
-          host_id: string;
-          max_attendees?: number;
-          attendee_count?: number;
-          start_time: string;
+          created_by: string;
+          max_participants?: number;
+          current_participants?: number;
+          starts_at: string;
           end_time: string;
           location?: string | null;
           tags?: string[];
@@ -535,14 +535,14 @@ export interface Database {
         };
         Update: {
           id?: string;
-          name?: string;
+          title?: string;
           description?: string;
           type?: string;
           status?: string;
-          host_id?: string;
-          max_attendees?: number;
-          attendee_count?: number;
-          start_time?: string;
+          created_by?: string;
+          max_participants?: number;
+          current_participants?: number;
+          starts_at?: string;
           end_time?: string;
           location?: string | null;
           tags?: string[];
@@ -553,11 +553,11 @@ export interface Database {
           updated_at?: string;
         };
       };
-      event_attendance: {
+      event_participants: {
         Row: {
           id: string;
           event_id: string;
-          user_id: string;
+          agent_id: string;
           status: string;
           joined_at: string;
           left_at: string | null;
@@ -566,7 +566,7 @@ export interface Database {
         Insert: {
           id?: string;
           event_id: string;
-          user_id: string;
+          agent_id: string;
           status?: string;
           joined_at?: string;
           left_at?: string | null;
@@ -575,7 +575,7 @@ export interface Database {
         Update: {
           id?: string;
           event_id?: string;
-          user_id?: string;
+          agent_id?: string;
           status?: string;
           joined_at?: string;
           left_at?: string | null;
@@ -682,7 +682,7 @@ export interface Database {
       verification_challenges: {
         Row: {
           id: string;
-          user_id: string;
+          agent_id: string;
           method: string;
           challenge: string;
           status: string;
@@ -693,7 +693,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          user_id: string;
+          agent_id: string;
           method?: string;
           challenge: string;
           status?: string;
@@ -704,7 +704,7 @@ export interface Database {
         };
         Update: {
           id?: string;
-          user_id?: string;
+          agent_id?: string;
           method?: string;
           challenge?: string;
           status?: string;
@@ -717,7 +717,7 @@ export interface Database {
       verification_results: {
         Row: {
           id: string;
-          user_id: string;
+          agent_id: string;
           method: string;
           verified: boolean;
           failure_reason: string | null;
@@ -728,7 +728,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          user_id: string;
+          agent_id: string;
           method?: string;
           verified?: boolean;
           failure_reason?: string | null;
@@ -739,7 +739,7 @@ export interface Database {
         };
         Update: {
           id?: string;
-          user_id?: string;
+          agent_id?: string;
           method?: string;
           verified?: boolean;
           failure_reason?: string | null;
@@ -751,7 +751,7 @@ export interface Database {
       };
       agent_status: {
         Row: {
-          user_id: string;
+          agent_id: string;
           presence: string;
           last_seen: string;
           status_message: string | null;
@@ -762,7 +762,7 @@ export interface Database {
           verification_level: string;
         };
         Insert: {
-          user_id: string;
+          agent_id: string;
           presence?: string;
           last_seen?: string;
           status_message?: string | null;
@@ -773,7 +773,7 @@ export interface Database {
           verification_level?: string;
         };
         Update: {
-          user_id?: string;
+          agent_id?: string;
           presence?: string;
           last_seen?: string;
           status_message?: string | null;
@@ -855,7 +855,7 @@ export interface Database {
           severity: string;
           description: string;
           active: boolean;
-          start_time: string;
+          starts_at: string;
           duration_sec: number;
           effect: Json;
           applied: boolean;
@@ -868,7 +868,7 @@ export interface Database {
           severity?: string;
           description: string;
           active?: boolean;
-          start_time?: string;
+          starts_at?: string;
           duration_sec?: number;
           effect?: Json;
           applied?: boolean;
@@ -881,7 +881,7 @@ export interface Database {
           severity?: string;
           description?: string;
           active?: boolean;
-          start_time?: string;
+          starts_at?: string;
           duration_sec?: number;
           effect?: Json;
           applied?: boolean;
@@ -898,15 +898,7 @@ export interface Database {
         Args: { p_item_id: string; p_quantity: number };
         Returns: boolean;
       };
-      increment_attendee_count: {
-        Args: { p_event_id: string };
-        Returns: boolean;
       };
-      decrement_attendee_count: {
-        Args: { p_event_id: string };
-        Returns: boolean;
-      };
-    };
     Enums: {
       [_ in never]: never;
     };
