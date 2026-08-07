@@ -11,10 +11,9 @@
  */
 
 import { Hono } from 'hono';
-import type { CafeEvent, EventAttendance, ApiError } from '../types/cafe';
 import { z } from 'zod';
 import { createSupabaseClient } from '../supabase/client';
-import type { CafeEvent, EventAttendance, ApiError } from '../types/cafe';
+import type { EventType, EventStatus } from '../types/cafe';
 
 const router = new Hono();
 
@@ -145,10 +144,10 @@ router.get('/upcoming', async (c) => {
       id: e.id,
       name: e.name,
       description: e.description,
-      type: e.type as any,
+      type: e.type as EventType,
       capacity: e.max_attendees,
       capacity: undefined,
-      status: e.status as any,
+      status: e.status as EventStatus,
       location: e.location,
       hostAgentId: e.host_agent_id,
       scheduledAt: e.scheduled_at,
@@ -220,10 +219,10 @@ router.get('/:id', async (c) => {
         id: event.id,
         name: event.name,
         description: event.description,
-        type: event.type as any,
+        type: event.type as EventType,
         capacity: event.max_attendees,
         capacity: undefined,
-        status: event.status as any,
+        status: event.status as EventStatus,
         location: event.location,
         hostAgentId: event.host_agent_id,
         scheduledAt: event.scheduled_at,
@@ -461,10 +460,10 @@ router.get('/past', async (c) => {
       id: e.id,
       name: e.name,
       description: e.description,
-      type: e.type as any,
+      type: e.type as EventType,
       capacity: e.max_attendees,
       capacity: undefined,
-      status: e.status as any,
+      status: e.status as EventStatus,
       location: e.location,
       hostAgentId: e.host_agent_id,
       scheduledAt: e.scheduled_at,
