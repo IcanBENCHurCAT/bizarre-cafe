@@ -77,7 +77,7 @@ router.post('/messages', async (c) => {
         messageData: {
           id: data.id,
           roomId: data.room_id ?? undefined,
-          agentId: data.sender_id,
+          senderId: data.sender_id,
           content: data.content,
           createdAt: data.created_at,
         } satisfies Partial<ChatMessage>,
@@ -112,7 +112,7 @@ router.get('/messages', async (c) => {
     const messages = data.map((m) => ({
       id: m.id,
       roomId: m.room_id ?? undefined,
-      agentId: m.sender_id,
+      senderId: m.sender_id,
       content: m.content,
       createdAt: m.created_at,
     })) satisfies Partial<ChatMessage>[];
@@ -147,10 +147,10 @@ router.get('/history', async (c) => {
     const messages = data.map((m) => ({
       id: m.id,
       roomId: m.room_id ?? undefined,
-      agentId: m.sender_id, // Note: mapped from sender_id to agentId
+      senderId: m.sender_id, // Note: mapped from sender_id to agentId
       content: m.content,
-      type: m.type || 'text',
-      metadata: m.metadata || undefined,
+      // type: m.type || 'text',
+      // metadata: m.metadata || undefined,
       createdAt: m.created_at,
     })) satisfies Partial<ChatMessage>[];
 

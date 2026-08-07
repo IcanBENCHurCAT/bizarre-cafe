@@ -25,7 +25,7 @@ export const supabaseDb: DatabaseAdapter = {
         status: data.status || 'active',
         created_by: data.owner_id || 'system',
         max_agents: data.max_agents || undefined,
-        is_narrative_driven: false,
+        tags: [],
       });
       return result as unknown as RoomData;
     },
@@ -41,6 +41,7 @@ export const supabaseDb: DatabaseAdapter = {
         sender_id: data.sender_id || 'anonymous',
         content: data.content || '',
         session_id: undefined,
+        sender_name: 'anonymous',
       });
       return msg as unknown as MessageData;
     },
@@ -68,7 +69,7 @@ export const supabaseDb: DatabaseAdapter = {
     updateStatus: async (userId, data) => {
       const result = await verification.updateAgentStatus(userId, {
         presence: data.status ?? 'online',
-        current_room_id: data.current_room_id,
+        status_message: data.current_room_id,
       });
       return result as unknown as AgentStatusData;
     },

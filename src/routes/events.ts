@@ -19,7 +19,7 @@ const router = new Hono();
 
 // Zod schemas
 const createEventSchema = z.object({
-  title: z.string().min(1).max(200),
+  name: z.string().min(1).max(200),
   description: z.string().min(1).max(5000),
   type: z.enum(['meetup', 'workshop', 'game', 'social']),
   capacity: z.number().min(1).max(500).optional(),
@@ -55,7 +55,7 @@ router.post('/create', async (c) => {
     const { data, error } = await supabase
       .from('cafe_events')
       .insert({
-        title: validated.title,
+        name: validated.name,
         description: validated.description,
         type: validated.type,
         capacity: validated.capacity ?? 50,
@@ -79,7 +79,7 @@ router.post('/create', async (c) => {
         message: 'Event created',
         event: {
           id: data.id,
-          title: data.title,
+          name: data.name,
           description: data.description,
           type: data.type,
           capacity: data.capacity,
@@ -142,7 +142,7 @@ router.get('/upcoming', async (c) => {
 
     const events = (data ?? []).map((e) => ({
       id: e.id,
-      title: e.title,
+      name: e.name,
       description: e.description,
       type: e.type,
       capacity: e.capacity,
@@ -216,7 +216,7 @@ router.get('/:id', async (c) => {
     return c.json({
       event: {
         id: event.id,
-        title: event.title,
+        name: event.name,
         description: event.description,
         type: event.type,
         capacity: event.capacity,
@@ -456,7 +456,7 @@ router.get('/past', async (c) => {
 
     const events = (data ?? []).map((e) => ({
       id: e.id,
-      title: e.title,
+      name: e.name,
       description: e.description,
       type: e.type,
       capacity: e.capacity,
