@@ -65,7 +65,7 @@ const sendSerializedToClient = (client: SseClient, serializedData: string): bool
 const sendToClient = (client: SseClient, event: SseEvent): boolean => {
   if (!client.active) return false;
   const serialized = JSON.stringify({
-    type: event.type,
+    type: event.type as any,
     room: event.roomId,
     ...event.data,
   });

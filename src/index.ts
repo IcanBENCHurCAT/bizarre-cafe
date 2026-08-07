@@ -48,7 +48,7 @@ app.get('/sse', sseHandler);
 
 // Authenticated routes (requires x402 wallet signature)
 app.use('/api/*', authMiddleware);
-app.use('/api/*', circuitBreaker());
+app.use('/api/*', circuitBreaker('api'));
 
 // Route mounts
 app.route('/api/lobby', lobbyRouter);

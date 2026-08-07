@@ -45,7 +45,7 @@ class RateLimiterStore {
 
 const store = new RateLimiterStore();
 
-export const rateLimiter = (opts?: RateLimitOptions): MiddlewareHandler => {
+export const rateLimiter = (opts?: RateLimiterOptions): MiddlewareHandler => {
   const windowMs = opts?.windowMs ?? config.rateLimitWindowMs;
   const maxRequests = opts?.maxRequests ?? config.rateLimitMaxRequests;
   const windowStart = Date.now();

@@ -23,8 +23,8 @@ export const supabaseDb: DatabaseAdapter = {
         type: 'public', // fallback default
         visibility: data.visibility || 'public',
         status: data.status || 'active',
-        owner_id: data.owner_id || null,
-        max_agents: data.max_agents || null,
+        created_by: data.owner_id || 'system',
+        max_agents: data.max_agents || undefined,
         is_narrative_driven: false,
       });
       return result as unknown as RoomData;
@@ -37,10 +37,10 @@ export const supabaseDb: DatabaseAdapter = {
   chat: {
     sendMessage: async (data) => {
       const msg = await chat.sendMessage({
-        room_id: data.room_id || null,
+        room_id: data.room_id || '',
         sender_id: data.sender_id || 'anonymous',
         content: data.content || '',
-        session_id: null,
+        session_id: undefined,
       });
       return msg as unknown as MessageData;
     },
@@ -67,7 +67,7 @@ export const supabaseDb: DatabaseAdapter = {
     },
     updateStatus: async (userId, data) => {
       const result = await verification.updateAgentStatus(userId, {
-        status: data.status,
+        presence: data.status ?? 'online',
         current_room_id: data.current_room_id,
       });
       return result as unknown as AgentStatusData;
