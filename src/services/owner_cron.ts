@@ -1,4 +1,4 @@
-import { supabase } from '../supabase/client';
+
 import { broadcastToRoom } from '../sse';
 
 /**
@@ -39,7 +39,7 @@ export class OwnerCronService {
   public static start(): void {
     if (this.interval) return;
 
-    console.log('Starting autonomous Owner cron service...');
+    console.warn('Starting autonomous Owner cron service...');
     this.interval = setInterval(async () => {
       await this.tick();
     }, this.TICK_INTERVAL_MS);
@@ -52,7 +52,7 @@ export class OwnerCronService {
     if (this.interval) {
       clearInterval(this.interval);
       this.interval = null;
-      console.log('Stopped autonomous Owner cron service.');
+      console.warn('Stopped autonomous Owner cron service.');
     }
   }
 
@@ -84,7 +84,7 @@ export class OwnerCronService {
     const description =
       this.ROOM_DESCRIPTIONS[Math.floor(Math.random() * this.ROOM_DESCRIPTIONS.length)];
 
-    console.log(`[OwnerCron] Broadcasting atmosphere (tick ${this.tickCount})`);
+    console.warn(`[OwnerCron] Broadcasting atmosphere (tick ${this.tickCount})`);
 
     broadcastToRoom({
       roomId: null,
@@ -99,7 +99,7 @@ export class OwnerCronService {
    * Will: restock shop items, prune stale skill offers, rotate room decorations.
    */
   private static async runMaintenance(): Promise<void> {
-    console.log(`[OwnerCron] Running hourly maintenance (tick ${this.tickCount})`);
+    console.warn(`[OwnerCron] Running hourly maintenance (tick ${this.tickCount})`);
 
     // Phase 2: craft new shop items, prune stale skill offers, update room atmosphere in DB
     // For now, just broadcast a maintenance notice

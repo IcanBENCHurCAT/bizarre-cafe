@@ -9,7 +9,7 @@
  *  - Retry logic for resilient operations
  */
 
-import { config } from '../config';
+
 
 // ──────────────────────────────────────────────
 // Types
@@ -262,8 +262,8 @@ export const parseX402Header = (header: string): X402HeaderComponents | undefine
     }
 
     return {
-      receipt: result.receipt!,
-      service: result.service!,
+      receipt: result.receipt || '',
+      service: result.service || '',
       expiry: result.expiry,
       amount: result.amount,
       raw: header,
@@ -373,7 +373,7 @@ export const withRetrySync = <T>(fn: () => T, options?: RetryOptions): T => {
       }
 
       const delay = Math.min(baseDelay * Math.pow(multiplier, attempt), maxDelay);
-      const jitter = delay * 0.2 * (Math.random() * 2 - 1);
+      const _jitter = delay * 0.2 * (Math.random() * 2 - 1);
 
       // Note: sleep would block the thread; skip sleep for sync
 

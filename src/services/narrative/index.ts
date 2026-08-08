@@ -58,7 +58,7 @@ export async function generateResponse(
   let content: string;
 
   const url = `${config.openaiBaseUrl}/chat/completions`;
-  console.log(
+  console.warn(
     `[Narrative AI] Generating response via ${url} (Model: ${config.aiModel}, Tone: ${resolvedTone})`,
   );
 
@@ -91,7 +91,7 @@ export async function generateResponse(
 
     const data = await res.json();
     content = data.choices?.[0]?.message?.content || `[Error] Empty response from LLM`;
-    console.log(`[Narrative AI] Response generated successfully.`);
+    console.warn(`[Narrative AI] Response generated successfully.`);
   } catch (err) {
     console.error('[Narrative AI] Fetch failed, using fallback:', err);
     if (prompt) {

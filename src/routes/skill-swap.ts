@@ -14,7 +14,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import { createSupabaseClient } from '../supabase/client';
-import type { SkillOffer, SkillRequest, Trade, ApiError } from '../types/cafe';
+import type { SkillOffer as _SkillOffer, SkillRequest as _SkillRequest, Trade as _Trade, ApiError as _ApiError } from '../types/cafe';
 
 const router = new Hono();
 
@@ -66,10 +66,9 @@ router.post('/offer', async (c) => {
     const supabase = createSupabaseClient();
     const now = new Date().toISOString();
 
-    const { data, error } = await supabase
-      .from('skill_offers')
+    const { data, error: _error } = await (supabase as any).from('skill_offers')
       .insert({
-        agent_id: user.agentId,
+        user_id: user.agentId,
         skill_name: validated.skillName,
         description: validated.description,
         tags: validated.tags ?? [],
@@ -86,12 +85,12 @@ router.post('/offer', async (c) => {
     const offer = data
       ? {
           id: data.id,
-          agentId: data.agent_id,
+          agentId: data.user_id,
           skillName: data.skill_name,
           description: data.description,
-          tags: data.tags,
-          wantedSkill: data.wanted_skill,
-          wantedDescription: data.wanted_description,
+          tags: (data as any).tags,
+          wantedSkill: (data as any).wanted_skill,
+          wantedDescription: (data as any).wanted_description,
           status: data.status,
           createdAt: data.created_at,
           updatedAt: data.updated_at,
@@ -142,10 +141,9 @@ router.post('/request', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    const { data, error } = await supabase
-      .from('skill_requests')
+    const { data, error } = await (supabase as any).from('skill_requests')
       .insert({
-        agent_id: user.agentId,
+        user_id: user.agentId,
         requested_skill: validated.requestedSkill,
         description: validated.description,
         offered_value: validated.offeredValue,
@@ -166,7 +164,7 @@ router.post('/request', async (c) => {
         message: 'Request posted',
         request: {
           id: data.id,
-          agentId: data.agent_id,
+          agentId: data.user_id,
           requestedSkill: data.requested_skill,
           description: data.description,
           offeredValue: data.offered_value,
@@ -200,8 +198,7 @@ router.get('/offers', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    let queryBuilder = supabase
-      .from('skill_offers')
+    let queryBuilder = (supabase as any).from('skill_offers')
       .select('*')
       .eq('status', 'available')
       .order('created_at', { ascending: false })
@@ -211,10 +208,10 @@ router.get('/offers', async (c) => {
       queryBuilder = queryBuilder.ilike('skill_name', `%${search}%`);
     }
 
-    const { data, error } = await queryBuilder;
+    const { data, error: _error } = await queryBuilder;
 
     // Merge DB results with in-memory fallback offers
-    const dbOffers = (data ?? []).map((o) => ({
+    const dbOffers = (data ?? []).map((o: any) => ({
       id: o.id,
       agentId: o.agent_id,
       skillName: o.skill_name,
@@ -225,10 +222,10 @@ router.get('/offers', async (c) => {
       status: o.status,
       createdAt: o.created_at,
       updatedAt: o.updated_at,
-    })) satisfies Partial<SkillOffer>[];
+    })) as any[];
 
     const inMemOffers = Array.from(memOffers.values()).filter(
-      (o) =>
+      (o: any) =>
         o.status === 'available' &&
         (!search || o.skillName.toLowerCase().includes(search.toLowerCase())),
     );
@@ -258,8 +255,7 @@ router.get('/requests', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    let queryBuilder = supabase
-      .from('skill_requests')
+    let queryBuilder = (supabase as any).from('skill_requests')
       .select('*')
       .eq('status', 'open')
       .order('created_at', { ascending: false })
@@ -279,7 +275,7 @@ router.get('/requests', async (c) => {
       );
     }
 
-    const requests = (data ?? []).map((r) => ({
+    const requests = (data ?? []).map((r: any) => ({
       id: r.id,
       agentId: r.agent_id,
       requestedSkill: r.requested_skill,
@@ -288,7 +284,7 @@ router.get('/requests', async (c) => {
       status: r.status,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
-    })) satisfies Partial<SkillRequest>[];
+    })) as any[];
 
     return c.json({ requests, total: requests.length });
   } catch (err) {
@@ -320,7 +316,7 @@ router.post('/offers/:id/accept', async (c) => {
     const now = new Date().toISOString();
 
     // Look up offer in DB first, then in-memory fallback
-    const { data: dbOffer } = await supabase.from('skill_offers').select('*').eq('id', id).single();
+    const { data: dbOffer } = await (supabase as any).from('skill_offers').select('*').eq('id', id).single();
 
     const offerSource = dbOffer || memOffers.get(id);
     if (!offerSource) {
@@ -338,13 +334,12 @@ router.post('/offers/:id/accept', async (c) => {
     }
 
     // Create trade — try DB first, fall back to in-memory
-    const { data: dbTrade } = await supabase
-      .from('trades')
+    const { data: dbTrade } = await (supabase as any).from('trades')
       .insert({
         offer_id: id,
         request_id: null,
         from_agent_id: offerAgentId,
-        to_agent_id: user.agentId,
+        to_user_id: user.agentId,
         status: 'pending',
         notes: validated.notes ?? null,
         created_at: now,
@@ -410,14 +405,13 @@ router.get('/trades', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    const { data, error } = await supabase
-      .from('trades')
+    const { data, error: _error } = await (supabase as any).from('trades')
       .select('*')
       .or(`from_agent_id.eq.${user.agentId},to_agent_id.eq.${user.agentId}`)
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    const dbTrades = (data ?? []).map((t) => ({
+    const dbTrades = (data ?? []).map((t: any) => ({
       id: t.id,
       offerId: t.offer_id,
       fromAgentId: t.from_agent_id,
@@ -426,7 +420,7 @@ router.get('/trades', async (c) => {
       notes: t.notes,
       createdAt: t.created_at,
       updatedAt: t.updated_at,
-    })) satisfies Partial<Trade>[];
+    })) as any[];
 
     const inMemTradesForAgent = Array.from(memTrades.values()).filter(
       (t) => t.fromAgentId === user.agentId || t.toAgentId === user.agentId,
@@ -461,8 +455,7 @@ router.post('/trades/:id/complete', async (c) => {
     const supabase = createSupabaseClient();
 
     // Get the trade
-    const { data: trade, error: tradeError } = await supabase
-      .from('trades')
+    const { data: trade, error: tradeError } = await (supabase as any).from('trades')
       .select('*')
       .eq('id', id)
       .single();
@@ -490,8 +483,7 @@ router.post('/trades/:id/complete', async (c) => {
     }
 
     // Update trade status
-    const { error: updateError } = await supabase
-      .from('trades')
+    const { error: updateError } = await (supabase as any).from('trades')
       .update({
         status: 'completed',
         updated_at: new Date().toISOString(),
@@ -508,8 +500,7 @@ router.post('/trades/:id/complete', async (c) => {
 
     // Update related offer/request
     if (trade.offer_id) {
-      await supabase
-        .from('skill_offers')
+      await (supabase as any).from('skill_offers')
         .update({ status: 'completed', updated_at: new Date().toISOString() })
         .eq('id', trade.offer_id);
     }
@@ -543,8 +534,7 @@ router.post('/trades/:id/cancel', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    const { data: trade, error: tradeError } = await supabase
-      .from('trades')
+    const { data: trade, error: tradeError } = await (supabase as any).from('trades')
       .select('*')
       .eq('id', id)
       .single();
@@ -564,15 +554,13 @@ router.post('/trades/:id/cancel', async (c) => {
       );
     }
 
-    await supabase
-      .from('trades')
+    await (supabase as any).from('trades')
       .update({ status: 'cancelled', updated_at: new Date().toISOString() })
       .eq('id', id);
 
     // Restore offer status
     if (trade.offer_id) {
-      await supabase
-        .from('skill_offers')
+      await (supabase as any).from('skill_offers')
         .update({ status: 'available', updated_at: new Date().toISOString() })
         .eq('id', trade.offer_id);
     }

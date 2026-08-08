@@ -135,7 +135,7 @@ const calculateTotal = (items: PaymentItem[]): number => {
  * @param total - Total in smallest unit (e.g., cents)
  * @returns Formatted string (e.g., "1.50")
  */
-const formatPrice = (total: number): string => {
+const _formatPrice = (total: number): string => {
   return (total / 100).toFixed(2);
 };
 
@@ -283,14 +283,6 @@ export const settlePayment = (paymentId: string): SettlementResult => {
       success: false,
       paymentId,
       error: 'Payment not verified. Cannot settle.',
-    };
-  }
-
-  if (payment.status === 'failed') {
-    return {
-      success: false,
-      paymentId,
-      error: 'Payment has failed. Cannot settle.',
     };
   }
 
