@@ -86,7 +86,7 @@ export interface AgentStatusObject {
 // Module State
 // ──────────────────────────────────────────────
 
-/** Active challenges, keyed by challengeId */
+/** Active challenges, keyed by nonce */
 const challenges = new Map<string, StoredChallenge>();
 
 /** Agent records, keyed by DID */
@@ -271,7 +271,7 @@ export const challengeAgent = async (did: string): Promise<Challenge> => {
     ...challenge,
     nonce, // Store raw nonce for verification (in production, store hash + encrypted nonce)
   };
-  challenges.set(challengeId, storedChallenge);
+  challenges.set(nonce, storedChallenge);
 
   // Update agent record
   if (agentRecord) {
@@ -309,14 +309,9 @@ export const verifyAgent = async (
   nonce: string,
 ): Promise<VerificationResult> => {
   // Find a valid, non-expired challenge matching this nonce
-  let validChallenge: StoredChallenge | undefined;
-
-  for (const challenge of challenges.values()) {
-    if (challenge.did === did && challenge.nonce === nonce && Date.now() <= challenge.expiresAt) {
-      validChallenge = challenge;
-      break;
-    }
-  }
+  const challenge = challenges.get(nonce);
+  const validChallenge =
+    challenge && challenge.did === did && Date.now() <= challenge.expiresAt ? challenge : undefined;
 
   if (!validChallenge) {
     return {
@@ -342,7 +337,7 @@ export const verifyAgent = async (
     });
 
     // Remove the used challenge
-    challenges.delete(validChallenge.challengeId);
+    challenges.delete(nonce);
 
     return {
       verified: true,
