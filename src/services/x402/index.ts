@@ -286,14 +286,6 @@ export const settlePayment = (paymentId: string): SettlementResult => {
     };
   }
 
-  if (payment.status === 'failed') {
-    return {
-      success: false,
-      paymentId,
-      error: 'Payment has failed. Cannot settle.',
-    };
-  }
-
   // In production, execute the Algorand transaction here:
   // const tx = await algorandClient.sendPayment({
   //   from: payment.payerWallet,

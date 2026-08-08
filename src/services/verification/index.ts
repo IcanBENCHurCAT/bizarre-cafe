@@ -126,7 +126,7 @@ const generateNonce = (length: number = 32): string => {
  * @param nonce - The raw nonce
  * @returns Hashed nonce
  */
-export const hashNonce = (nonce: string): string => {
+export const hashNonce = (nonce: string): Promise<string> => {
   // Use Web Crypto API if available
   if (crypto.subtle && crypto.subtle.digest) {
     const encoder = new TextEncoder();
@@ -144,7 +144,7 @@ export const hashNonce = (nonce: string): string => {
     hash = (hash << 5) - hash + char;
     hash |= 0; // Convert to 32bit integer
   }
-  return `hash_${Math.abs(hash).toString(16).padStart(8, '0')}`;
+  return Promise.resolve(`hash_${Math.abs(hash).toString(16).padStart(8, '0')}`);
 };
 
 /**
