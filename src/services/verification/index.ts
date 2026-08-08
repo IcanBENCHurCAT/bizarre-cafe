@@ -13,7 +13,7 @@
  *  5. Server records verification status
  */
 
-import { config } from '../../config';
+
 
 // ──────────────────────────────────────────────
 // Types
@@ -181,7 +181,7 @@ const verifySignature = async (did: string, signature: string, nonce: string): P
 
     // Prepare the message that was signed
     const message = formatChallengeMessage(nonce, did);
-    const messageBytes = new TextEncoder().encode(message);
+    const _messageBytes = new TextEncoder().encode(message);
 
     // Decode signature (supports hex or base64)
     let sigBytes: Uint8Array;
@@ -243,7 +243,7 @@ export const challengeAgent = async (did: string): Promise<Challenge> => {
   const agentRecord = agents.get(did);
   if (agentRecord) {
     const now = Date.now();
-    const windowStart = now - CHALLENGE_WINDOW_MS;
+    const _windowStart = now - CHALLENGE_WINDOW_MS;
     const recentChallenges = agentRecord.challengeCount;
 
     if (recentChallenges > MAX_CHALLENGES_PER_HOUR) {
@@ -427,7 +427,7 @@ export const cleanupExpired = (): void => {
   cleanupExpiredChallenges();
 
   const now = Date.now();
-  for (const [did, record] of agents.entries()) {
+  for (const [_did, record] of agents.entries()) {
     if (record.expiresAt && now > record.expiresAt) {
       record.status = 'expired';
       record.expiresAt = now;

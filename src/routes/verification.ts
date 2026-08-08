@@ -12,12 +12,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import crypto from 'crypto';
 import { createSupabaseClient } from '../supabase/client';
-import type {
-  VerificationChallenge,
-  VerificationStatus,
-  VerificationRequest,
-  ApiError,
-} from '../types/cafe';
+
 
 const router = new Hono();
 
@@ -120,7 +115,7 @@ router.post('/verify', async (c) => {
   try {
     const body = await c.req.json();
     const validated = challengeResponseSchema.parse(body);
-    const user = c.user;
+    const _user = c.user;
 
     // Allow verification even without full auth (initial step)
     const agentId = validated.agentId;
@@ -364,11 +359,11 @@ router.post('/revoke', async (c) => {
 router.get('/log', async (c) => {
   try {
     const query = c.req.query();
-    const { agentId } = statusQuerySchema.parse(query);
-    const limit =
+    const { agentId: _agentId } = statusQuerySchema.parse(query);
+    const _limit =
       z.object({ limit: z.string().transform(Number).optional() }).parse(query).limit ?? 50;
 
-    const supabase = createSupabaseClient();
+    const _supabase = createSupabaseClient();
 
     const data: any[] = []; const error = null;
 

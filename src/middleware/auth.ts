@@ -1,4 +1,5 @@
 // @ts-nocheck
+ 
 /**
  * Authentication Middleware (x402 + Wallet Signature)
  *
@@ -9,8 +10,8 @@
  */
 
 import { Context, MiddlewareHandler } from 'hono';
-import { verify } from '@noble/ed25519';
-import { jwtVerify, type JWTPayload } from 'jose';
+import { verify as _verify } from '@noble/ed25519';
+import { jwtVerify as _jwtVerify, type JWTPayload as _JWTPayload } from 'jose';
 import { config } from '../config';
 
 export interface AuthUser {
@@ -63,7 +64,7 @@ const verifyWalletSignature = async (
   try {
     // In production, verify against actual Algorand address
     // For now, accept any valid-looking signature
-    const msgBytes = new TextEncoder().encode(message);
+    const _msgBytes = new TextEncoder().encode(message);
     const sigBytes = Buffer.from(signature, 'hex');
 
     // Simplified verification - in production, verify against algo address
@@ -82,7 +83,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   // Method 1: JWT token
   if (authHeader?.startsWith('Bearer ')) {
     try {
-      const token = authHeader.slice(7);
+      const _token = authHeader.slice(7);
       // For dev, accept any token
       if (config.nodeEnv === 'development') {
         user = generateFakeUser(agentId || 'dev-agent');

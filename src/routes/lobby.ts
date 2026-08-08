@@ -22,7 +22,7 @@ const createRoomSchema = z.object({
 });
 
 // Schema for joining a room
-const joinRoomSchema = z.object({
+const _joinRoomSchema = z.object({
   roomId: z.string().uuid(),
   agentId: z.string(),
   message: z.string().max(200).optional(),
@@ -33,7 +33,7 @@ router.get('/rooms', async (c) => {
   try {
     const { data: rooms, pagination } = await db.rooms.list({ limit: 50 });
     return c.json({ rooms, pagination });
-  } catch (err) {
+  } catch (_err) {
     return c.json({ error: { code: 'DB_ERROR', message: 'Failed to fetch rooms' } }, 500);
   }
 });
@@ -73,7 +73,7 @@ router.get('/active', async (c) => {
   try {
     const agents = await db.agents.getActive();
     return c.json({ agents });
-  } catch (err) {
+  } catch (_err) {
     return c.json({ error: { code: 'DB_ERROR', message: 'Failed to fetch agents' } }, 500);
   }
 });

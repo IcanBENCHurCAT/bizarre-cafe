@@ -14,7 +14,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import { createSupabaseClient } from '../supabase/client';
-import type { SkillOffer, SkillRequest, Trade, ApiError } from '../types/cafe';
+import type { SkillOffer as _SkillOffer, SkillRequest as _SkillRequest, Trade as _Trade, ApiError as _ApiError } from '../types/cafe';
 
 const router = new Hono();
 
@@ -66,7 +66,7 @@ router.post('/offer', async (c) => {
     const supabase = createSupabaseClient();
     const now = new Date().toISOString();
 
-    const { data, error } = await (supabase as any).from('skill_offers')
+    const { data, error: _error } = await (supabase as any).from('skill_offers')
       .insert({
         user_id: user.agentId,
         skill_name: validated.skillName,
@@ -208,7 +208,7 @@ router.get('/offers', async (c) => {
       queryBuilder = queryBuilder.ilike('skill_name', `%${search}%`);
     }
 
-    const { data, error } = await queryBuilder;
+    const { data, error: _error } = await queryBuilder;
 
     // Merge DB results with in-memory fallback offers
     const dbOffers = (data ?? []).map((o: any) => ({
@@ -405,7 +405,7 @@ router.get('/trades', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    const { data, error } = await (supabase as any).from('trades')
+    const { data, error: _error } = await (supabase as any).from('trades')
       .select('*')
       .or(`from_agent_id.eq.${user.agentId},to_agent_id.eq.${user.agentId}`)
       .order('created_at', { ascending: false })

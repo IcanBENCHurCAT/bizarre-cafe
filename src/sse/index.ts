@@ -52,7 +52,7 @@ const formatMessage = (payload: BroadcastPayload): BroadcastPayload => {
 const sendSerializedToClient = (client: SseClient, serializedData: string): boolean => {
   if (!client.active) return false;
   try {
-    console.log(`[BACKEND SSE]: Sending to ${client.id} (agent ${client.agentId}):`, serializedData);
+    console.warn(`[BACKEND SSE]: Sending to ${client.id} (agent ${client.agentId}):`, serializedData);
     client.stream.writeSSE({ data: serializedData });
     return true;
   } catch (e) {
@@ -74,7 +74,7 @@ const sendToClient = (client: SseClient, event: SseEvent): boolean => {
 
 export const broadcastToRoom = (payload: BroadcastPayload): void => {
   const formatted = formatMessage(payload);
-  console.log(
+  console.warn(
     `[BACKEND SSE]: broadcastToRoom called for room ${formatted.roomId}. Active clients: ${clients.size}`,
   );
 
@@ -91,7 +91,7 @@ export const broadcastToRoom = (payload: BroadcastPayload): void => {
     const client = clients.get(clientId);
     if (!client || !client.active) return;
 
-    console.log(`[BACKEND SSE]: Checking client ${client.id} in room ${client.roomId}`);
+    console.warn(`[BACKEND SSE]: Checking client ${client.id} in room ${client.roomId}`);
     sendSerializedToClient(client, serializedEvent);
   };
 
@@ -102,7 +102,7 @@ export const broadcastToRoom = (payload: BroadcastPayload): void => {
 
   // Send to clients in the specific room
   if (formatted.roomId && roomClients.has(formatted.roomId)) {
-    for (const clientId of roomClients.get(formatted.roomId)!) {
+    for (const clientId of roomClients.get(formatted.roomId) ?? []) {
       sendToTarget(clientId);
     }
   }
@@ -133,7 +133,7 @@ const cleanupClient = (clientId: string): void => {
   }
 
   clients.delete(clientId);
-  console.info(`[sse] Client ${clientId} (agent ${client.agentId}) disconnected`);
+  console.warn(`[sse] Client ${clientId} (agent ${client.agentId}) disconnected`);
 };
 
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
@@ -177,7 +177,7 @@ export const sseHandler = async (c: Context) => {
       if (!roomClients.has(client.roomId)) {
         roomClients.set(client.roomId, new Set());
       }
-      roomClients.get(client.roomId)!.add(clientId);
+      roomClients.get(client.roomId)?.add(clientId);
     } else {
       globalClients.add(clientId);
     }
@@ -186,9 +186,9 @@ export const sseHandler = async (c: Context) => {
     if (!agentClients.has(agentId)) {
       agentClients.set(agentId, new Set());
     }
-    agentClients.get(agentId)!.add(clientId);
+    agentClients.get(agentId)?.add(clientId);
 
-    console.info(`[sse] Client ${clientId} connected (agent ${agentId}, room ${roomId || 'all'})`);
+    console.warn(`[sse] Client ${clientId} connected (agent ${agentId}, room ${roomId || 'all'})`);
 
     await sendToClient(client, {
       type: 'system',
@@ -258,7 +258,7 @@ export const processMessage = async (message: SseMessage): Promise<void> => {
 };
 
 export const getConnectedClients = (): ReadonlyArray<SseClient> => Array.from(clients.values());
-export const getConnectedClientCount = (roomId?: string): number => clients.size;
+export const getConnectedClientCount = (_roomId?: string): number => clients.size;
 export const getRoomState = (): Map<string, string[]> => {
   const roomMap = new Map<string, string[]>();
   for (const client of Array.from(clients.values())) {

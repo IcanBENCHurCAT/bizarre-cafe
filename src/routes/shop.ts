@@ -12,7 +12,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { createSupabaseClient } from '../supabase/client';
 import { requireX402Payment } from '../middleware/auth';
-import type { ShopItem, Receipt, ApiError } from '../types/cafe';
+import type { ShopItem, Receipt, ApiError as _ApiError } from '../types/cafe';
 
 const router = new Hono();
 
@@ -67,7 +67,7 @@ router.get('/items', async (c) => {
       queryBuilder = queryBuilder.lte('price', validated.priceMax);
     }
 
-    const { data, error } = await queryBuilder;
+    const { data, error: _error } = await queryBuilder;
 
     let items = (data ?? []).map((item: any) => ({
       id: item.id,

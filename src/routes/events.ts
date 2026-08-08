@@ -1,4 +1,5 @@
 // @ts-nocheck
+ 
 /**
  * Events Routes — Scheduled Cafe Events
  *
@@ -28,7 +29,7 @@ const createEventSchema = z.object({
   scheduledAt: z.string().datetime().optional(),
 });
 
-const joinSchema = z.object({
+const _joinSchema = z.object({
   agentId: z.string(),
 });
 
