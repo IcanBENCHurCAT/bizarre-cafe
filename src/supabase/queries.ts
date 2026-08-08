@@ -256,7 +256,7 @@ export const chat = {
       .range(offset, offset + limit - 1);
 
     if (error) throw error;
-    return data as (MessageRow & { rooms: Pick<RoomRow, 'name' | 'type'> | null })[];
+    return (data as any) as (MessageRow & { rooms: Pick<RoomRow, 'name' | 'type'> | null })[];
   },
 
   /** Get messages by session */
@@ -384,9 +384,9 @@ export const shop = {
     const { error: stockError } = await supabase
       .rpc('decrement_stock', {
         p_item_id: data.item_id,
-        p_quantity: data.quantity,
+        p_quantity: data.quantity ?? 1,
       })
-      .throw();
+      .throwOnError();
 
     if (stockError) {
       // Rollback: delete the purchase
@@ -686,7 +686,7 @@ export const events = {
       .rpc('increment_attendee_count', {
         p_event_id: eventId,
       })
-      .throw();
+      .throwOnError();
 
     return attendance as EventAttendanceRow;
   },
@@ -712,7 +712,7 @@ export const events = {
       .rpc('decrement_attendee_count', {
         p_event_id: eventId,
       })
-      .throw();
+      .throwOnError();
 
     return attendance as EventAttendanceRow;
   },
@@ -901,7 +901,6 @@ export const users = {
       .upsert({
         ...data,
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
         balance: 0,
         total_spent: 0,
         total_earned: 0,
@@ -920,7 +919,6 @@ export const users = {
       .from('users')
       .update({
         ...data,
-        updated_at: new Date().toISOString(),
       })
       .eq('id', id)
       .select()

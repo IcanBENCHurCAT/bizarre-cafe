@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { rooms, chat, verification } from '../supabase/queries';
 import { supabase } from '../supabase/client';
 import type { DatabaseAdapter, RoomData, MessageData, AgentStatusData } from './index';

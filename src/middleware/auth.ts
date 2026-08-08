@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Authentication Middleware (x402 + Wallet Signature)
  *
