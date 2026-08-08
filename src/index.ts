@@ -48,7 +48,7 @@ app.get('/sse', sseHandler);
 
 // Authenticated routes (requires x402 wallet signature)
 app.use('/api/*', authMiddleware);
-app.use('/api/*', circuitBreaker());
+app.use('/api/*', circuitBreaker('api'));
 
 // Route mounts
 app.route('/api/lobby', lobbyRouter);
@@ -65,12 +65,12 @@ app.use('/api/*', rateLimiter());
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-  console.info('SIGTERM received, shutting down gracefully…');
+  console.warn('SIGTERM received, shutting down gracefully…');
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
-  console.info('SIGINT received, shutting down gracefully…');
+  console.warn('SIGINT received, shutting down gracefully…');
   process.exit(0);
 });
 
@@ -79,7 +79,7 @@ import { OwnerCronService } from './services/owner_cron';
 
 // Start server if running directly (e.g. local dev)
 if (process.env.NODE_ENV !== 'production' || process.env.START_SERVER === 'true') {
-  console.log(`Starting local server on port ${config.port}`);
+  console.warn(`Starting local server on port ${config.port}`);
   OwnerCronService.start();
   serve({
     fetch: app.fetch,

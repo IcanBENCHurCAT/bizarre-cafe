@@ -7,7 +7,13 @@
  * This is a manual reference for the expected schema structure.
  */
 
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
 
 export interface Database {
   public: {
@@ -67,6 +73,7 @@ export interface Database {
           settings?: Json;
           deleted_at?: string | null;
         };
+        Relationships: { foreignKeyName: string; columns: string[]; isOneToOne: boolean; referencedRelation: string; referencedColumns: string[]; }[];
       };
       messages: {
         Row: {
@@ -117,6 +124,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: { foreignKeyName: string; columns: string[]; isOneToOne: boolean; referencedRelation: string; referencedColumns: string[]; }[];
       };
       chat_sessions: {
         Row: {
@@ -152,6 +160,7 @@ export interface Database {
           created_at?: string;
           closed_at?: string | null;
         };
+        Relationships: { foreignKeyName: string; columns: string[]; isOneToOne: boolean; referencedRelation: string; referencedColumns: string[]; }[];
       };
       users: {
         Row: {
@@ -217,6 +226,7 @@ export interface Database {
           last_seen?: string;
           deleted_at?: string | null;
         };
+        Relationships: { foreignKeyName: string; columns: string[]; isOneToOne: boolean; referencedRelation: string; referencedColumns: string[]; }[];
       };
       shop_items: {
         Row: {
@@ -282,6 +292,7 @@ export interface Database {
           updated_at?: string;
           deleted_at?: string | null;
         };
+        Relationships: { foreignKeyName: string; columns: string[]; isOneToOne: boolean; referencedRelation: string; referencedColumns: string[]; }[];
       };
       purchases: {
         Row: {
@@ -323,6 +334,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: { foreignKeyName: string; columns: string[]; isOneToOne: boolean; referencedRelation: string; referencedColumns: string[]; }[];
       };
       receipts: {
         Row: {
@@ -367,6 +379,7 @@ export interface Database {
           is_redeemed?: boolean;
           redeemed_at?: string | null;
         };
+        Relationships: { foreignKeyName: string; columns: string[]; isOneToOne: boolean; referencedRelation: string; referencedColumns: string[]; }[];
       };
       skill_offers: {
         Row: {
@@ -414,6 +427,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: { foreignKeyName: string; columns: string[]; isOneToOne: boolean; referencedRelation: string; referencedColumns: string[]; }[];
       };
       trade_offers: {
         Row: {
@@ -446,6 +460,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: { foreignKeyName: string; columns: string[]; isOneToOne: boolean; referencedRelation: string; referencedColumns: string[]; }[];
       };
       skill_trades: {
         Row: {
@@ -493,6 +508,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: { foreignKeyName: string; columns: string[]; isOneToOne: boolean; referencedRelation: string; referencedColumns: string[]; }[];
       };
       cafe_events: {
         Row: {
@@ -552,6 +568,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: { foreignKeyName: string; columns: string[]; isOneToOne: boolean; referencedRelation: string; referencedColumns: string[]; }[];
       };
       event_attendance: {
         Row: {
@@ -581,6 +598,7 @@ export interface Database {
           left_at?: string | null;
           attended_at?: string | null;
         };
+        Relationships: { foreignKeyName: string; columns: string[]; isOneToOne: boolean; referencedRelation: string; referencedColumns: string[]; }[];
       };
       payment_promises: {
         Row: {
@@ -625,6 +643,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: { foreignKeyName: string; columns: string[]; isOneToOne: boolean; referencedRelation: string; referencedColumns: string[]; }[];
       };
       x402_payments: {
         Row: {
@@ -678,6 +697,7 @@ export interface Database {
           created_at?: string;
           settled_at?: string | null;
         };
+        Relationships: { foreignKeyName: string; columns: string[]; isOneToOne: boolean; referencedRelation: string; referencedColumns: string[]; }[];
       };
       verification_challenges: {
         Row: {
@@ -713,6 +733,7 @@ export interface Database {
           created_at?: string;
           verified_at?: string | null;
         };
+        Relationships: { foreignKeyName: string; columns: string[]; isOneToOne: boolean; referencedRelation: string; referencedColumns: string[]; }[];
       };
       verification_results: {
         Row: {
@@ -748,6 +769,7 @@ export interface Database {
           ttl_seconds?: number;
           expires_at?: string;
         };
+        Relationships: { foreignKeyName: string; columns: string[]; isOneToOne: boolean; referencedRelation: string; referencedColumns: string[]; }[];
       };
       agent_status: {
         Row: {
@@ -783,6 +805,7 @@ export interface Database {
           is_verified?: boolean;
           verification_level?: string;
         };
+        Relationships: { foreignKeyName: string; columns: string[]; isOneToOne: boolean; referencedRelation: string; referencedColumns: string[]; }[];
       };
       owner_messages: {
         Row: {
@@ -818,6 +841,7 @@ export interface Database {
           delivered_at?: string | null;
           read_at?: string | null;
         };
+        Relationships: { foreignKeyName: string; columns: string[]; isOneToOne: boolean; referencedRelation: string; referencedColumns: string[]; }[];
       };
       owner_mood: {
         Row: {
@@ -847,6 +871,7 @@ export interface Database {
           greeting?: string | null;
           catchphrase?: string | null;
         };
+        Relationships: { foreignKeyName: string; columns: string[]; isOneToOne: boolean; referencedRelation: string; referencedColumns: string[]; }[];
       };
       narrative_events: {
         Row: {
@@ -888,6 +913,7 @@ export interface Database {
           created_at?: string;
           ended_at?: string | null;
         };
+        Relationships: { foreignKeyName: string; columns: string[]; isOneToOne: boolean; referencedRelation: string; referencedColumns: string[]; }[];
       };
     };
     Views: {
@@ -908,9 +934,6 @@ export interface Database {
       };
     };
     Enums: {
-      [_ in never]: never;
-    };
-    CompositeTypes: {
       [_ in never]: never;
     };
   };

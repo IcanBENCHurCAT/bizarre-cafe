@@ -58,7 +58,7 @@ router.post('/:roomId/leave', async (c) => {
 
 // GET /api/rooms/:roomId/agents — List room participants
 router.get('/:roomId/agents', async (c) => {
-  const { roomId } = roomParamsSchema.parse({ roomId: c.req.param('roomId') });
+  const { roomId: _roomId } = roomParamsSchema.parse({ roomId: c.req.param('roomId') });
 
   return c.json({ agents: [] });
 });

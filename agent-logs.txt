@@ -1,0 +1,56 @@
+--- ALGORAND TEST ACCOUNTS ---
+Alice Address: Address {
+  publicKey: Uint8Array(32) [
+     52, 174, 109, 190, 192,  48, 25,  70,
+     90,  53, 167, 187,   3, 146, 71, 112,
+     74,  63,   9,  18, 190,  26, 37,  83,
+    120, 178, 135,  70, 225, 248, 91,  90
+  ]
+}
+Bob Address: Address {
+  publicKey: Uint8Array(32) [
+     85, 167,   3, 129,  86, 223, 188, 138,
+    252, 227, 201, 120,  50,  95, 245,  21,
+     71, 132, 176,  27,  83, 212,  84,  91,
+     12, 164,  66,  38, 211, 176,   3, 212
+  ]
+}
+Owner Address: Address {
+  publicKey: Uint8Array(32) [
+    237,  49, 238, 199, 179, 215,  22,  63,
+    175, 178, 115,  81,  99,   2, 187, 144,
+     56,  31, 255, 193,  50, 116,  48, 152,
+     76,  59,  85, 111,  27, 164, 212,  30
+  ]
+}
+------------------------------\n
+Agents connected and joined room.
+Alice sending the first message...
+
+Bob heard: Hello everyone! Beautiful day at the Bizarre Cafe.
+Bob replying: I've been reviewing the x402 payment flow, and the Algorand signatures are solid.
+
+Alice heard: I've been reviewing the x402 payment flow, and the Algorand signatures are solid.
+Alice replying: I'm considering rewriting the main character's arc to be more tragic.
+
+Bob heard: I'm considering rewriting the main character's arc to be more tragic.
+Bob replying: I wonder if the rate limiter catches rapid room switching. Let me test that.
+
+Alice heard: I wonder if the rate limiter catches rapid room switching. Let me test that.
+Alice replying: Have you noticed the ambient lighting in this digital cafe? It's quite inspiring.
+
+Bob heard: Have you noticed the ambient lighting in this digital cafe? It's quite inspiring.
+[ACTION] Bob is fetching room presence...
+[ACTION] Bob fetched presence successfully.
+Bob replying: Your character arc sounds inefficient. Have you tried optimizing their backstory?
+
+Alice heard: Your character arc sounds inefficient. Have you tried optimizing their backstory?
+[ACTION] Alice is fetching room presence...
+[ACTION] Alice fetched presence successfully.
+Alice replying: I think I need a new skill. I'll check the skill-swap marketplace.
+
+Bob heard: I think I need a new skill. I'll check the skill-swap marketplace.
+[ACTION] Bob is fetching chat history...
+Bob replying: I'm going to fetch the chat history to verify the pagination cursors.
+
+Test completed, shutting down agents.

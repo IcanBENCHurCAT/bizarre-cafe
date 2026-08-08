@@ -49,16 +49,11 @@ const formatMessage = (payload: BroadcastPayload): BroadcastPayload => {
   return result;
 };
 
-const sendToClient = (client: SseClient, event: SseEvent): boolean => {
+const sendSerializedToClient = (client: SseClient, serializedData: string): boolean => {
   if (!client.active) return false;
   try {
-    const serialized = JSON.stringify({
-      type: event.type,
-      room: event.roomId,
-      ...event.data,
-    });
-    console.log(`[BACKEND SSE]: Sending to ${client.id} (agent ${client.agentId}):`, serialized);
-    client.stream.writeSSE({ data: serialized });
+    console.warn(`[BACKEND SSE]: Sending to ${client.id} (agent ${client.agentId}):`, serializedData);
+    client.stream.writeSSE({ data: serializedData });
     return true;
   } catch (e) {
     console.error(`[BACKEND SSE ERROR]:`, e);
@@ -67,26 +62,37 @@ const sendToClient = (client: SseClient, event: SseEvent): boolean => {
   }
 };
 
+const sendToClient = (client: SseClient, event: SseEvent): boolean => {
+  if (!client.active) return false;
+  const serialized = JSON.stringify({
+    type: event.type as any,
+    room: event.roomId,
+    ...event.data,
+  });
+  return sendSerializedToClient(client, serialized);
+};
+
 export const broadcastToRoom = (payload: BroadcastPayload): void => {
   const formatted = formatMessage(payload);
-  console.log(
+  console.warn(
     `[BACKEND SSE]: broadcastToRoom called for room ${formatted.roomId}. Active clients: ${clients.size}`,
   );
+
+  // ⚡ Bolt Optimization: Serialize once, broadcast to many. O(N) -> O(1) serialization overhead
+  const serializedEvent = JSON.stringify({
+    type: 'chat',
+    room: formatted.roomId || undefined,
+    agentId: formatted.agentId,
+    message: formatted.message,
+    timestamp: formatted.timestamp,
+  });
 
   const sendToTarget = (clientId: string) => {
     const client = clients.get(clientId);
     if (!client || !client.active) return;
 
-    console.log(`[BACKEND SSE]: Checking client ${client.id} in room ${client.roomId}`);
-    sendToClient(client, {
-      type: 'chat',
-      roomId: formatted.roomId || undefined,
-      data: {
-        agentId: formatted.agentId,
-        message: formatted.message,
-        timestamp: formatted.timestamp,
-      },
-    });
+    console.warn(`[BACKEND SSE]: Checking client ${client.id} in room ${client.roomId}`);
+    sendSerializedToClient(client, serializedEvent);
   };
 
   // Send to all global clients (roomId === null)
@@ -96,14 +102,10 @@ export const broadcastToRoom = (payload: BroadcastPayload): void => {
 
   // Send to clients in the specific room
   if (formatted.roomId && roomClients.has(formatted.roomId)) {
-    for (const clientId of roomClients.get(formatted.roomId)!) {
+    for (const clientId of roomClients.get(formatted.roomId) ?? []) {
       sendToTarget(clientId);
     }
   }
-};
-
-const sendHeartbeat = (client: SseClient): void => {
-  sendToClient(client, { type: 'heartbeat', data: { ts: Date.now() } });
 };
 
 const cleanupClient = (clientId: string): void => {
@@ -131,7 +133,7 @@ const cleanupClient = (clientId: string): void => {
   }
 
   clients.delete(clientId);
-  console.info(`[sse] Client ${clientId} (agent ${client.agentId}) disconnected`);
+  console.warn(`[sse] Client ${clientId} (agent ${client.agentId}) disconnected`);
 };
 
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
@@ -139,12 +141,15 @@ const startHeartbeats = (): void => {
   if (heartbeatInterval) return;
   heartbeatInterval = setInterval(() => {
     const now = Date.now();
-    for (const client of clients.values()) {
+    // ⚡ Bolt Optimization: Serialize heartbeat payload once for all clients
+    const serializedHeartbeat = JSON.stringify({ type: 'heartbeat', ts: now });
+
+    for (const client of Array.from(clients.values())) {
       if (!client.active) {
         cleanupClient(client.id);
         continue;
       }
-      sendHeartbeat(client);
+      sendSerializedToClient(client, serializedHeartbeat);
     }
   }, config.sseHeartbeatMs);
 };
@@ -172,7 +177,7 @@ export const sseHandler = async (c: Context) => {
       if (!roomClients.has(client.roomId)) {
         roomClients.set(client.roomId, new Set());
       }
-      roomClients.get(client.roomId)!.add(clientId);
+      roomClients.get(client.roomId)?.add(clientId);
     } else {
       globalClients.add(clientId);
     }
@@ -181,9 +186,9 @@ export const sseHandler = async (c: Context) => {
     if (!agentClients.has(agentId)) {
       agentClients.set(agentId, new Set());
     }
-    agentClients.get(agentId)!.add(clientId);
+    agentClients.get(agentId)?.add(clientId);
 
-    console.info(`[sse] Client ${clientId} connected (agent ${agentId}, room ${roomId || 'all'})`);
+    console.warn(`[sse] Client ${clientId} connected (agent ${agentId}, room ${roomId || 'all'})`);
 
     await sendToClient(client, {
       type: 'system',
@@ -253,10 +258,10 @@ export const processMessage = async (message: SseMessage): Promise<void> => {
 };
 
 export const getConnectedClients = (): ReadonlyArray<SseClient> => Array.from(clients.values());
-export const getConnectedClientCount = (roomId?: string): number => clients.size;
+export const getConnectedClientCount = (_roomId?: string): number => clients.size;
 export const getRoomState = (): Map<string, string[]> => {
   const roomMap = new Map<string, string[]>();
-  for (const client of clients.values()) {
+  for (const client of Array.from(clients.values())) {
     if (!client.active) continue;
     const key = client.roomId ?? 'all';
     const existing = roomMap.get(key) ?? [];

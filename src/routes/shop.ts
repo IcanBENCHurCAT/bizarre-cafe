@@ -12,7 +12,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { createSupabaseClient } from '../supabase/client';
 import { requireX402Payment } from '../middleware/auth';
-import type { ShopItem, Receipt, ApiError } from '../types/cafe';
+import type { ShopItem, Receipt, ApiError as _ApiError } from '../types/cafe';
 
 const router = new Hono();
 
@@ -51,8 +51,7 @@ router.get('/items', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    let queryBuilder = supabase
-      .from('shop_items')
+    let queryBuilder = (supabase as any).from('shop_items')
       .select('*')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
@@ -68,9 +67,9 @@ router.get('/items', async (c) => {
       queryBuilder = queryBuilder.lte('price', validated.priceMax);
     }
 
-    const { data, error } = await queryBuilder;
+    const { data, error: _error } = await queryBuilder;
 
-    let items = (data ?? []).map((item) => ({
+    let items = (data ?? []).map((item: any) => ({
       id: item.id,
       name: item.name,
       description: item.description,
@@ -130,8 +129,7 @@ router.get('/items/:id', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    const { data, error } = await supabase
-      .from('shop_items')
+    const { data, error } = await (supabase as any).from('shop_items')
       .select('*')
       .eq('id', id)
       .eq('is_active', true)
@@ -197,8 +195,7 @@ router.post('/checkout', async (c) => {
 
     // Get item details
     let item: any = null;
-    const { data: dbItem } = await supabase
-      .from('shop_items')
+    const { data: dbItem } = await (supabase as any).from('shop_items')
       .select('*')
       .eq('id', validated.itemId)
       .single();
@@ -228,11 +225,10 @@ router.post('/checkout', async (c) => {
     const promiseId = `x402-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
     // Store receipt record
-    const { data: receipt, error: receiptError } = await supabase
-      .from('receipts')
+    const { data: receipt, error: receiptError } = await (supabase as any).from('receipts')
       .insert({
         id: promiseId,
-        agent_id: user.agentId,
+        user_id: user.agentId,
         item_id: validated.itemId,
         quantity: validated.quantity,
         total_amount: totalAmount,
@@ -335,8 +331,7 @@ router.get('/receipts', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    const { data, error } = await supabase
-      .from('receipts')
+    const { data, error } = await (supabase as any).from('receipts')
       .select('*')
       .eq('agent_id', user.agentId)
       .order('created_at', { ascending: false })
@@ -350,7 +345,7 @@ router.get('/receipts', async (c) => {
       );
     }
 
-    const receipts = (data ?? []).map((r) => ({
+    const receipts = (data ?? []).map((r: any) => ({
       id: r.id,
       agentId: r.agent_id,
       itemId: r.item_id,

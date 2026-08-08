@@ -5,7 +5,7 @@
  * Each query is typed using the Database types from supabase-js.
  */
 
-import { supabase, supabaseAdmin } from './client';
+import { supabase, supabaseAdmin as _supabaseAdmin } from './client';
 import type { Database } from './types/database.types';
 
 // ─── Type Aliases (convenience) ──────────────────────────────────────
@@ -22,30 +22,30 @@ type ChatSessionRow = Tables['chat_sessions']['Row'];
 type ChatSessionInsert = Tables['chat_sessions']['Insert'];
 
 type ShopItemRow = Tables['shop_items']['Row'];
-type ShopItemInsert = Tables['shop_items']['Insert'];
+type _ShopItemInsert = Tables['shop_items']['Insert'];
 
 type PurchaseRow = Tables['purchases']['Row'];
 type PurchaseInsert = Tables['purchases']['Insert'];
 
 type ReceiptRow = Tables['receipts']['Row'];
-type ReceiptInsert = Tables['receipts']['Insert'];
+type _ReceiptInsert = Tables['receipts']['Insert'];
 
 type SkillOfferRow = Tables['skill_offers']['Row'];
 type SkillOfferInsert = Tables['skill_offers']['Insert'];
-type SkillOfferUpdate = Tables['skill_offers']['Update'];
+type _SkillOfferUpdate = Tables['skill_offers']['Update'];
 
 type TradeOfferRow = Tables['trade_offers']['Row'];
-type TradeOfferInsert = Tables['trade_offers']['Insert'];
+type _TradeOfferInsert = Tables['trade_offers']['Insert'];
 
 type SkillTradeRow = Tables['skill_trades']['Row'];
 type SkillTradeInsert = Tables['skill_trades']['Insert'];
 
 type CafeEventRow = Tables['cafe_events']['Row'];
 type CafeEventInsert = Tables['cafe_events']['Insert'];
-type CafeEventUpdate = Tables['cafe_events']['Update'];
+type _CafeEventUpdate = Tables['cafe_events']['Update'];
 
 type EventAttendanceRow = Tables['event_attendance']['Row'];
-type EventAttendanceInsert = Tables['event_attendance']['Insert'];
+type _EventAttendanceInsert = Tables['event_attendance']['Insert'];
 
 type UserRow = Tables['users']['Row'];
 type UserInsert = Tables['users']['Insert'];
@@ -61,10 +61,10 @@ type VerificationChallengeRow = Tables['verification_challenges']['Row'];
 type VerificationChallengeInsert = Tables['verification_challenges']['Insert'];
 
 type VerificationResultRow = Tables['verification_results']['Row'];
-type VerificationResultInsert = Tables['verification_results']['Insert'];
+type _VerificationResultInsert = Tables['verification_results']['Insert'];
 
 type AgentStatusRow = Tables['agent_status']['Row'];
-type AgentStatusInsert = Tables['agent_status']['Insert'];
+type _AgentStatusInsert = Tables['agent_status']['Insert'];
 type AgentStatusUpdate = Tables['agent_status']['Update'];
 
 type OwnerMessageRow = Tables['owner_messages']['Row'];
@@ -76,7 +76,7 @@ type OwnerMoodInsert = Tables['owner_mood']['Insert'];
 type NarrativeEventRow = Tables['narrative_events']['Row'];
 type NarrativeEventInsert = Tables['narrative_events']['Insert'];
 
-type PaginatedResult<T> = {
+type _PaginatedResult<T> = {
   data: T[];
   pagination: {
     total: number;
@@ -256,7 +256,7 @@ export const chat = {
       .range(offset, offset + limit - 1);
 
     if (error) throw error;
-    return data as (MessageRow & { rooms: Pick<RoomRow, 'name' | 'type'> | null })[];
+    return (data as any) as (MessageRow & { rooms: Pick<RoomRow, 'name' | 'type'> | null })[];
   },
 
   /** Get messages by session */
@@ -384,9 +384,9 @@ export const shop = {
     const { error: stockError } = await supabase
       .rpc('decrement_stock', {
         p_item_id: data.item_id,
-        p_quantity: data.quantity,
+        p_quantity: data.quantity ?? 1,
       })
-      .throw();
+      .throwOnError();
 
     if (stockError) {
       // Rollback: delete the purchase
@@ -538,7 +538,7 @@ export const skillSwap = {
   },
 
   /** Complete a trade */
-  async completeTrade(tradeId: string, notes = '') {
+  async completeTrade(tradeId: string, _notes = '') {
     return this.updateTradeStatus(tradeId, 'completed');
   },
 };
@@ -686,7 +686,7 @@ export const events = {
       .rpc('increment_attendee_count', {
         p_event_id: eventId,
       })
-      .throw();
+      .throwOnError();
 
     return attendance as EventAttendanceRow;
   },
@@ -712,7 +712,7 @@ export const events = {
       .rpc('decrement_attendee_count', {
         p_event_id: eventId,
       })
-      .throw();
+      .throwOnError();
 
     return attendance as EventAttendanceRow;
   },
@@ -858,7 +858,7 @@ export const verification = {
 
   /** Check if a user has valid verification */
   async isValidVerification(userId: string) {
-    const { data, error } = await supabase
+    const { data: _data, error } = await supabase
       .from('verification_results')
       .select('*')
       .eq('user_id', userId)
@@ -901,7 +901,6 @@ export const users = {
       .upsert({
         ...data,
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
         balance: 0,
         total_spent: 0,
         total_earned: 0,
@@ -920,7 +919,6 @@ export const users = {
       .from('users')
       .update({
         ...data,
-        updated_at: new Date().toISOString(),
       })
       .eq('id', id)
       .select()
