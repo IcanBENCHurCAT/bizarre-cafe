@@ -180,20 +180,33 @@ router.get('/:id', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    const { data: event, error: eventError } = await (supabase as any).from('cafe_events')
+    const eventPromise = (supabase as any).from('cafe_events')
       .select('*')
       .eq('id', id)
       .single();
 
-    if (eventError || !event) {
-      return c.json({ error: { code: 'NOT_FOUND', message: 'Event not found' } }, 404);
-    }
-
-    // Get attendance count
-    const { count: attendanceCount, error: attendanceError } = await (supabase as any).from('event_attendance')
+    const countPromise = (supabase as any).from('event_attendance')
       .select('*', { count: 'exact', head: true })
       .eq('event_id', id)
       .eq('status', 'joined');
+
+    const userAttendancePromise = user
+      ? (supabase as any).from('event_attendance')
+          .select('*')
+          .eq('event_id', id)
+          .eq('user_id', user.agentId)
+          .single()
+      : Promise.resolve({ data: null });
+
+    const [
+      { data: event, error: eventError },
+      { count: attendanceCount, error: attendanceError },
+      { data: attendance }
+    ] = await Promise.all([eventPromise, countPromise, userAttendancePromise]);
+
+    if (eventError || !event) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Event not found' } }, 404);
+    }
 
     if (attendanceError) {
       console.error('Supabase query error:', attendanceError);
@@ -201,14 +214,8 @@ router.get('/:id', async (c) => {
 
     // Check if user has joined
     let userJoined = false;
-    if (user) {
-      const { data: attendance } = await (supabase as any).from('event_attendance')
-        .select('*')
-        .eq('event_id', id)
-        .eq('user_id', user.agentId)
-        .single();
-
-      userJoined = attendance?.status === 'joined';
+    if (user && attendance) {
+      userJoined = attendance.status === 'joined';
     }
 
     return c.json({
@@ -255,11 +262,27 @@ router.post('/:id/join', async (c) => {
     const supabase = createSupabaseClient();
     const now = new Date().toISOString();
 
-    // Get event
-    const { data: event, error: eventError } = await (supabase as any).from('cafe_events')
+    const eventPromise = (supabase as any).from('cafe_events')
       .select('*')
       .eq('id', id)
       .single();
+
+    const countPromise = (supabase as any).from('event_attendance')
+      .select('*', { count: 'exact', head: true })
+      .eq('event_id', id)
+      .eq('status', 'joined');
+
+    const existingPromise = (supabase as any).from('event_attendance')
+      .select('*')
+      .eq('event_id', id)
+      .eq('user_id', user.agentId)
+      .single();
+
+    const [
+      { data: event, error: eventError },
+      { count: attendanceCount, error: countError },
+      { data: existing }
+    ] = await Promise.all([eventPromise, countPromise, existingPromise]);
 
     if (eventError || !event) {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Event not found' } }, 404);
@@ -274,12 +297,6 @@ router.post('/:id/join', async (c) => {
       );
     }
 
-    // Check capacity
-    const { count: attendanceCount, error: countError } = await (supabase as any).from('event_attendance')
-      .select('*', { count: 'exact', head: true })
-      .eq('event_id', id)
-      .eq('status', 'joined');
-
     if (countError) {
       console.error('Supabase query error:', countError);
       return c.json(
@@ -291,13 +308,6 @@ router.post('/:id/join', async (c) => {
     if ((attendanceCount ?? 0) >= event.max_attendees) {
       return c.json({ error: { code: 'FULL', message: 'Event is at full capacity' } }, 400);
     }
-
-    // Check if already joined
-    const { data: existing } = await (supabase as any).from('event_attendance')
-      .select('*')
-      .eq('event_id', id)
-      .eq('user_id', user.agentId)
-      .single();
 
     if (existing?.status === 'joined') {
       return c.json(

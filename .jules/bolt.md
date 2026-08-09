@@ -1,3 +1,6 @@
+## 2024-11-20 - [Concurrent Supabase Queries for Reduced Latency]
+**Learning:** Found sequential independent database queries in API routes (e.g., fetching an event, counting attendance, and checking user status) that unnecessarily block each other and increase total response latency by a factor of 3.
+**Action:** Always batch independent queries in route handlers using `Promise.all()` before applying business logic. Wait until all data is fetched concurrently, then handle errors and evaluate conditions.
 ## 2024-11-20 - [SSE Handler O(N) Connection Scanning]
 **Learning:** Found a major performance bottleneck in `src/sse/index.ts`. Both `broadcastToRoom` and `processMessage` were iterating over ALL connected clients (`clients.values()`) for every incoming message. As the number of active agents grows, this O(N) scan per message limits throughput.
 **Action:** Implemented O(1) indexes (`roomClients`, `agentClients`, `globalClients`) using Maps/Sets to directly lookup relevant clients. Always maintain index structures alongside the main list of connections for real-time services.
