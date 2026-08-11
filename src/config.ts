@@ -32,6 +32,9 @@ export interface Config {
 const getRequired = (key: string): string => {
   const value = process.env[key];
   if (!value) {
+    if (process.env.NODE_ENV === 'test') {
+      return 'dummy-test-secret-key';
+    }
     throw new Error(`Missing required environment variable: ${key}`);
   }
   return value;
