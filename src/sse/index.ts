@@ -144,7 +144,7 @@ const startHeartbeats = (): void => {
     // ⚡ Bolt Optimization: Serialize heartbeat payload once for all clients
     const serializedHeartbeat = JSON.stringify({ type: 'heartbeat', ts: now });
 
-    for (const client of Array.from(clients.values())) {
+    for (const client of clients.values()) {
       if (!client.active) {
         cleanupClient(client.id);
         continue;
@@ -261,7 +261,7 @@ export const getConnectedClients = (): ReadonlyArray<SseClient> => Array.from(cl
 export const getConnectedClientCount = (_roomId?: string): number => clients.size;
 export const getRoomState = (): Map<string, string[]> => {
   const roomMap = new Map<string, string[]>();
-  for (const client of Array.from(clients.values())) {
+  for (const client of clients.values()) {
     if (!client.active) continue;
     const key = client.roomId ?? 'all';
     const existing = roomMap.get(key) ?? [];

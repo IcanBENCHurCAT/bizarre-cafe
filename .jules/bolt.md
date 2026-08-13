@@ -10,3 +10,6 @@
 ## 2024-08-07 - O(N) JSON.stringify in SSE Broadcasts
 **Learning:** Broadcasting events in `src/sse/index.ts` was doing `JSON.stringify` on the payload individually for every single connected client in a loop (`O(N)`). Since SSE can have thousands of connected agents, this stringification spikes main thread usage on every chat message and every heartbeat.
 **Action:** When implementing server-sent events or WebSocket broadcasts, serialize the outbound message *once* before the loop, and use `writeSSE` with the pre-serialized string.
+## 2024-11-20 - [O(N) Memory Allocation in Map Iteration]
+**Learning:** Found unnecessary memory allocation when iterating over Map values in `src/sse/index.ts`. Using `Array.from(map.values())` inside high-frequency loops (like SSE heartbeats and real-time state retrieval) allocates a new array of size N on every call, increasing garbage collection pressure and CPU usage.
+**Action:** When iterating over Maps or Sets, use the iterator directly (e.g., `for (const item of map.values())`) instead of converting it to an array first with `Array.from()`.
