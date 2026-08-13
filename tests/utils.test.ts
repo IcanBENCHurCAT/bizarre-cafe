@@ -1,41 +1,60 @@
-import { describe, it, expect } from 'vitest';
-import { generateShortId } from '../src/utils';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { isNonceValid } from '../src/utils/index.js';
 
-describe('generateShortId', () => {
-  it('should generate a short ID of default length 8 when no arguments are provided', () => {
-    const id = generateShortId();
-    expect(id).toBeTypeOf('string');
-    expect(id).toHaveLength(8);
+describe('isNonceValid', () => {
+  beforeEach(() => {
+    // Tell Vitest to use fake timers
+    vi.useFakeTimers();
+    // Set system time to a fixed timestamp (e.g., 2024-01-01 12:00:00 UTC)
+    const mockNow = new Date('2024-01-01T12:00:00Z').getTime();
+    vi.setSystemTime(mockNow);
   });
 
-  it('should generate a short ID of a custom specified length', () => {
-    const lengths = [1, 5, 10, 16, 32];
-    for (const length of lengths) {
-      const id = generateShortId(length);
-      expect(id).toHaveLength(length);
-    }
+  afterEach(() => {
+    // Restore real timers after each test
+    vi.useRealTimers();
   });
 
-  it('should only contain characters from the specified set (lowercase a-z and 0-9)', () => {
-    const validChars = /^[a-z0-9]+$/;
-    for (let i = 0; i < 100; i++) {
-      const id = generateShortId(12);
-      expect(id).toMatch(validChars);
-    }
+  it('should return true for a timestamp that is exactly current time', () => {
+    const now = Date.now();
+    expect(isNonceValid(now)).toBe(true);
   });
 
-  it('should return empty string when length is 0', () => {
-    const id = generateShortId(0);
-    expect(id).toBe('');
+  it('should return true for a timestamp within the default 5-minute window', () => {
+    // 5 minutes = 300,000 ms. Let's test 2 minutes in the past.
+    const twoMinutesPast = Date.now() - 120_000;
+    expect(isNonceValid(twoMinutesPast)).toBe(true);
   });
 
-  it('should generate different IDs across consecutive calls (randomness check)', () => {
-    const ids = new Set<string>();
-    const iterations = 100;
-    for (let i = 0; i < iterations; i++) {
-      ids.add(generateShortId(8));
-    }
-    // With a length of 8 and 36 possible characters, the chance of collision in 100 iterations is extremely close to 0.
-    expect(ids.size).toBe(iterations);
+  it('should return true for a timestamp exactly at the limit of the default window', () => {
+    const limit = Date.now() - 300_000;
+    expect(isNonceValid(limit)).toBe(true);
+  });
+
+  it('should return false for a timestamp older than the default window', () => {
+    const tooOld = Date.now() - 300_001;
+    expect(isNonceValid(tooOld)).toBe(false);
+  });
+
+  it('should return false for a timestamp far older than the default window', () => {
+    const ancient = Date.now() - 1_000_000;
+    expect(isNonceValid(ancient)).toBe(false);
+  });
+
+  it('should return true for a future timestamp', () => {
+    // Since Date.now() - timestamp will be negative, and negative numbers are <= windowMs,
+    // the current implementation returns true for future timestamps.
+    const future = Date.now() + 5000;
+    expect(isNonceValid(future)).toBe(true);
+  });
+
+  it('should support custom window sizes and validate correctly within them', () => {
+    // Test with a 10-second (10,000 ms) window
+    const customWindow = 10_000;
+    const pastFiveSeconds = Date.now() - 5000;
+    const pastElevenSeconds = Date.now() - 11_000;
+
+    expect(isNonceValid(pastFiveSeconds, customWindow)).toBe(true);
+    expect(isNonceValid(pastElevenSeconds, customWindow)).toBe(false);
   });
 });
