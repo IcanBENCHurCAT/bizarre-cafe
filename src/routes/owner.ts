@@ -102,17 +102,17 @@ router.post('/message', async (c) => {
     // In production, call AI service with cafe lore context
     const ownerResponse = generateOwnerResponse(validated.content, sentiment, user);
 
-    // Save owner's response
-    await supabase.from('owner_messages').insert({
-      agent_id: user.agentId,
-      content: ownerResponse,
-      sentiment: 'neutral', // Owner responses are neutral by default
-      is_owner_response: true,
-      created_at: new Date().toISOString(),
-    });
-
-    // Update owner mood based on interaction
-    await updateOwnerMood(supabase, sentiment, user.agentId);
+    // Save owner's response and update mood concurrently to reduce latency
+    await Promise.all([
+      supabase.from('owner_messages').insert({
+        agent_id: user.agentId,
+        content: ownerResponse,
+        sentiment: 'neutral', // Owner responses are neutral by default
+        is_owner_response: true,
+        created_at: new Date().toISOString(),
+      }),
+      updateOwnerMood(supabase, sentiment, user.agentId)
+    ]);
 
     // Broadcast Owner's reply to the room SSE
     broadcastToRoom({
