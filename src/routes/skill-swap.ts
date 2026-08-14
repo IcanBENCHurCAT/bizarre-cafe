@@ -224,11 +224,18 @@ router.get('/offers', async (c) => {
       updatedAt: o.updated_at,
     })) as any[];
 
-    const inMemOffers = Array.from(memOffers.values()).filter(
-      (o: any) =>
+    // ⚡ Bolt Optimization: Avoid O(N) memory allocation from Array.from() + filter()
+    // Pre-compute lowercased search to avoid repeated allocations in the loop
+    const inMemOffers: any[] = [];
+    const searchLower = search?.toLowerCase();
+    for (const o of memOffers.values()) {
+      if (
         o.status === 'available' &&
-        (!search || o.skillName.toLowerCase().includes(search.toLowerCase())),
-    );
+        (!searchLower || o.skillName.toLowerCase().includes(searchLower))
+      ) {
+        inMemOffers.push(o);
+      }
+    }
 
     const offers = [...dbOffers, ...inMemOffers].slice(0, limit);
 
@@ -422,9 +429,13 @@ router.get('/trades', async (c) => {
       updatedAt: t.updated_at,
     })) as any[];
 
-    const inMemTradesForAgent = Array.from(memTrades.values()).filter(
-      (t) => t.fromAgentId === user.agentId || t.toAgentId === user.agentId,
-    );
+    // ⚡ Bolt Optimization: Iterate Map directly to avoid O(N) allocation from Array.from() + filter()
+    const inMemTradesForAgent: any[] = [];
+    for (const t of memTrades.values()) {
+      if (t.fromAgentId === user.agentId || t.toAgentId === user.agentId) {
+        inMemTradesForAgent.push(t);
+      }
+    }
 
     const trades = [...dbTrades, ...inMemTradesForAgent].slice(0, limit);
 
