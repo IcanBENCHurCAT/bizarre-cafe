@@ -408,10 +408,16 @@ export const revokeAgent = (did: string): boolean => {
  * @returns Array of agent records
  */
 export const getAllAgents = (status?: AgentStatusType): AgentRecord[] => {
-  if (status) {
-    return [...agents.values()].filter((a) => a.status === status);
+  // ⚡ Bolt Optimization: Avoid O(N) memory allocation from spreading Map values and filtering
+  if (!status) return [...agents.values()];
+
+  const result: AgentRecord[] = [];
+  for (const agent of agents.values()) {
+    if (agent.status === status) {
+      result.push(agent);
+    }
   }
-  return [...agents.values()];
+  return result;
 };
 
 /**

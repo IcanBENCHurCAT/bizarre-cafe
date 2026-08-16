@@ -355,10 +355,16 @@ export const createAndVerifyPayment = (
  * @returns Array of payment records
  */
 export const getAllPayments = (status?: PaymentStatus): PaymentPromise[] => {
-  if (status) {
-    return [...payments.values()].filter((p) => p.status === status);
+  // ⚡ Bolt Optimization: Avoid O(N) memory allocation from spreading Map values and filtering
+  if (!status) return [...payments.values()];
+
+  const result: PaymentPromise[] = [];
+  for (const payment of payments.values()) {
+    if (payment.status === status) {
+      result.push(payment);
+    }
   }
-  return [...payments.values()];
+  return result;
 };
 
 /**
