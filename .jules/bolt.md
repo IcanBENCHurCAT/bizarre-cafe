@@ -13,3 +13,6 @@
 ## 2024-11-20 - [O(N) Memory Allocation in Map Iteration]
 **Learning:** Found unnecessary memory allocation when iterating over Map values in `src/sse/index.ts`. Using `Array.from(map.values())` inside high-frequency loops (like SSE heartbeats and real-time state retrieval) allocates a new array of size N on every call, increasing garbage collection pressure and CPU usage.
 **Action:** When iterating over Maps or Sets, use the iterator directly (e.g., `for (const item of map.values())`) instead of converting it to an array first with `Array.from()`.
+## 2023-10-27 - Database Consistency via Promise.all
+**Learning:** Never use `Promise.all()` to parallelize database mutation operations (e.g. updating a trade status and an offer status concurrently) where subsequent operations are logically meant to depend on the first. The database client will execute them immediately and independently, leading to data inconsistency bugs if one fails and the other succeeds.
+**Action:** When seeking parallelization optimizations with Supabase or similar database drivers, strictly ensure the queries are entirely independent (e.g. an `update` and a completely unrelated `select`) before combining them in `Promise.all`.
