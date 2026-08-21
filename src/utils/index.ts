@@ -145,9 +145,12 @@ export const generateShortId = (length: number = 8): string => {
   const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
 
-  return Array.from(bytes)
-    .map((b) => chars[b % chars.length])
-    .join('');
+  // ⚡ Bolt Optimization: Avoid O(N) memory allocation from Array.from() + map() + join()
+  let result = '';
+  for (let i = 0; i < bytes.length; i++) {
+    result += chars[bytes[i] % chars.length];
+  }
+  return result;
 };
 
 // ──────────────────────────────────────────────
@@ -164,9 +167,12 @@ export const generateNonce = (length: number = 32): string => {
   const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
 
-  return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  // ⚡ Bolt Optimization: Avoid O(N) memory allocation from Array.from() + map() + join()
+  let result = '';
+  for (let i = 0; i < bytes.length; i++) {
+    result += bytes[i].toString(16).padStart(2, '0');
+  }
+  return result;
 };
 
 /**
@@ -189,9 +195,14 @@ export const hashNonce = async (nonce: string): Promise<string> => {
 
   const data = new TextEncoder().encode(nonce);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashArray = new Uint8Array(hashBuffer);
 
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  // ⚡ Bolt Optimization: Avoid O(N) memory allocation from Array.from() + map() + join()
+  let result = '';
+  for (let i = 0; i < hashArray.length; i++) {
+    result += hashArray[i].toString(16).padStart(2, '0');
+  }
+  return result;
 };
 
 /**

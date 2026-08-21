@@ -16,3 +16,6 @@
 ## 2023-10-27 - Database Consistency via Promise.all
 **Learning:** Never use `Promise.all()` to parallelize database mutation operations (e.g. updating a trade status and an offer status concurrently) where subsequent operations are logically meant to depend on the first. The database client will execute them immediately and independently, leading to data inconsistency bugs if one fails and the other succeeds.
 **Action:** When seeking parallelization optimizations with Supabase or similar database drivers, strictly ensure the queries are entirely independent (e.g. an `update` and a completely unrelated `select`) before combining them in `Promise.all`.
+## 2026-08-21 - [Avoid O(N) Array Allocations on Cryptographic Utilities]
+**Learning:** Functions like `generateNonce` and `hashNonce` allocated multiple intermediate arrays via `Array.from(bytes).map(...).join('')` to perform simple byte-to-hex and byte-to-char conversions. This creates unnecessary O(N) memory allocations (creating intermediate Number and String arrays) on high-frequency code paths.
+**Action:** Replace `Array.from()` conversions with direct `for` loops and `+=` string concatenations in performance-critical cryptographic utility functions.
