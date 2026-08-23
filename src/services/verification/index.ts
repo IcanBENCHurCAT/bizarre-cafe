@@ -114,9 +114,13 @@ const CHALLENGE_WINDOW_MS = 60 * 60 * 1000;
 const generateNonce = (length: number = 32): string => {
   const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
-  return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+
+  // ⚡ Bolt Optimization: Avoid O(N) memory allocation from Array.from() + map() + join()
+  let hex = '';
+  for (let i = 0; i < bytes.length; i++) {
+    hex += bytes[i].toString(16).padStart(2, '0');
+  }
+  return hex;
 };
 
 /**
@@ -132,8 +136,14 @@ export const hashNonce = (nonce: string): Promise<string> => {
     const encoder = new TextEncoder();
     const data = encoder.encode(nonce);
     return crypto.subtle.digest('SHA-256', data).then((hashBuffer) => {
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+      const hashBytes = new Uint8Array(hashBuffer);
+
+      // ⚡ Bolt Optimization: Avoid O(N) memory allocation from Array.from() + map() + join()
+      let hex = '';
+      for (let i = 0; i < hashBytes.length; i++) {
+        hex += hashBytes[i].toString(16).padStart(2, '0');
+      }
+      return hex;
     });
   }
 
