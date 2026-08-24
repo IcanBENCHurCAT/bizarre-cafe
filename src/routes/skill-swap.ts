@@ -224,20 +224,26 @@ router.get('/offers', async (c) => {
       updatedAt: o.updated_at,
     })) as any[];
 
-    // ⚡ Bolt Optimization: Avoid O(N) memory allocation from Array.from() + filter()
-    // Pre-compute lowercased search to avoid repeated allocations in the loop
+    // ⚡ Bolt Optimization: Avoid full Map iteration and O(N) memory allocation.
+    // Early exit when limit is satisfied or when remaining limit is filled.
     const inMemOffers: any[] = [];
-    const searchLower = search?.toLowerCase();
-    for (const o of memOffers.values()) {
-      if (
-        o.status === 'available' &&
-        (!searchLower || o.skillName.toLowerCase().includes(searchLower))
-      ) {
-        inMemOffers.push(o);
+    const limitRemaining = limit - dbOffers.length;
+    if (limitRemaining > 0) {
+      const searchLower = search?.toLowerCase();
+      for (const o of memOffers.values()) {
+        if (
+          o.status === 'available' &&
+          (!searchLower || o.skillName.toLowerCase().includes(searchLower))
+        ) {
+          inMemOffers.push(o);
+          if (inMemOffers.length >= limitRemaining) {
+            break;
+          }
+        }
       }
     }
 
-    const offers = [...dbOffers, ...inMemOffers].slice(0, limit);
+    const offers = dbOffers.length === 0 ? inMemOffers : dbOffers.concat(inMemOffers);
 
     return c.json({ offers, total: offers.length });
   } catch (err) {
@@ -429,15 +435,22 @@ router.get('/trades', async (c) => {
       updatedAt: t.updated_at,
     })) as any[];
 
-    // ⚡ Bolt Optimization: Iterate Map directly to avoid O(N) allocation from Array.from() + filter()
+    // ⚡ Bolt Optimization: Avoid full Map iteration and O(N) memory allocation.
+    // Early exit when limit is satisfied or when remaining limit is filled.
     const inMemTradesForAgent: any[] = [];
-    for (const t of memTrades.values()) {
-      if (t.fromAgentId === user.agentId || t.toAgentId === user.agentId) {
-        inMemTradesForAgent.push(t);
+    const limitRemaining = limit - dbTrades.length;
+    if (limitRemaining > 0) {
+      for (const t of memTrades.values()) {
+        if (t.fromAgentId === user.agentId || t.toAgentId === user.agentId) {
+          inMemTradesForAgent.push(t);
+          if (inMemTradesForAgent.length >= limitRemaining) {
+            break;
+          }
+        }
       }
     }
 
-    const trades = [...dbTrades, ...inMemTradesForAgent].slice(0, limit);
+    const trades = dbTrades.length === 0 ? inMemTradesForAgent : dbTrades.concat(inMemTradesForAgent);
 
     return c.json({ trades, total: trades.length });
   } catch (err) {
