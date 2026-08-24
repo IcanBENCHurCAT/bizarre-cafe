@@ -232,53 +232,57 @@ export const parseX402Header = (header: string): X402HeaderComponents | undefine
   if (!header || typeof header !== 'string') return undefined;
 
   try {
-    const result: Partial<X402HeaderComponents> = { raw: header };
+    let receipt: string | undefined;
+    let service: string | undefined;
+    let expiry: number | undefined;
+    let amount: number | undefined;
 
-    // Parse key=value pairs separated by semicolons
-    const parts = header.split(';');
+    // ⚡ Bolt Optimization: Avoid O(N) intermediate array allocations from header.split(';') and .trim()
+    let start = 0;
+    const len = header.length;
 
-    for (const part of parts) {
-      const trimmed = part.trim();
+    while (start < len) {
+      let end = header.indexOf(';', start);
+      if (end === -1) end = len;
 
-      if (trimmed.startsWith('x402=')) {
-        result.receipt = trimmed.slice(5);
-      } else if (trimmed.startsWith('service=')) {
-        result.service = trimmed.slice(8);
-      } else if (trimmed.startsWith('expiry=')) {
-        const expiry = Number(trimmed.slice(7));
-        if (!Number.isNaN(expiry)) {
-          result.expiry = expiry;
-        }
-      } else if (trimmed.startsWith('amount=')) {
-        const amount = Number(trimmed.slice(7));
-        if (!Number.isNaN(amount)) {
-          result.amount = amount;
-        }
+      // Skip leading whitespace in part
+      let pStart = start;
+      while (pStart < end && header.charCodeAt(pStart) <= 32) {
+        pStart++;
       }
+      // Skip trailing whitespace in part
+      let pEnd = end;
+      while (pEnd > pStart && header.charCodeAt(pEnd - 1) <= 32) {
+        pEnd--;
+      }
+
+      const partLen = pEnd - pStart;
+
+      if (partLen > 5 && header.startsWith('x402=', pStart)) {
+        receipt = header.slice(pStart + 5, pEnd);
+      } else if (partLen > 8 && header.startsWith('service=', pStart)) {
+        service = header.slice(pStart + 8, pEnd);
+      } else if (partLen > 7 && header.startsWith('expiry=', pStart)) {
+        const val = Number(header.slice(pStart + 7, pEnd));
+        if (!Number.isNaN(val)) expiry = val;
+      } else if (partLen > 7 && header.startsWith('amount=', pStart)) {
+        const val = Number(header.slice(pStart + 7, pEnd));
+        if (!Number.isNaN(val)) amount = val;
+      }
+
+      start = end + 1;
     }
 
     // Validate required fields
-    if (!result.receipt || !result.service) return undefined;
-
-    // Check expiry if present
-    if (result.expiry && Date.now() > result.expiry * 1000) {
-      return {
-        ...result,
-        receipt: result.receipt,
-        service: result.service,
-        expiry: result.expiry,
-        amount: result.amount,
-        raw: header,
-      } as X402HeaderComponents;
-    }
+    if (!receipt || !service) return undefined;
 
     return {
-      receipt: result.receipt || '',
-      service: result.service || '',
-      expiry: result.expiry,
-      amount: result.amount,
+      receipt,
+      service,
+      expiry,
+      amount,
       raw: header,
-    } as X402HeaderComponents;
+    };
   } catch {
     return undefined;
   }

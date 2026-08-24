@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { generateId, withRetrySync, generateNonce, validateReceipt } from '../src/utils/index.js';
+import { generateId, withRetrySync, generateNonce, validateReceipt, parseX402Header } from '../src/utils/index.js';
 
 // ============================================================
 // generateId tests (from PR #13)
@@ -259,5 +259,74 @@ describe('validateReceipt', () => {
     expect(validateReceipt('abcdefghij')).toBe(false);
     expect(validateReceipt('1234567890')).toBe(false);
     expect(validateReceipt('noprefixatall')).toBe(false);
+  });
+});
+
+// ============================================================
+// parseX402Header tests
+// ============================================================
+describe('parseX402Header', () => {
+  it('should return undefined for invalid input types or empty strings', () => {
+    // @ts-expect-error - testing invalid JS inputs
+    expect(parseX402Header(null)).toBeUndefined();
+    // @ts-expect-error - testing invalid JS inputs
+    expect(parseX402Header(undefined)).toBeUndefined();
+    // @ts-expect-error - testing invalid JS inputs
+    expect(parseX402Header(123)).toBeUndefined();
+    expect(parseX402Header('')).toBeUndefined();
+  });
+
+  it('should return undefined if required fields receipt (x402) or service are missing', () => {
+    expect(parseX402Header('x402=pay_123456')).toBeUndefined();
+    expect(parseX402Header('service=ai-chat')).toBeUndefined();
+    expect(parseX402Header('expiry=1700000000;amount=10')).toBeUndefined();
+  });
+
+  it('should parse a valid header with all fields', () => {
+    const header = 'x402=pay_1234567890;service=ai-chat;expiry=1700000000;amount=10';
+    const parsed = parseX402Header(header);
+    expect(parsed).toEqual({
+      receipt: 'pay_1234567890',
+      service: 'ai-chat',
+      expiry: 1700000000,
+      amount: 10,
+      raw: header,
+    });
+  });
+
+  it('should handle whitespace around parts and values', () => {
+    const header = '  x402=0xabc123  ;  service=mystic-oracle ; expiry=1800000000 ; amount=50  ';
+    const parsed = parseX402Header(header);
+    expect(parsed).toEqual({
+      receipt: '0xabc123',
+      service: 'mystic-oracle',
+      expiry: 1800000000,
+      amount: 50,
+      raw: header,
+    });
+  });
+
+  it('should parse header without optional fields expiry and amount', () => {
+    const header = 'x402=pay_999;service=cafe-service';
+    const parsed = parseX402Header(header);
+    expect(parsed).toEqual({
+      receipt: 'pay_999',
+      service: 'cafe-service',
+      expiry: undefined,
+      amount: undefined,
+      raw: header,
+    });
+  });
+
+  it('should ignore non-numeric expiry or amount values', () => {
+    const header = 'x402=pay_123;service=test;expiry=invalid;amount=abc';
+    const parsed = parseX402Header(header);
+    expect(parsed).toEqual({
+      receipt: 'pay_123',
+      service: 'test',
+      expiry: undefined,
+      amount: undefined,
+      raw: header,
+    });
   });
 });
