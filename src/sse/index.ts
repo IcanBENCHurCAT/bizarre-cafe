@@ -1,5 +1,5 @@
 import { Context } from 'hono';
-import { streamSSE } from 'hono/streaming';
+import { streamSSE, SSEStreamingApi } from 'hono/streaming';
 import { config } from '../config';
 
 export interface SseClient {
@@ -9,7 +9,7 @@ export interface SseClient {
   active: boolean;
   lastSeen: number;
   heartbeatTimer: ReturnType<typeof setInterval> | null;
-  stream: any;
+  stream: SSEStreamingApi;
 }
 
 export interface SseMessage {
