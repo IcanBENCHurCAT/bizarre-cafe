@@ -29,12 +29,19 @@ export interface AgentStatusData {
   last_seen: string;
 }
 
+export interface PaginationData {
+  total: number;
+  offset: number;
+  limit: number;
+  hasMore: boolean;
+}
+
 export interface DatabaseAdapter {
   rooms: {
     list: (params?: {
       offset?: number;
       limit?: number;
-    }) => Promise<{ data: RoomData[]; pagination: any }>;
+    }) => Promise<{ data: RoomData[]; pagination: PaginationData }>;
     create: (data: Partial<RoomData>) => Promise<RoomData>;
     get: (id: string) => Promise<RoomData | null>;
   };
