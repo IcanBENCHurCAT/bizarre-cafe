@@ -6,7 +6,10 @@ let dbInstance: ReturnType<typeof Database> | null = null;
 
 function getDb() {
   if (!dbInstance) {
-    dbInstance = new Database(config.databaseUrl || 'local.sqlite');
+    const dbPath = config.databaseUrl.endsWith('.sqlite') || config.databaseUrl.endsWith('.db')
+      ? config.databaseUrl
+      : 'local.sqlite';
+    dbInstance = new Database(dbPath);
     dbInstance.pragma('journal_mode = WAL');
 
     // Initialize schema
