@@ -15,6 +15,9 @@ import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import { createSupabaseClient } from '../supabase/client';
 import type { SkillOffer as _SkillOffer, SkillRequest as _SkillRequest, Trade as _Trade, ApiError as _ApiError } from '../types/cafe';
+import type { Database } from '../supabase/types/database.types';
+
+type SkillOfferRow = Database['public']['Tables']['skill_offers']['Row'];
 
 const router = new Hono();
 
@@ -211,18 +214,26 @@ router.get('/offers', async (c) => {
     const { data, error: _error } = await queryBuilder;
 
     // Merge DB results with in-memory fallback offers
-    const dbOffers = (data ?? []).map((o: any) => ({
-      id: o.id,
-      agentId: o.agent_id,
-      skillName: o.skill_name,
-      description: o.description,
-      tags: o.tags,
-      wantedSkill: o.wanted_skill,
-      wantedDescription: o.wanted_description,
-      status: o.status,
-      createdAt: o.created_at,
-      updatedAt: o.updated_at,
-    })) as any[];
+    const dbOffers = (data ?? []).map((o: SkillOfferRow) => {
+      const row = o as SkillOfferRow & {
+        agent_id?: string;
+        tags?: string[];
+        wanted_skill?: string;
+        wanted_description?: string;
+      };
+      return {
+        id: row.id,
+        agentId: row.agent_id ?? row.user_id,
+        skillName: row.skill_name,
+        description: row.description,
+        tags: row.tags ?? [],
+        wantedSkill: row.wanted_skill ?? row.looking_for,
+        wantedDescription: row.wanted_description ?? null,
+        status: row.status,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
+    });
 
     // ⚡ Bolt Optimization: Avoid full Map iteration and O(N) memory allocation.
     // Early exit when limit is satisfied or when remaining limit is filled.
