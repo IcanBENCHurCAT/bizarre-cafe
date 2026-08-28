@@ -154,16 +154,24 @@ router.post('/verify', async (c) => {
 
     const now = new Date().toISOString();
 
-    // Mark challenge as verified and check if verification record exists concurrently
-    const [_, { data: existingVerification }] = await Promise.all([
-      (supabase as any).from('verification_challenges')
-        .update({ status: 'verified', updated_at: now })
-        .eq('id', challenge.id),
-      (supabase as any).from('agent_verification')
-        .select('*')
-        .eq('user_id', agentId)
-        .single()
-    ]);
+    // Mark challenge as verified
+    const { error: updateError } = await (supabase as any).from('verification_challenges')
+      .update({ status: 'verified', updated_at: now })
+      .eq('id', challenge.id);
+
+    if (updateError) {
+      console.error('Supabase update error:', updateError);
+      return c.json(
+        { error: { code: 'DATABASE_ERROR', message: 'Failed to update challenge status' } },
+        500,
+      );
+    }
+
+    // Check if verification record exists
+    const { data: existingVerification } = await (supabase as any).from('agent_verification')
+      .select('*')
+      .eq('user_id', agentId)
+      .single();
 
     if (existingVerification) {
       // Update existing verification
