@@ -27,6 +27,7 @@ export interface Config {
   rateLimitMaxRequests: number;
   sseTimeoutMs: number;
   sseHeartbeatMs: number;
+  corsAllowedOrigins: string | string[];
 }
 
 const getRequired = (key: string): string => {
@@ -78,4 +79,8 @@ export const config: Config = {
   rateLimitMaxRequests: getNumber('RATE_LIMIT_MAX_REQUESTS', 100),
   sseTimeoutMs: getNumber('SSE_TIMEOUT_MS', 300000),
   sseHeartbeatMs: getNumber('SSE_HEARTBEAT_MS', 30000),
+  corsAllowedOrigins: (() => {
+    const rawOrigins = getOptional('CORS_ALLOWED_ORIGINS', '*');
+    return rawOrigins.includes(',') ? rawOrigins.split(',').map((o) => o.trim()) : rawOrigins;
+  })(),
 };
