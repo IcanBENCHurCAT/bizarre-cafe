@@ -104,16 +104,12 @@ const SIMULATION_DELAY_MS = 2000;
 // ──────────────────────────────────────────────
 
 /**
- * Generate a unique payment ID.
+ * Generate a unique payment ID using cryptographically secure randomness.
  *
  * @returns Unique payment identifier
  */
 const generatePaymentId = (): string => {
-  try {
-    return crypto.randomUUID();
-  } catch {
-    return `pay_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-  }
+  return crypto.randomUUID();
 };
 
 /**
