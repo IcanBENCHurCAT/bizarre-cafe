@@ -114,8 +114,8 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
     }
   }
 
-  // Method 3: Agent ID header (for internal calls)
-  if (!user && agentId) {
+  // Method 3: Agent ID header (only for development/testing)
+  if (!user && agentId && config.nodeEnv === 'development') {
     user = generateFakeUser(agentId);
   }
 
