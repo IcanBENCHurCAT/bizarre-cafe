@@ -1,10 +1,41 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   verifyPayment,
   createPaymentPromise,
   clearPayments,
   PaymentItem,
 } from '../src/services/x402/index';
+
+describe('x402 Payment Service - createPaymentPromise', () => {
+  beforeEach(() => {
+    clearPayments();
+    vi.restoreAllMocks();
+  });
+
+  const dummyItems: PaymentItem[] = [
+    { service: 'Espresso', price: 250, quantity: 1 },
+  ];
+  const payerWallet = 'ALGO_SENDER_WALLET';
+
+  it('should generate a payment promise with a valid UUID paymentId', () => {
+    const payment = createPaymentPromise(dummyItems, payerWallet);
+    expect(payment.paymentId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+  });
+
+  it('should throw an error if crypto.randomUUID fails instead of falling back to Math.random', () => {
+    const spy = vi.spyOn(crypto, 'randomUUID').mockImplementation(() => {
+      throw new Error('crypto.randomUUID unavailable');
+    });
+
+    expect(() => createPaymentPromise(dummyItems, payerWallet)).toThrow(
+      'crypto.randomUUID unavailable',
+    );
+
+    spy.mockRestore();
+  });
+});
 
 describe('x402 Payment Service - verifyPayment', () => {
   beforeEach(() => {
