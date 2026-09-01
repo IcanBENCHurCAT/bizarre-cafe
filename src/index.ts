@@ -36,7 +36,7 @@ const app = new Hono();
 
 // Global middleware
 app.use('*', logger());
-app.use('*', cors());
+app.use('*', cors({ origin: config.corsAllowedOrigins }));
 app.use('*', secureHeaders());
 app.use('*', poweredBy());
 
