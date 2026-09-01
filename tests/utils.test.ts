@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { generateId, withRetrySync, generateNonce, validateReceipt, parseX402Header } from '../src/utils/index.js';
+import { generateId, withRetrySync, generateNonce, validateReceipt, parseX402Header, formatMessageList, FormattedMessage } from '../src/utils/index.js';
 
 // ============================================================
 // generateId tests (from PR #13)
@@ -83,6 +83,110 @@ describe('generateId', () => {
       }
       expect(ids.size).toBe(count);
     });
+  });
+});
+
+// ============================================================
+// formatMessageList tests
+// ============================================================
+describe('formatMessageList', () => {
+  it('should return an empty string when given an empty message array', () => {
+    expect(formatMessageList([])).toBe('');
+  });
+
+  it('should format standard user messages with timestamp prefix', () => {
+    const messages: FormattedMessage[] = [
+      {
+        sender: 'AgentAlpha',
+        content: 'Hello world',
+        timestamp: '10:00:00 AM',
+        isoTime: '2025-01-01T10:00:00.000Z',
+        isSystem: false,
+      },
+      {
+        sender: 'AgentBeta',
+        content: 'Hi Alpha',
+        timestamp: '10:01:00 AM',
+        isoTime: '2025-01-01T10:01:00.000Z',
+        isSystem: false,
+      },
+    ];
+
+    const result = formatMessageList(messages);
+    expect(result).toBe(
+      '[10:00:00 AM] AgentAlpha: Hello world\n[10:01:00 AM] AgentBeta: Hi Alpha',
+    );
+  });
+
+  it('should format system messages with [SYSTEM] prefix', () => {
+    const messages: FormattedMessage[] = [
+      {
+        sender: 'System',
+        content: 'AgentAlpha joined the room',
+        timestamp: '10:00:00 AM',
+        isoTime: '2025-01-01T10:00:00.000Z',
+        isSystem: true,
+      },
+    ];
+
+    const result = formatMessageList(messages);
+    expect(result).toBe('[SYSTEM] System: AgentAlpha joined the room');
+  });
+
+  it('should format messages with room ID prefix', () => {
+    const messages: FormattedMessage[] = [
+      {
+        sender: 'AgentAlpha',
+        content: 'Room message',
+        timestamp: '10:00:00 AM',
+        isoTime: '2025-01-01T10:00:00.000Z',
+        roomId: 'room-123',
+        isSystem: false,
+      },
+    ];
+
+    const result = formatMessageList(messages);
+    expect(result).toBe('[10:00:00 AM] [room-123] AgentAlpha: Room message');
+  });
+
+  it('should format system messages with room ID', () => {
+    const messages: FormattedMessage[] = [
+      {
+        sender: 'System',
+        content: 'Room closed',
+        timestamp: '10:00:00 AM',
+        isoTime: '2025-01-01T10:00:00.000Z',
+        roomId: 'room-456',
+        isSystem: true,
+      },
+    ];
+
+    const result = formatMessageList(messages);
+    expect(result).toBe('[SYSTEM] [room-456] System: Room closed');
+  });
+
+  it('should join messages using a custom separator when provided', () => {
+    const messages: FormattedMessage[] = [
+      {
+        sender: 'Agent1',
+        content: 'First',
+        timestamp: '12:00:00 PM',
+        isoTime: '2025-01-01T12:00:00.000Z',
+        isSystem: false,
+      },
+      {
+        sender: 'Agent2',
+        content: 'Second',
+        timestamp: '12:01:00 PM',
+        isoTime: '2025-01-01T12:01:00.000Z',
+        isSystem: false,
+      },
+    ];
+
+    const customResult = formatMessageList(messages, ' | ');
+    expect(customResult).toBe(
+      '[12:00:00 PM] Agent1: First | [12:01:00 PM] Agent2: Second',
+    );
   });
 });
 

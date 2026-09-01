@@ -49,6 +49,12 @@ Thumbs.db
 *.bak
 *.cache
 
+# SQLite Database
+sqlite.db*
+*.db
+*.db-shm
+*.db-wal
+
 # Supabase
 .supabase/
 .gitlab/
