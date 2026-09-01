@@ -32,9 +32,6 @@ export interface Config {
 const getRequired = (key: string): string => {
   const value = process.env[key];
   if (!value) {
-    if (process.env.NODE_ENV === 'test') {
-      return 'dummy-test-secret-key';
-    }
     throw new Error(`Missing required environment variable: ${key}`);
   }
   return value;
@@ -72,7 +69,7 @@ export const config: Config = {
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   ),
   x402Config: getOptional('X402_CONFIG', '{}'),
-  jwtSecret: process.env.NODE_ENV === 'test' ? getOptional('JWT_SECRET', 'test-jwt-secret') : getRequired('JWT_SECRET'),
+  jwtSecret: getRequired('JWT_SECRET'),
   jwtExpiry: getOptional('JWT_EXPIRY', '24h'),
   rateLimitWindowMs: getNumber('RATE_LIMIT_WINDOW_MS', 900000),
   rateLimitMaxRequests: getNumber('RATE_LIMIT_MAX_REQUESTS', 100),
