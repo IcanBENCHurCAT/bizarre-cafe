@@ -58,21 +58,25 @@ describe('generateId', () => {
       });
     });
 
-    it('should fallback and generate a valid ID without a prefix', () => {
+    it('should fallback and generate a valid ID without a prefix using getRandomValues', () => {
+      const getRandomValuesSpy = vi.spyOn(crypto, 'getRandomValues');
       const id = generateId();
       expect(id).toBeDefined();
       expect(typeof id).toBe('string');
       expect(id.length).toBeGreaterThan(0);
       expect(id).toContain('-');
+      expect(getRandomValuesSpy).toHaveBeenCalled();
     });
 
-    it('should fallback and generate a valid ID with a prefix', () => {
+    it('should fallback and generate a valid ID with a prefix using getRandomValues', () => {
+      const getRandomValuesSpy = vi.spyOn(crypto, 'getRandomValues');
       const prefix = 'fallback_test';
       const id = generateId(prefix);
       expect(id).toBeDefined();
       expect(typeof id).toBe('string');
       expect(id.startsWith(`${prefix}_`)).toBe(true);
       expect(id).toContain('-');
+      expect(getRandomValuesSpy).toHaveBeenCalled();
     });
 
     it('should generate unique fallback IDs', () => {
