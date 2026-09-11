@@ -51,6 +51,8 @@ Thumbs.db
 
 # SQLite Database
 sqlite.db*
+local.sqlite*
+*.sqlite*
 *.db
 *.db-shm
 *.db-wal
