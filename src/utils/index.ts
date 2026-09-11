@@ -129,7 +129,7 @@ export const formatMessageList = (
 export const generateId = (prefix?: string): string => {
   const suffix = crypto.randomUUID?.()
     ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    : `${Date.now()}-${generateShortId(7)}`;
 
   return prefix ? `${prefix}_${suffix}` : suffix;
 };

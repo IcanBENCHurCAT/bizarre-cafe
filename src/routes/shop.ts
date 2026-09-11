@@ -12,6 +12,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { createSupabaseClient } from '../supabase/client';
 import { requireX402Payment } from '../middleware/auth';
+import { generateId } from '../utils/index';
 import type { ShopItem, Receipt, ApiError as _ApiError } from '../types/cafe';
 
 const router = new Hono();
@@ -222,7 +223,7 @@ router.post('/checkout', async (c) => {
 
     // Create x402 promise
     const totalAmount = item.price * validated.quantity;
-    const promiseId = `x402-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const promiseId = generateId('x402');
 
     // Store receipt record
     const { data: receipt, error: receiptError } = await (supabase as any).from('receipts')
