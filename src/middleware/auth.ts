@@ -1,5 +1,3 @@
-// @ts-nocheck
- 
 /**
  * Authentication Middleware (x402 + Wallet Signature)
  *
@@ -10,8 +8,7 @@
  */
 
 import { Context, MiddlewareHandler } from 'hono';
-import { verify as _verify } from '@noble/ed25519';
-import { jwtVerify as _jwtVerify, type JWTPayload as _JWTPayload } from 'jose';
+import { jwtVerify, SignJWT } from 'jose';
 import { config } from '../config';
 
 export interface AuthUser {
@@ -50,10 +47,12 @@ const extractWalletSignature = (
 
   if (!sig || !address || !message) return null;
 
-  // Base64 decode the signature
-  const sigBytes = Uint8Array.from(atob(sig), (c) => c.charCodeAt(0));
-
-  return { message, signature: sigBytes.toString('hex'), address };
+  try {
+    const sigBuffer = Buffer.from(sig, 'base64');
+    return { message, signature: sigBuffer.toString('hex'), address };
+  } catch {
+    return null;
+  }
 };
 
 const verifyWalletSignature = async (
@@ -74,6 +73,22 @@ const verifyWalletSignature = async (
   }
 };
 
+/**
+ * Creates a signed JWT token for an agent/user.
+ */
+export const createToken = async (
+  payload: Partial<AuthUser> & { agentId: string },
+  expiresIn: string = config.jwtExpiry,
+): Promise<string> => {
+  const secretKey = new TextEncoder().encode(config.jwtSecret);
+  return new SignJWT({ ...payload })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setSubject(payload.agentId)
+    .setIssuedAt()
+    .setExpirationTime(expiresIn)
+    .sign(secretKey);
+};
+
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
   const authHeader = c.req.header('Authorization');
   const agentId = c.req.header('X-Agent-ID') ?? c.req.header('x-agent-id');
@@ -83,15 +98,19 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   // Method 1: JWT token
   if (authHeader?.startsWith('Bearer ')) {
     try {
-      const _token = authHeader.slice(7);
+      const token = authHeader.slice(7);
       // For dev, accept any token
       if (config.nodeEnv === 'development') {
         user = generateFakeUser(agentId || 'dev-agent');
       } else {
-        // Verify JWT
-        // const { payload } = await jwtVerify(token, secretKey);
-        // user = payload as AuthUser;
-        user = generateFakeUser(agentId || 'dev-agent');
+        const secretKey = new TextEncoder().encode(config.jwtSecret);
+        const { payload } = await jwtVerify(token, secretKey);
+        user = {
+          agentId: (payload.agentId as string) || agentId || (payload.sub as string) || 'unknown-agent',
+          walletAddress: payload.walletAddress as string | undefined,
+          tier: (payload.tier as 'free' | 'premium') || 'free',
+          paidRoutes: Array.isArray(payload.paidRoutes) ? (payload.paidRoutes as string[]) : [],
+        };
       }
     } catch {
       // JWT invalid, try wallet signature
