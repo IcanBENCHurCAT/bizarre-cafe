@@ -12,16 +12,59 @@ export interface X402PaymentHeaderOptions {
     paymentId?: string;
 }
 export type PaymentHandler = (challenge: X402Challenge) => Promise<string>;
+export interface AgentClientRetryConfig {
+    autoReconnect?: boolean;
+    initialDelayMs?: number;
+    maxDelayMs?: number;
+    maxRetries?: number;
+    jitter?: number;
+}
+export type SseConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
+export type ConnectionState = SseConnectionState;
+export interface AgentClientEvents {
+    chat: (data: {
+        roomId: string;
+        agentId: string;
+        message: string;
+        timestamp: number;
+    }) => void;
+    room_update: (data: Record<string, unknown>) => void;
+    presence: (data: {
+        roomId: string;
+        agentId: string;
+        type: 'join' | 'leave' | 'presence';
+        status?: string;
+        timestamp: number;
+    }) => void;
+    heartbeat: (data: {
+        type: string;
+        ts?: number;
+        timestamp?: number;
+    }) => void;
+    system: (data: Record<string, unknown>) => void;
+    connecting: () => void;
+    connected: () => void;
+    reconnecting: (attempt: number, delayMs: number) => void;
+    disconnected: (reason?: string) => void;
+    error: (error: Error) => void;
+    message: (event: any) => void;
+}
 export interface AgentClientConfig {
     baseUrl: string;
     agentId: string;
+    token?: string;
     onPaymentRequired?: PaymentHandler;
+    retryConfig?: AgentClientRetryConfig;
 }
 export interface JoinRoomRequest {
     agentName?: string;
 }
 export interface SendMessageRequest {
     content: string;
+}
+export interface ConnectSseOptions {
+    roomId?: string;
+    retryConfig?: AgentClientRetryConfig;
 }
 /**
  * Formats an x402 payment header object from a transaction ID and optional receipt.
@@ -31,17 +74,44 @@ export declare function createX402PaymentHeader(txId: string, options?: string |
  * Extracts and normalizes the X402Challenge payload from an HTTP 402 response body.
  */
 export declare function parse402Challenge(responseBody: any): X402Challenge | null;
+export declare interface AgentClient {
+    on<U extends keyof AgentClientEvents>(event: U, listener: AgentClientEvents[U]): this;
+    on(event: string | symbol, listener: (...args: any[]) => void): this;
+    once<U extends keyof AgentClientEvents>(event: U, listener: AgentClientEvents[U]): this;
+    once(event: string | symbol, listener: (...args: any[]) => void): this;
+    emit<U extends keyof AgentClientEvents>(event: U, ...args: Parameters<AgentClientEvents[U]>): boolean;
+    emit(event: string | symbol, ...args: any[]): boolean;
+    off<U extends keyof AgentClientEvents>(event: U, listener: AgentClientEvents[U]): this;
+    off(event: string | symbol, listener: (...args: any[]) => void): this;
+    addListener<U extends keyof AgentClientEvents>(event: U, listener: AgentClientEvents[U]): this;
+    addListener(event: string | symbol, listener: (...args: any[]) => void): this;
+    removeListener<U extends keyof AgentClientEvents>(event: U, listener: AgentClientEvents[U]): this;
+    removeListener(event: string | symbol, listener: (...args: any[]) => void): this;
+}
 export declare class AgentClient extends EventEmitter {
     private config;
     private es;
     private isListening;
+    private _sseConnectionState;
+    private currentRoomId?;
+    private retryConfig;
+    private retryCount;
+    private reconnectTimer;
+    private isManuallyDisconnected;
     constructor(config: AgentClientConfig);
     /**
-     * Connect to the SSE endpoint to listen for messages
+     * Current SSE connection lifecycle state
      */
-    connectSse(): void;
+    get sseConnectionState(): SseConnectionState;
+    private getHeaders;
+    private clearReconnectTimer;
     /**
-     * Close the SSE connection
+     * Connect to the SSE endpoint to listen for messages with auto-reconnection and typed events
+     */
+    connectSse(options?: ConnectSseOptions): void;
+    private establishSseStream;
+    /**
+     * Close the SSE connection cleanly and suppress auto-reconnect
      */
     disconnectSse(): void;
     /**

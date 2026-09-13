@@ -17,6 +17,7 @@ import { createPaymentPromise, getPaymentStatus } from '../services/x402/index';
 import type { ShopItem, Receipt, ApiError as _ApiError } from '../types/cafe';
 
 const router = new Hono();
+const memReceipts = new Map<string, any>();
 
 // Zod schemas
 const purchaseSchema = z.object({
@@ -251,11 +252,19 @@ router.post('/checkout', requireX402Payment(), async (c) => {
       .single();
 
     if (receiptError) {
-      console.error('Supabase insert error:', receiptError);
-      return c.json(
-        { error: { code: 'DATABASE_ERROR', message: 'Failed to create receipt' } },
-        500,
-      );
+      console.warn('[shop] Supabase unavailable, storing receipt in-memory:', promiseId);
+      memReceipts.set(promiseId, {
+        id: promiseId,
+        user_id: user.agentId,
+        item_id: validated.itemId,
+        quantity: validated.quantity,
+        total_amount: totalAmount,
+        currency: item.currency,
+        payment_method: validated.paymentMethod,
+        status: 'pending',
+        x402_promise_id: promiseId,
+        created_at: new Date().toISOString(),
+      });
     }
 
     const x402TxId = c.get('x402TxId');
@@ -274,7 +283,7 @@ router.post('/checkout', requireX402Payment(), async (c) => {
           agentId: user.agentId,
           walletAddress: user.walletAddress,
           status: 'pending',
-          createdAt: receipt.created_at,
+          createdAt: receipt?.created_at ?? new Date().toISOString(),
           txId: x402TxId,
         },
       },

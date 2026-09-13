@@ -7,11 +7,12 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../db';
+import { updateClientRoom, getRoomAgents } from '../sse';
 
 const router = new Hono();
 
 const roomParamsSchema = z.object({
-  roomId: z.string(),
+  roomId: z.string().min(1),
 });
 
 // GET /api/rooms — List rooms
@@ -33,10 +34,11 @@ router.get('/:roomId', async (c) => {
 // POST /api/rooms/:roomId/join — Join a room
 router.post('/:roomId/join', async (c) => {
   const { roomId } = roomParamsSchema.parse({ roomId: c.req.param('roomId') });
-  const body = await c.req.json();
+  const body = await c.req.json().catch(() => ({}));
   const agentId = body.agentId || c.user?.agentId || 'anonymous';
 
   await db.agents.updateStatus(agentId, { current_room_id: roomId });
+  updateClientRoom(agentId, roomId);
 
   return c.json({
     message: 'Joined room',
@@ -52,15 +54,16 @@ router.post('/:roomId/leave', async (c) => {
   const agentId = body.agentId || c.user?.agentId || 'anonymous';
 
   await db.agents.updateStatus(agentId, { current_room_id: null });
+  updateClientRoom(agentId, null);
 
   return c.json({ message: 'Left room', roomId });
 });
 
 // GET /api/rooms/:roomId/agents — List room participants
 router.get('/:roomId/agents', async (c) => {
-  const { roomId: _roomId } = roomParamsSchema.parse({ roomId: c.req.param('roomId') });
+  const { roomId } = roomParamsSchema.parse({ roomId: c.req.param('roomId') });
 
-  return c.json({ agents: [] });
+  return c.json({ roomId, agents: getRoomAgents(roomId) });
 });
 
 export default router;

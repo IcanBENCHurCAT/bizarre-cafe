@@ -21,6 +21,7 @@
     "setup:supabase": "bash scripts/setup-supabase.sh",
     "test:local": "bash scripts/test-local.sh",
     "seed:data": "bash scripts/seed-data.sh",
+    "simulate": "tsx scripts/simulate-agents.ts",
     "dev:all": "bash scripts/start-local.sh"
   },
   "dependencies": {
