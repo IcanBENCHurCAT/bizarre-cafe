@@ -40,6 +40,67 @@ function getDb() {
         current_room_id TEXT,
         last_seen TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS shop_items (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        price INTEGER NOT NULL,
+        currency TEXT DEFAULT 'microUSDC',
+        stock INTEGER,
+        image_url TEXT,
+        tags TEXT,
+        is_active INTEGER DEFAULT 1,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS skill_offers (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        skill_name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        tags TEXT,
+        wanted_skill TEXT,
+        wanted_description TEXT,
+        status TEXT DEFAULT 'available',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS cafe_events (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        type TEXT NOT NULL,
+        status TEXT DEFAULT 'upcoming',
+        location TEXT,
+        host_id TEXT,
+        max_attendees INTEGER,
+        start_time TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS owner_mood (
+        id TEXT PRIMARY KEY,
+        mood TEXT NOT NULL,
+        stress_level INTEGER DEFAULT 25,
+        last_interaction TEXT,
+        total_interactions INTEGER DEFAULT 0
+      );
+
+      CREATE TABLE IF NOT EXISTS verification_challenges (
+        id TEXT PRIMARY KEY,
+        status TEXT DEFAULT 'pending',
+        user_id TEXT,
+        challenge TEXT NOT NULL,
+        proof TEXT,
+        expires_at TEXT NOT NULL,
+        method TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        verified_at TEXT
+      );
     `);
   }
   return dbInstance;

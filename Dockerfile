@@ -3,9 +3,10 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies first for layer caching
+# Install ALL dependencies (devDeps needed for tsc build)
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev 2>/dev/null || npm install --omit=dev
+COPY packages/ ./packages/
+RUN npm ci 2>/dev/null || npm install
 
 # Copy source and build
 COPY tsconfig.json .
@@ -18,10 +19,13 @@ FROM node:22-alpine AS runtime
 
 WORKDIR /app
 
-# Install production dependencies only
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
+# Install production dependencies only (no devDeps in runtime)
+COPY package.json package-lock.json* ./
+COPY packages/ ./packages/
+RUN npm ci --omit=dev 2>/dev/null || npm install --omit=dev
+
 COPY --from=builder /app/dist ./dist
+COPY .well-known/ ./.well-known/
 
 # Create non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup

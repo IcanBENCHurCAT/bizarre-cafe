@@ -1,4 +1,3 @@
-// @ts-nocheck
  
 /**
  * Circuit Breaker Middleware
@@ -7,7 +6,7 @@
  * States: CLOSED (normal), OPEN (failing), HALF_OPEN (testing recovery)
  */
 
-import { Context, MiddlewareHandler } from 'hono';
+import { Context, MiddlewareHandler, Next } from 'hono';
 
 export type CircuitState = 'closed' | 'open' | 'half_open';
 
@@ -80,7 +79,7 @@ export function circuitBreaker(
 
   if (serviceName) breakers.set(serviceName, breaker);
 
-  return async (c: Context, next: MiddlewareHandler) => {
+  return async (c: Context, next: Next) => {
     const key = serviceName ?? c.req.path;
 
     if (!breaker.canExecute()) {

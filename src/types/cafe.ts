@@ -133,7 +133,8 @@ export type OwnerMoodState =
   | 'wise'
   | 'melancholy'
   | 'energetic'
-  | 'tranquil';
+  | 'tranquil'
+  | 'neutral';
 
 /** Rate limit action */
 export type RateLimitAction = 'allow' | 'throttle' | 'reject';
@@ -388,7 +389,7 @@ export interface ShopItem {
   /** Item icon / emoji */
   icon: string;
   /** Item image URL */
-  imageUrl?: string;
+  imageUrl?: string | null;
   /** Whether the item is a consumable */
   isConsumable: boolean;
   /** Duration of effect (for power-ups), in seconds */
@@ -843,15 +844,18 @@ export interface OwnerMood {
   /** Current mood */
   mood: OwnerMoodState;
   /** Mood last changed timestamp */
-  lastChangedAt: Timestamp;
+  lastChangedAt?: Timestamp;
   /** Mood persistence / decay duration */
-  persistenceMinutes: number;
+  persistenceMinutes?: number;
   /** Mood triggers */
-  triggers: string[];
+  triggers?: string[];
   /** Owner's current greeting */
   greeting?: string;
   /** Owner's current catchphrase */
   catchphrase?: string;
+  stressLevel?: number;
+  lastInteraction?: string;
+  totalInteractions?: number;
 }
 
 export interface NarrativeEvent {
