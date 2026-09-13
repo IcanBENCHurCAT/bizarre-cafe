@@ -23,7 +23,10 @@ export function createSupabaseClient(): SupabaseClient<Database> {
 // ─── Anon Client ──────────────────────────────────────────────────────
 
 /** Standard Supabase client using the anon key (RLS enforced). */
-export const supabase = createClient<Database>(config.supabaseUrl, config.supabaseKey, {
+export const supabase = createClient<Database>(
+  config.supabaseUrl || 'http://localhost:54321',
+  config.supabaseKey || 'dummy-anon-key',
+  {
   auth: {
     persistSession: false,
     autoRefreshToken: false,
@@ -35,7 +38,7 @@ export const supabase = createClient<Database>(config.supabaseUrl, config.supaba
     fetch: async (url, init?) => {
       // Inject auth headers for internal proxy calls if needed
       const headers = new Headers(init?.headers);
-      headers.set('x-service-key', config.supabaseServiceRoleKey);
+      headers.set('x-service-key', config.supabaseServiceRoleKey || 'dummy-service-role-key');
       return fetch(url, { ...init, headers });
     },
   },
@@ -48,8 +51,8 @@ export const supabase = createClient<Database>(config.supabaseUrl, config.supaba
  * Use ONLY on the server side for admin operations.
  */
 export const supabaseAdmin = createClient<Database>(
-  config.supabaseUrl,
-  config.supabaseServiceRoleKey,
+  config.supabaseUrl || 'http://localhost:54321',
+  config.supabaseServiceRoleKey || config.supabaseKey || 'dummy-service-role-key',
   {
     auth: {
       persistSession: false,

@@ -108,6 +108,7 @@ jobs:
           echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/bizarre_cafe_test" >> $GITHUB_ENV
           echo "SUPABASE_URL=http://localhost:5432" >> $GITHUB_ENV
           echo "SUPABASE_KEY=test-anon-key" >> $GITHUB_ENV
+          echo "SUPABASE_SERVICE_ROLE_KEY=test-service-key" >> $GITHUB_ENV
           echo "NODE_ENV=test" >> $GITHUB_ENV
 
       - name: Run tests
