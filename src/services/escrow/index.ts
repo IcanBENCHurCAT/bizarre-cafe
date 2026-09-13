@@ -87,7 +87,7 @@ export async function lockFundsInEscrow(params: EscrowLockParams): Promise<Escro
   if (!config.useLocalDb) {
     try {
       const supabase = createSupabaseClient();
-      await (supabase as any).from('escrow_records').insert({
+      await supabase.from('escrow_records').insert({
         id: escrow.id,
         trade_id: escrow.tradeId,
         buyer_agent_id: escrow.buyerAgentId,
@@ -195,7 +195,7 @@ export async function releaseEscrow(escrowId: string, callerAgentId: string): Pr
   if (!config.useLocalDb) {
     try {
       const supabase = createSupabaseClient();
-      await (supabase as any)
+      await supabase
         .from('escrow_records')
         .update({
           status: 'released',
@@ -213,8 +213,13 @@ export async function releaseEscrow(escrowId: string, callerAgentId: string): Pr
 
 /**
  * Refund escrowed funds to buyer upon trade cancellation or dispute.
+ * Supports 'system' caller for automated compensation rollbacks.
  */
-export async function refundEscrow(escrowId: string, callerAgentId: string): Promise<EscrowRecord> {
+export async function refundEscrow(
+  escrowId: string,
+  callerAgentId: string,
+  reason?: string,
+): Promise<EscrowRecord> {
   let escrow = await getEscrowRecord(escrowId);
   if (!escrow) {
     escrow = await getEscrowByTradeId(escrowId);
@@ -224,8 +229,8 @@ export async function refundEscrow(escrowId: string, callerAgentId: string): Pro
     throw new Error('Escrow record not found');
   }
 
-  // Caller authorization: must be a trade participant (buyer or seller)
-  if (callerAgentId !== escrow.buyerAgentId && callerAgentId !== escrow.sellerAgentId) {
+  // Caller authorization: must be a trade participant (buyer or seller) or 'system'
+  if (callerAgentId !== 'system' && callerAgentId !== escrow.buyerAgentId && callerAgentId !== escrow.sellerAgentId) {
     throw new Error('FORBIDDEN: Not authorized to refund this escrow');
   }
 
@@ -256,12 +261,13 @@ export async function refundEscrow(escrowId: string, callerAgentId: string): Pro
   if (!config.useLocalDb) {
     try {
       const supabase = createSupabaseClient();
-      await (supabase as any)
+      await supabase
         .from('escrow_records')
         .update({
           status: 'refunded',
           refunded_at: now,
           updated_at: now,
+          ...(reason ? { dispute_reason: reason } : {}),
         })
         .eq('id', escrow.id);
     } catch {

@@ -35,6 +35,7 @@ SUPABASE_SERVICE_KEY="${SUPABASE_SERVICE_KEY:-}"
 OPENAI_BASE_URL="${OPENAI_BASE_URL:-}"
 OPENAI_API_KEY="${OPENAI_API_KEY:-}"
 MODEL="${MODEL:-Qwen/Qwen2.5-7B-Instruct}"
+CORS_ALLOWED_ORIGINS="${CORS_ALLOWED_ORIGINS:-https://bizarre.cafe,https://app.bizarre.cafe}"
 NODE_ENV="production"
 
 # Memory / CPU limits
@@ -110,19 +111,23 @@ deploy() {
 
   # Build env-var flags
   local env_flags=()
-  env_flags+=("--set-env-vars,DATABASE_URL=${DATABASE_URL}")
-  [[ -n "$SUPABASE_URL" ]]        && env_flags+=("--set-env-vars,SUPABASE_URL=${SUPABASE_URL}")
-  [[ -n "$SUPABASE_KEY" ]]        && env_flags+=("--set-env-vars,SUPABASE_KEY=${SUPABASE_KEY}")
-  [[ -n "$SUPABASE_SERVICE_KEY" ]] && env_flags+=("--set-env-vars,SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}")
-  [[ -n "$OPENAI_BASE_URL" ]]     && env_flags+=("--set-env-vars,OPENAI_BASE_URL=${OPENAI_BASE_URL}")
-  [[ -n "$OPENAI_API_KEY" ]]      && env_flags+=("--set-env-vars,OPENAI_API_KEY=${OPENAI_API_KEY}")
-  [[ -n "$MODEL" ]]               && env_flags+=("--set-env-vars,MODEL=${MODEL}")
-  env_flags+=("--set-env-vars,NODE_ENV=${NODE_ENV}")
+  env_flags+=("--set-env-vars=DATABASE_URL=${DATABASE_URL}")
+  [[ -n "$SUPABASE_URL" ]]        && env_flags+=("--set-env-vars=SUPABASE_URL=${SUPABASE_URL}")
+  [[ -n "$SUPABASE_KEY" ]]        && env_flags+=("--set-env-vars=SUPABASE_KEY=${SUPABASE_KEY}")
+  [[ -n "$SUPABASE_SERVICE_KEY" ]] && env_flags+=("--set-env-vars=SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}")
+  [[ -n "$OPENAI_BASE_URL" ]]     && env_flags+=("--set-env-vars=OPENAI_BASE_URL=${OPENAI_BASE_URL}")
+  [[ -n "$OPENAI_API_KEY" ]]      && env_flags+=("--set-env-vars=OPENAI_API_KEY=${OPENAI_API_KEY}")
+  [[ -n "$MODEL" ]]               && env_flags+=("--set-env-vars=MODEL=${MODEL}")
+  env_flags+=("--set-env-vars=NODE_ENV=${NODE_ENV}")
+  env_flags+=("--set-env-vars=CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}")
+
+  local service_account="bizarre-cafe-runner@${PROJECT_ID}.iam.gserviceaccount.com"
 
   gcloud run deploy "${SERVICE_NAME}" \
     --platform=managed \
     --region="${REGION}" \
     --image="${IMAGE}" \
+    --service-account="${service_account}" \
     --memory="${MEMORY}" \
     --cpu="${CPU}" \
     --min-instances="${MIN_INSTANCES}" \
@@ -155,9 +160,11 @@ post_deploy() {
     echo "    Region: ${REGION}"
     echo "============================================================"
     echo ""
-    log "Checking health endpoint..."
-    if curl -sf "${url}/health" &>/dev/null; then
+    log "Checking health diagnostics endpoint (${url}/health)..."
+    local health_resp
+    if health_resp="$(curl -sf "${url}/health")"; then
       info "Health check passed ✓"
+      echo "    Diagnostics: ${health_resp}"
     else
       warn "Health check returned non-200 — may still be starting up."
     fi

@@ -57,6 +57,27 @@ const getNumber = (key: string, fallback: number): number => {
   return parsed;
 };
 
+export const parseCorsOrigins = (
+  nodeEnv: string,
+  rawOrigins?: string,
+): string | string[] => {
+  if (nodeEnv === 'production') {
+    if (!rawOrigins || rawOrigins.trim() === '' || rawOrigins.trim() === '*') {
+      throw new Error(
+        "In production environment, CORS_ALLOWED_ORIGINS must be explicitly specified and cannot be wildcard '*'"
+      );
+    }
+    const trimmed = rawOrigins.trim();
+    return trimmed.includes(',')
+      ? trimmed.split(',').map((o) => o.trim()).filter(Boolean)
+      : [trimmed];
+  }
+  const fallback = rawOrigins ?? '*';
+  return fallback.includes(',')
+    ? fallback.split(',').map((o) => o.trim()).filter(Boolean)
+    : fallback;
+};
+
 export const config: Config = {
   port: getNumber('PORT', 3000),
   nodeEnv: getOptional('NODE_ENV', 'development') as Config['nodeEnv'],
@@ -98,10 +119,10 @@ export const config: Config = {
   rateLimitMaxRequests: getNumber('RATE_LIMIT_MAX_REQUESTS', 100),
   sseTimeoutMs: getNumber('SSE_TIMEOUT_MS', 300000),
   sseHeartbeatMs: getNumber('SSE_HEARTBEAT_MS', 15000),
-  corsAllowedOrigins: (() => {
-    const rawOrigins = getOptional('CORS_ALLOWED_ORIGINS', '*');
-    return rawOrigins.includes(',') ? rawOrigins.split(',').map((o) => o.trim()) : rawOrigins;
-  })(),
+  corsAllowedOrigins: parseCorsOrigins(
+    process.env.NODE_ENV ?? 'development',
+    process.env.CORS_ALLOWED_ORIGINS,
+  ),
   didChallengeTtlMs: getNumber('DID_CHALLENGE_TTL_MS', 300000),
   didMaxChallengesPerHour: getNumber('DID_MAX_CHALLENGES_PER_HOUR', 20),
 };

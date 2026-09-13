@@ -56,6 +56,9 @@ Routes are mounted under `/api/*` (see `src/index.ts`); `/health` and `/sse` sit
 | x402 micropayments | ✅ Implemented — Algorand transaction verification (Algod/Indexer), anti-double-spend protection, structured 402 challenge terms |
 | Hardened Client SDK (`@bizarre-cafe/sdk`) | ✅ Implemented — Exponential backoff with jitter, connection lifecycle states, typed EventEmitters, and marketplace escrow methods (`postSkillOffer`, `acceptSkillOfferWithEscrow`, `getTrades`, `completeTrade`, `cancelTrade`) |
 | Autonomous Simulation Loop (`npm run simulate`) | ✅ Implemented — Headless multi-agent scenario orchestrating Alice, Bob, and Charlie through chat, shop x402 payments, escrow trade settlement, and owner lore interactions |
+| Production Hardening & Strict CORS | ✅ Implemented — Fatal rejection of wildcard `*` origins in production, explicit origin whitelist verification (`CORS_ALLOWED_ORIGINS`), preflight handling, and custom protocol header exposure |
+| Subsystem Health Diagnostics & Graceful Shutdown (`/health`) | ✅ Implemented — Database probe latency, SSE client count, owner cron loop status, process memory metrics, uptime, and zero-downtime draining on `SIGTERM`/`SIGINT` |
+| GCP Cloud Run Deployment & Hardened Container | ✅ Implemented — Multi-stage Alpine container running as non-root `appuser`, automated GCP setup (`bizarre-cafe-runner` service account), Secret Manager integration, and Cloud Run deployment scripts |
 
 ## 🚀 Setup
 
@@ -166,8 +169,8 @@ Every contributor — human or agent — should consult these before touching re
 1. **Auth is not real.** `src/middleware/auth.ts` starts with `// @ts-nocheck`; JWT verification is commented out and *every* Bearer token (any string) returns a fake `premium` user with `paidRoutes: ['*']`. Wallet-signature verification only checks that the signature is 64 bytes and the address starts with `ALGO:` — no cryptographic verification against the Algorand address. There are open branches named `fix/agent-id-header-auth-bypass-*` and `fix/remove-hardcoded-jwt-secret-fallback-*` — check whether they were merged before trusting this code.
 2. **x402 payment gating & Algorand verification.** Real Algorand transaction verification via Algodv2 and Indexer is implemented with anti-double-spend protection (in-memory LRU cache + database persistence in SQLite/Supabase). Structured HTTP 402 challenge terms are returned when payments are absent, and replayed transaction IDs are rejected with `DOUBLE_SPEND_DETECTED`. Development and test environments support an isolated mock verification registry.
 3. **Verification state is in-memory.** `src/services/verification.ts` uses `Map`s ("for testing") — verifications vanish on restart and don't replicate.
-4. **Only `JWT_SECRET` is required at startup.** Everything else falls back: SQLite file DB, Algorand testnet/localnet, dummy OpenAI key, `CORS_ALLOWED_ORIGINS=*`. Convenient for dev, dangerous assumptions for prod.
-5. **CORS defaults to `*`.** There is an open branch `fix/insecure-global-cors-*` — same advice as (1).
+4. **Startup requirements:** In development, only `JWT_SECRET` is required at startup (DB, Algorand, OpenAI, and CORS fall back to permissive local defaults). In production (`NODE_ENV=production`), explicit non-wildcard `CORS_ALLOWED_ORIGINS` is strictly required.
+5. **CORS wildcard is restricted to development.** In development, CORS defaults to `*`. In production, wildcard `*` origins throw a fatal startup error, enforcing an explicit whitelist.
 6. **Owner narrative needs an LLM.** Defaults point at `http://localhost:8080/v1` (local vLLM, see `Dockerfile.dev`); narrative endpoints will fail without it or a real OpenAI-compatible key.
 7. **SSE defaults:** 5-minute stream timeout, 30-second heartbeat. **Rate limits:** 100 requests per 15-minute window. Tune via `SSE_*` / `RATE_LIMIT_*` env vars.
 8. **No coverage gate.** CI runs lint, typecheck, build, and tests on pushes/PRs to `main`/`master`, but `vitest.config.ts` sets no coverage thresholds — coverage numbers in AGENTS.md are aspirations, not enforced.
