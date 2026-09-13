@@ -121,8 +121,8 @@ router.get('/upcoming', async (c) => {
     let queryBuilder = supabase.from('cafe_events')
       .select('*')
       .eq('status', 'upcoming')
-      .gte('scheduled_at', new Date().toISOString())
-      .order('scheduled_at', { ascending: true })
+      .gte('start_time', new Date().toISOString())
+      .order('start_time', { ascending: true })
       .limit(limit);
 
     if (eventType) {
@@ -434,7 +434,7 @@ router.get('/past', async (c) => {
     let queryBuilder = supabase.from('cafe_events')
       .select('*')
       .in('status', ['past', 'cancelled'])
-      .order('scheduled_at', { ascending: false })
+      .order('start_time', { ascending: false })
       .limit(limit);
 
     // Filter to events user joined or created (if authenticated)

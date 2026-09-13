@@ -223,7 +223,7 @@ router.get('/offers', async (c) => {
       };
       return {
         id: row.id,
-        agentId: row.user_id ?? row.user_id,
+        agentId: row.user_id,
         skillName: row.skill_name,
         description: row.description,
         tags: row.tags ?? [],
@@ -377,7 +377,7 @@ router.post('/offers/:id/accept', async (c) => {
           id: dbTrade.id,
           offerId: dbTrade.offer_id,
           fromAgentId: dbTrade.from_agent_id,
-          toAgentId: dbTrade.to_agent_id,
+          toAgentId: dbTrade.to_user_id,
           status: dbTrade.status,
           notes: dbTrade.notes,
           createdAt: dbTrade.created_at,
@@ -431,7 +431,7 @@ router.get('/trades', async (c) => {
 
     const { data, error: _error } = await supabase.from('trades')
       .select('*')
-      .or(`from_agent_id.eq.${user.agentId},to_agent_id.eq.${user.agentId}`)
+      .or(`from_agent_id.eq.${user.agentId},to_user_id.eq.${user.agentId}`)
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -439,7 +439,7 @@ router.get('/trades', async (c) => {
       id: t.id,
       offerId: t.offer_id,
       fromAgentId: t.from_agent_id,
-      toAgentId: t.to_agent_id,
+      toAgentId: t.to_user_id,
       status: t.status,
       notes: t.notes,
       createdAt: t.created_at,
@@ -500,7 +500,7 @@ router.post('/trades/:id/complete', async (c) => {
     }
 
     // Check if agent is part of this trade
-    if (trade.from_agent_id !== user.agentId && trade.to_agent_id !== user.agentId) {
+    if (trade.from_agent_id !== user.agentId && trade.to_user_id !== user.agentId) {
       return c.json({ error: { code: 'FORBIDDEN', message: 'Not involved in this trade' } }, 403);
     }
 
@@ -578,7 +578,7 @@ router.post('/trades/:id/cancel', async (c) => {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Trade not found' } }, 404);
     }
 
-    if (trade.from_agent_id !== user.agentId && trade.to_agent_id !== user.agentId) {
+    if (trade.from_agent_id !== user.agentId && trade.to_user_id !== user.agentId) {
       return c.json({ error: { code: 'FORBIDDEN', message: 'Not involved in this trade' } }, 403);
     }
 

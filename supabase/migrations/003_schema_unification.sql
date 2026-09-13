@@ -1,7 +1,7 @@
 -- Migration: 003_schema_unification.sql
 
 CREATE TABLE IF NOT EXISTS shop_items (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     name TEXT,
     description TEXT,
     price INTEGER,
@@ -15,15 +15,15 @@ CREATE TABLE IF NOT EXISTS shop_items (
 );
 
 CREATE TABLE IF NOT EXISTS purchases (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
 CREATE TABLE IF NOT EXISTS receipts (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID,
-    item_id UUID,
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    user_id TEXT,
+    item_id TEXT,
     quantity INTEGER,
     total_amount INTEGER,
     currency TEXT,
@@ -34,8 +34,8 @@ CREATE TABLE IF NOT EXISTS receipts (
 );
 
 CREATE TABLE IF NOT EXISTS skill_offers (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID,
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    user_id TEXT,
     skill_name TEXT,
     description TEXT,
     tags JSONB,
@@ -50,9 +50,9 @@ CREATE TABLE IF NOT EXISTS skill_offers (
 );
 
 CREATE TABLE IF NOT EXISTS skill_requests (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID,
-    agent_id UUID,
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    user_id TEXT,
+    agent_id TEXT,
     requested_skill TEXT,
     description TEXT,
     offered_value TEXT,
@@ -62,12 +62,11 @@ CREATE TABLE IF NOT EXISTS skill_requests (
 );
 
 CREATE TABLE IF NOT EXISTS trades (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    offer_id UUID,
-    request_id UUID,
-    from_agent_id UUID,
-    to_user_id UUID,
-    to_agent_id UUID,
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    offer_id TEXT,
+    request_id TEXT,
+    from_agent_id TEXT,
+    to_user_id TEXT,
     status TEXT,
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
@@ -75,9 +74,9 @@ CREATE TABLE IF NOT EXISTS trades (
 );
 
 CREATE TABLE IF NOT EXISTS trade_offers (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    from_user_id UUID,
-    to_user_id UUID,
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    from_user_id TEXT,
+    to_user_id TEXT,
     offer_details TEXT,
     expires_at TIMESTAMP WITH TIME ZONE,
     status TEXT,
@@ -86,13 +85,13 @@ CREATE TABLE IF NOT EXISTS trade_offers (
 );
 
 CREATE TABLE IF NOT EXISTS cafe_events (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     name TEXT,
     description TEXT,
     type TEXT,
     max_attendees INTEGER,
     location TEXT,
-    host_id UUID,
+    host_id TEXT,
     status TEXT,
     start_time TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
@@ -105,10 +104,10 @@ CREATE TABLE IF NOT EXISTS cafe_events (
 );
 
 CREATE TABLE IF NOT EXISTS event_attendance (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    event_id UUID,
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    event_id TEXT,
     status TEXT,
-    user_id UUID,
+    user_id TEXT,
     joined_at TIMESTAMP WITH TIME ZONE,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
     left_at TIMESTAMP WITH TIME ZONE,
@@ -116,9 +115,9 @@ CREATE TABLE IF NOT EXISTS event_attendance (
 );
 
 CREATE TABLE IF NOT EXISTS verification_challenges (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     status TEXT,
-    user_id UUID,
+    user_id TEXT,
     challenge TEXT,
     proof TEXT,
     expires_at TIMESTAMP WITH TIME ZONE,
@@ -129,16 +128,17 @@ CREATE TABLE IF NOT EXISTS verification_challenges (
 );
 
 CREATE TABLE IF NOT EXISTS verification_results (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
 CREATE TABLE IF NOT EXISTS agent_verification (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID,
-    agent_id UUID,
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    user_id TEXT,
+    agent_id TEXT,
     is_verified BOOLEAN,
+    tier TEXT,
     status TEXT,
     method TEXT,
     did_document TEXT,
@@ -149,8 +149,8 @@ CREATE TABLE IF NOT EXISTS agent_verification (
 );
 
 CREATE TABLE IF NOT EXISTS owner_messages (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    agent_id UUID,
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    agent_id TEXT,
     content TEXT,
     sentiment TEXT,
     is_owner_response BOOLEAN,
@@ -162,7 +162,7 @@ CREATE TABLE IF NOT EXISTS owner_messages (
 );
 
 CREATE TABLE IF NOT EXISTS owner_mood (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     mood TEXT,
     last_changed_at TIMESTAMP WITH TIME ZONE,
     persistence_minutes INTEGER,
@@ -175,7 +175,7 @@ CREATE TABLE IF NOT EXISTS owner_mood (
 );
 
 CREATE TABLE IF NOT EXISTS narrative_events (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     category TEXT,
     severity TEXT,
     description TEXT,
@@ -189,12 +189,12 @@ CREATE TABLE IF NOT EXISTS narrative_events (
     title TEXT,
     type TEXT,
     affected_rooms JSONB,
-    agent_id UUID,
+    agent_id TEXT,
     triggered_at TIMESTAMP WITH TIME ZONE
 );
 
 CREATE TABLE IF NOT EXISTS lore_entries (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     title TEXT,
     content TEXT,
     category TEXT,
@@ -203,13 +203,13 @@ CREATE TABLE IF NOT EXISTS lore_entries (
 );
 
 CREATE TABLE IF NOT EXISTS payment_promises (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
 CREATE TABLE IF NOT EXISTS x402_payments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
