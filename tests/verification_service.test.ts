@@ -94,10 +94,11 @@ describe('Agent Verification Service', () => {
       expect(result.did).toBe(keypair.did);
       expect(result.verifiedAt).toBeDefined();
       expect(result.token).toBeDefined();
+      const token = result.token ?? '';
 
       // Verify the issued JWT
       const secret = new TextEncoder().encode(config.jwtSecret);
-      const { payload } = await jwtVerify(result.token!, secret);
+      const { payload } = await jwtVerify(token, secret);
       expect(payload.sub).toBe(keypair.did);
       expect(payload.agentId).toBe(keypair.did);
       expect(payload.tier).toBe('basic');

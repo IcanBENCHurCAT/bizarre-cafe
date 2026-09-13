@@ -17,6 +17,7 @@
 
 import { verifyAgentDID } from '../identity/did';
 import { createToken } from '../../middleware/auth';
+import { config } from '../../config';
 
 // ──────────────────────────────────────────────
 // Types
@@ -99,10 +100,10 @@ const challenges = new Map<string, StoredChallenge>();
 const agents = new Map<string, AgentRecord>();
 
 /** Challenge TTL (5 minutes) */
-const CHALLENGE_TTL_MS = 5 * 60 * 1000;
+const CHALLENGE_TTL_MS = config.didChallengeTtlMs ?? (5 * 60 * 1000);
 
 /** Maximum challenges per agent per window */
-const MAX_CHALLENGES_PER_HOUR = 20;
+const MAX_CHALLENGES_PER_HOUR = config.didMaxChallengesPerHour ?? 20;
 
 /** Challenge window (1 hour) */
 const CHALLENGE_WINDOW_MS = 60 * 60 * 1000;
@@ -212,7 +213,8 @@ export const challengeAgent = async (did: string): Promise<Challenge> => {
     const _windowStart = now - CHALLENGE_WINDOW_MS;
     const recentChallenges = agentRecord.challengeCount;
 
-    if (recentChallenges > MAX_CHALLENGES_PER_HOUR) {
+    const maxChallenges = config.didMaxChallengesPerHour ?? MAX_CHALLENGES_PER_HOUR;
+    if (recentChallenges > maxChallenges) {
       throw new Error('Too many challenges. Rate limit exceeded. Try again later.');
     }
   }
@@ -222,6 +224,7 @@ export const challengeAgent = async (did: string): Promise<Challenge> => {
   const message = formatChallengeMessage(nonce, did);
   const challengeId = crypto.randomUUID();
   const now = Date.now();
+  const challengeTtl = config.didChallengeTtlMs ?? CHALLENGE_TTL_MS;
 
   const challenge: Challenge = {
     challengeId,
@@ -229,7 +232,7 @@ export const challengeAgent = async (did: string): Promise<Challenge> => {
     nonce,
     message,
     issuedAt: now,
-    expiresAt: now + CHALLENGE_TTL_MS,
+    expiresAt: now + challengeTtl,
   };
 
   // Store the challenge (store hashed nonce for security)
@@ -316,7 +319,7 @@ export const verifyAgent = async (
       tier: 'basic',
       walletAddress:
         did.startsWith('did:algo:') || did.startsWith('ALGO:')
-          ? did.replace(/^did:algo:/, '')
+          ? did.replace(/^(did:algo:|ALGO:)/, '')
           : undefined,
     });
 

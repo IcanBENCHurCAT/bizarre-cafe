@@ -11,7 +11,7 @@ import { Context, MiddlewareHandler } from 'hono';
 import { jwtVerify, SignJWT } from 'jose';
 import { config } from '../config';
 import { verifyPaymentSubmission } from '../services/x402/index';
-import { verifyAgentDID } from '../services/identity/did';
+import { verifyAgent } from '../services/verification/index';
 
 export interface AuthUser {
   agentId: string;
@@ -133,24 +133,24 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
     }
   }
 
-  // Method 2: Stateless DID signature headers (X-Agent-DID, X-Agent-Signature, X-Agent-Nonce)
+  // Method 2: DID signature headers with challenge verification (prevents replay)
   if (!user && didHeader && sigHeader && nonceHeader) {
-    const outcome = await verifyAgentDID(didHeader, sigHeader, nonceHeader);
+    const outcome = await verifyAgent(didHeader, sigHeader, nonceHeader);
     if (outcome.verified) {
       user = {
         agentId: didHeader,
         walletAddress:
           didHeader.startsWith('did:algo:') || didHeader.startsWith('ALGO:')
-            ? didHeader.replace(/^did:algo:/, '')
+            ? didHeader.replace(/^(did:algo:|ALGO:)/, '')
             : undefined,
-        tier: 'premium',
-        paidRoutes: ['*', '/api/shop/*', '/api/skill-swap/*'],
+        tier: 'free',
+        paidRoutes: [],
       };
     }
   }
 
-  // Method 2b: Legacy wallet signature headers (for x402)
-  if (!user) {
+  // Method 2b: Legacy wallet signature headers (for x402, only in non-production)
+  if (!user && config.nodeEnv !== 'production') {
     const walletSig = extractWalletSignature(c);
     if (walletSig) {
       const isValid = await verifyWalletSignature(

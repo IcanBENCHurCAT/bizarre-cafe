@@ -150,6 +150,7 @@ describe('Auth Middleware Security Tests', () => {
 
   it('should authenticate via valid X-Agent-DID, X-Agent-Signature, and X-Agent-Nonce in production', async () => {
     const { generateTestDidKeyPair } = await import('../src/services/identity/did');
+    const { challengeAgent } = await import('../src/services/verification/index');
     const ed = await import('@noble/ed25519');
 
     config.nodeEnv = 'production';
@@ -163,15 +164,15 @@ describe('Auth Middleware Security Tests', () => {
     });
 
     const keypair = await generateTestDidKeyPair();
-    const nonce = 'stateless-auth-nonce-999888';
-    const sigBytes = ed.sign(new TextEncoder().encode(nonce), keypair.privateKey);
+    const challenge = await challengeAgent(keypair.did);
+    const sigBytes = ed.sign(new TextEncoder().encode(challenge.message), keypair.privateKey);
     const sigHex = Buffer.from(sigBytes).toString('hex');
 
     const res = await app.request('/test', {
       headers: {
         'X-Agent-DID': keypair.did,
         'X-Agent-Signature': sigHex,
-        'X-Agent-Nonce': nonce,
+        'X-Agent-Nonce': challenge.nonce,
       },
     });
 
@@ -179,10 +180,12 @@ describe('Auth Middleware Security Tests', () => {
     const body = await res.json();
     expect(body.auth.user).toBeDefined();
     expect(body.auth.user.agentId).toBe(keypair.did);
+    expect(body.auth.user.tier).toBe('free');
   });
 
   it('should reject invalid X-Agent-Signature with X-Agent-DID in production', async () => {
     const { generateTestDidKeyPair } = await import('../src/services/identity/did');
+    const { challengeAgent } = await import('../src/services/verification/index');
     const ed = await import('@noble/ed25519');
 
     config.nodeEnv = 'production';
@@ -196,8 +199,8 @@ describe('Auth Middleware Security Tests', () => {
     });
 
     const keypair = await generateTestDidKeyPair();
-    const nonce = 'stateless-auth-nonce-999888';
-    const sigBytes = ed.sign(new TextEncoder().encode(nonce), keypair.privateKey);
+    const challenge = await challengeAgent(keypair.did);
+    const sigBytes = ed.sign(new TextEncoder().encode(challenge.message), keypair.privateKey);
     sigBytes[0] ^= 0xff; // Tamper signature
     const sigHex = Buffer.from(sigBytes).toString('hex');
 
@@ -205,13 +208,99 @@ describe('Auth Middleware Security Tests', () => {
       headers: {
         'X-Agent-DID': keypair.did,
         'X-Agent-Signature': sigHex,
-        'X-Agent-Nonce': nonce,
+        'X-Agent-Nonce': challenge.nonce,
       },
     });
 
     expect(res.status).toBe(401);
     const body = await res.json();
     expect(body.error).toBe('Unauthorized');
+  });
+
+  it('should reject replaying identical X-Agent-DID, X-Agent-Signature, and X-Agent-Nonce headers (replay attack protection)', async () => {
+    const { generateTestDidKeyPair } = await import('../src/services/identity/did');
+    const { challengeAgent } = await import('../src/services/verification/index');
+    const ed = await import('@noble/ed25519');
+
+    config.nodeEnv = 'production';
+    const app = new Hono();
+    app.use('/test', authMiddleware);
+    app.get('/test', (c) => {
+      if (!c.auth.user) {
+        return c.json({ error: 'Unauthorized' }, 401);
+      }
+      return c.json({ auth: c.auth });
+    });
+
+    const keypair = await generateTestDidKeyPair();
+    const challenge = await challengeAgent(keypair.did);
+    const sigBytes = ed.sign(new TextEncoder().encode(challenge.message), keypair.privateKey);
+    const sigHex = Buffer.from(sigBytes).toString('hex');
+
+    const headers = {
+      'X-Agent-DID': keypair.did,
+      'X-Agent-Signature': sigHex,
+      'X-Agent-Nonce': challenge.nonce,
+    };
+
+    // First request succeeds
+    const firstRes = await app.request('/test', { headers });
+    expect(firstRes.status).toBe(200);
+
+    // Replaying identical headers returns 401 Unauthorized because the server challenge was consumed
+    const replayRes = await app.request('/test', { headers });
+    expect(replayRes.status).toBe(401);
+    const body = await replayRes.json();
+    expect(body.error).toBe('Unauthorized');
+  });
+
+  it('should reject legacy wallet signature (Method 2b) in production environment', async () => {
+    config.nodeEnv = 'production';
+    const app = new Hono();
+    app.use('/test', authMiddleware);
+    app.get('/test', (c) => {
+      if (!c.auth.user) {
+        return c.json({ error: 'Unauthorized' }, 401);
+      }
+      return c.json({ auth: c.auth });
+    });
+
+    const res = await app.request('/test', {
+      headers: {
+        'x-wallet-sig': Buffer.alloc(64).toString('base64'),
+        'x-wallet-address': 'ALGO:LEGACY_WALLET_ADDR',
+        'x-wallet-message': 'test-wallet-message',
+      },
+    });
+
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error).toBe('Unauthorized');
+  });
+
+  it('should allow legacy wallet signature (Method 2b) in development environment', async () => {
+    config.nodeEnv = 'development';
+    const app = new Hono();
+    app.use('/test', authMiddleware);
+    app.get('/test', (c) => {
+      if (!c.auth.user) {
+        return c.json({ error: 'Unauthorized' }, 401);
+      }
+      return c.json({ auth: c.auth });
+    });
+
+    const res = await app.request('/test', {
+      headers: {
+        'x-wallet-sig': Buffer.alloc(64).toString('base64'),
+        'x-wallet-address': 'ALGO:LEGACY_WALLET_ADDR',
+        'x-wallet-message': 'test-wallet-message',
+      },
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.auth.user).toBeDefined();
+    expect(body.auth.user.agentId).toBe('ALGO:LEGACY_WALLET_ADDR');
   });
 
   describe('requireX402Payment Middleware', () => {
