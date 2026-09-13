@@ -334,7 +334,7 @@ router.get('/receipts', async (c) => {
 
     const { data, error } = await (supabase as any).from('receipts')
       .select('*')
-      .eq('agent_id', user.agentId)
+      .eq('user_id', user.agentId)
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -348,7 +348,7 @@ router.get('/receipts', async (c) => {
 
     const receipts = (data ?? []).map((r: any) => ({
       id: r.id,
-      agentId: r.agent_id,
+      agentId: r.user_id,
       itemId: r.item_id,
       quantity: r.quantity,
       totalAmount: r.total_amount,

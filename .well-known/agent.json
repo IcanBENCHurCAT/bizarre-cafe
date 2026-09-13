@@ -15,8 +15,8 @@
         "default_asset": "ALGO"
       }
     ],
-    "payment_endpoint": "/api/x402/pay",
-    "receipt_validation": "/api/x402/validate",
+    "payment_endpoint": "/api/shop/checkout",
+    "receipt_validation": "/api/shop/receipts",
     "metadata": {
       "cafe_type": "bizarre",
       "max_concurrent_sessions": 100,

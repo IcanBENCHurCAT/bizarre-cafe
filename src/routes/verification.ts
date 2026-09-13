@@ -318,7 +318,7 @@ router.post('/revoke', async (c) => {
     // Revoke: mark as unverified, clear DID
     const { error: updateError } = await (supabase as any).from('agent_verification')
       .update({
-        is_status: 'pending', method: 'signature',
+        status: 'pending', method: 'signature',
         did_document: null,
         wallet_address: null,
         verified_at: null,

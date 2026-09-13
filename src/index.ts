@@ -49,6 +49,20 @@ app.get('/sse', sseHandler);
 // Authenticated routes (requires x402 wallet signature)
 app.use('/api/*', authMiddleware);
 app.use('/api/*', circuitBreaker('api'));
+app.use('/api/*', rateLimiter());
+
+// Serve .well-known/agent.json for A2A discovery
+app.get('/.well-known/agent.json', async (c) => {
+  const fs = await import('node:fs/promises');
+  const path = await import('node:path');
+  const filePath = path.join(process.cwd(), '.well-known', 'agent.json');
+  try {
+    const content = await fs.readFile(filePath, 'utf-8');
+    return c.json(JSON.parse(content));
+  } catch {
+    return c.json({ error: 'Agent card not found' }, 404);
+  }
+});
 
 // Route mounts
 app.route('/api/lobby', lobbyRouter);
@@ -59,9 +73,6 @@ app.route('/api/skill-swap', skillSwapRouter);
 app.route('/api/owner', ownerRouter);
 app.route('/api/events', eventsRouter);
 app.route('/api/verification', verificationRouter);
-
-// Rate limiting on all API routes
-app.use('/api/*', rateLimiter());
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
