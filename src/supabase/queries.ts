@@ -1002,4 +1002,56 @@ export const payments = {
     if (error) throw error;
     return payment as X402PaymentRow;
   },
+
+  /** Get an x402 payment by its transaction hash */
+  async getByTxnHash(txnHash: string) {
+    const { data, error } = await supabase
+      .from('x402_payments')
+      .select('*')
+      .eq('txn_hash', txnHash)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data as X402PaymentRow | null;
+  },
+
+  /** Check if a transaction hash has already been recorded */
+  async hasTxnHash(txnHash: string) {
+    const { count, error } = await supabase
+      .from('x402_payments')
+      .select('*', { count: 'exact', head: true })
+      .eq('txn_hash', txnHash);
+
+    if (error) throw error;
+    return (count ?? 0) > 0;
+  },
+
+  /** Record a verified x402 payment */
+  async recordPayment(data: {
+    txn_hash: string;
+    proposal_id?: string | null;
+    amount: number;
+    from_address: string;
+    to_address: string;
+    status?: string;
+    receipt?: string | null;
+  }) {
+    const { data: payment, error } = await supabase
+      .from('x402_payments')
+      .insert({
+        proposal_id: data.proposal_id || '',
+        amount: data.amount,
+        from_address: data.from_address,
+        to_address: data.to_address,
+        status: data.status || 'verified',
+        receipt: data.receipt || '',
+        txn_hash: data.txn_hash,
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return payment as X402PaymentRow;
+  },
 };

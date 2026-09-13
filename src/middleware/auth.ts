@@ -10,6 +10,7 @@
 import { Context, MiddlewareHandler } from 'hono';
 import { jwtVerify, SignJWT } from 'jose';
 import { config } from '../config';
+import { verifyPaymentSubmission } from '../services/x402/index';
 
 export interface AuthUser {
   agentId: string;
@@ -23,8 +24,13 @@ export interface AuthContext {
   x402Receipt?: unknown;
 }
 
-// Extend Hono Context to include auth user
+// Extend Hono Context to include auth user and x402 variables
 declare module 'hono' {
+  interface ContextVariableMap {
+    x402TxId: string;
+    x402Receipt: unknown;
+    'x402-receipt': string;
+  }
   interface Context {
     auth: AuthContext;
     user?: AuthUser;
@@ -151,11 +157,16 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   return next();
 };
 
+export interface RequireX402PaymentOptions {
+  minAmountMicroAlgos?: number;
+  serviceId?: string;
+}
+
 /**
  * Require x402 payment for a specific route
  * Use on paid route handlers
  */
-export const requireX402Payment = (): MiddlewareHandler => {
+export const requireX402Payment = (options?: RequireX402PaymentOptions): MiddlewareHandler => {
   return async (c, next) => {
     const paymentHeader =
       c.req.header('x-x402-payment') ||
@@ -163,15 +174,91 @@ export const requireX402Payment = (): MiddlewareHandler => {
       c.req.header('x-payment-receipt');
 
     if (!paymentHeader) {
+      const paymentId = crypto.randomUUID();
+      const receiverWallet = config.algorandReceiverWallet;
+      const amount = options?.minAmountMicroAlgos ?? 100000;
+      const currency = 'microAlgos';
+      const network = config.algorandNetwork || 'algorand-testnet';
+      const expiresAt = Date.now() + 15 * 60 * 1000;
+
       return c.json(
-        { error: { code: 'PAYMENT_REQUIRED', message: 'x402 payment required for this endpoint' } },
+        {
+          error: {
+            code: 'PAYMENT_REQUIRED',
+            message: 'x402 payment required for this endpoint',
+            challenge: {
+              paymentId,
+              receiverWallet,
+              amount,
+              currency,
+              network,
+              expiresAt,
+            },
+          },
+        },
         402,
       );
     }
 
-    // In production, verify the payment receipt
-    // For now, accept any x402 header
-    c.set('x402-receipt', paymentHeader);
+    // Parse header: raw txId, JSON {"txId": "...", "receipt": "...", "paymentId": "..."}, or txId:receipt
+    let txId = '';
+    let receipt: string | undefined;
+    let paymentId: string | undefined;
+
+    const trimmed = paymentHeader.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        txId = (parsed.txId || parsed.txn_hash || parsed.transactionId || '').trim();
+        receipt = parsed.receipt || parsed.signature;
+        paymentId = parsed.paymentId || parsed.proposalId;
+      } catch {
+        // Fallback to raw string
+      }
+    }
+
+    if (!txId) {
+      if (trimmed.includes(':')) {
+        const splitIndex = trimmed.indexOf(':');
+        txId = trimmed.slice(0, splitIndex).trim();
+        receipt = trimmed.slice(splitIndex + 1).trim();
+      } else {
+        txId = trimmed;
+      }
+    }
+
+    if (!receipt) {
+      receipt = c.req.header('x-402-receipt') || c.req.header('x-payment-receipt');
+    }
+
+    const minAmount = options?.minAmountMicroAlgos ?? 100000;
+    const serviceId = options?.serviceId ?? c.req.path;
+
+    const verification = await verifyPaymentSubmission(
+      { txId, receipt, paymentId },
+      { amountMicroAlgos: minAmount, serviceId },
+    );
+
+    if (!verification.verified) {
+      const isDoubleSpend = verification.reason?.includes('DOUBLE_SPEND');
+      return c.json(
+        {
+          error: {
+            code: isDoubleSpend ? 'DOUBLE_SPEND_DETECTED' : 'PAYMENT_VERIFICATION_FAILED',
+            message: verification.reason ?? 'Payment verification failed',
+            txId,
+          },
+        },
+        402,
+      );
+    }
+
+    c.set('x402Receipt', verification);
+    c.set('x402TxId', txId);
+    c.set('x402-receipt', txId);
+    if (c.auth) {
+      c.auth.x402Receipt = verification;
+    }
 
     return next();
   };

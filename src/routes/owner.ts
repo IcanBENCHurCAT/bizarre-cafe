@@ -544,11 +544,15 @@ router.post('/action', requireX402Payment(), async (c) => {
       timestamp: Date.now(),
     });
 
+    const x402TxId = c.get('x402TxId');
+    const _x402Receipt = c.get('x402Receipt');
+
     trackEvent('owner_action', {
       action: validated.action,
       approved,
       ownerReply,
       agentId: user.agentId,
+      txId: x402TxId,
     });
 
     return c.json(
@@ -557,6 +561,7 @@ router.post('/action', requireX402Payment(), async (c) => {
         ownerReply,
         action: validated.action,
         timestamp: new Date().toISOString(),
+        txId: x402TxId,
       },
       200,
     );

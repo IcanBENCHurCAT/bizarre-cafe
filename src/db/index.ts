@@ -29,6 +29,18 @@ export interface AgentStatusData {
   last_seen: string;
 }
 
+export interface X402PaymentData {
+  id: string;
+  txn_hash: string;
+  proposal_id: string | null;
+  amount: number;
+  from_address: string;
+  to_address: string;
+  status: string;
+  receipt: string | null;
+  created_at: string;
+}
+
 export interface PaginationData {
   total: number;
   offset: number;
@@ -56,6 +68,21 @@ export interface DatabaseAdapter {
   agents: {
     getActive: () => Promise<AgentStatusData[]>;
     updateStatus: (userId: string, data: Partial<AgentStatusData>) => Promise<AgentStatusData>;
+  };
+  payments: {
+    recordPayment: (payment: {
+      id?: string;
+      txn_hash: string;
+      proposal_id?: string | null;
+      amount: number;
+      from_address: string;
+      to_address: string;
+      status?: string;
+      receipt?: string | null;
+      created_at?: string;
+    }) => Promise<X402PaymentData>;
+    hasTxnHash: (txnHash: string) => Promise<boolean>;
+    getByTxnHash: (txnHash: string) => Promise<X402PaymentData | null>;
   };
 }
 

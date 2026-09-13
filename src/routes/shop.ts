@@ -258,6 +258,9 @@ router.post('/checkout', requireX402Payment(), async (c) => {
       );
     }
 
+    const x402TxId = c.get('x402TxId');
+    const _x402Receipt = c.get('x402Receipt');
+
     return c.json(
       {
         message: 'Checkout initiated',
@@ -272,6 +275,7 @@ router.post('/checkout', requireX402Payment(), async (c) => {
           walletAddress: user.walletAddress,
           status: 'pending',
           createdAt: receipt.created_at,
+          txId: x402TxId,
         },
       },
       202,

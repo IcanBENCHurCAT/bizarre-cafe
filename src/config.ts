@@ -20,6 +20,9 @@ export interface Config {
   algorandNetwork: string;
   algorandRpcUrl: string;
   algorandAlgodToken: string;
+  algorandReceiverWallet: string;
+  algorandIndexerUrl: string;
+  algorandMockVerification: boolean;
   x402Config: string;
   jwtSecret: string;
   jwtExpiry: string;
@@ -57,9 +60,9 @@ export const config: Config = {
   nodeEnv: getOptional('NODE_ENV', 'development') as Config['nodeEnv'],
   useLocalDb: getOptional('USE_LOCAL_DB', 'false') === 'true',
   databaseUrl: getOptional('DATABASE_URL', 'sqlite.db'),
-  supabaseUrl: getOptional('SUPABASE_URL', ''),
-  supabaseKey: getOptional('SUPABASE_KEY', ''),
-  supabaseServiceRoleKey: getOptional('SUPABASE_SERVICE_ROLE_KEY', ''),
+  supabaseUrl: getOptional('SUPABASE_URL', 'http://localhost:54321'),
+  supabaseKey: getOptional('SUPABASE_KEY', 'dummy-anon-key'),
+  supabaseServiceRoleKey: getOptional('SUPABASE_SERVICE_ROLE_KEY', 'dummy-service-role-key'),
   openaiApiKey: getOptional('OPENAI_API_KEY', 'dummy-key'),
   openaiBaseUrl: getOptional('OPENAI_BASE_URL', 'http://localhost:8080/v1'),
   aiModel: getOptional('AI_MODEL', 'qwen3.6-35b-a3b-nvfp4'),
@@ -69,6 +72,22 @@ export const config: Config = {
     'ALGORAND_ALGOD_TOKEN',
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   ),
+  algorandReceiverWallet: getOptional(
+    'ALGORAND_RECEIVER_WALLET',
+    'ALGO_BIZARRE_CAFE_WALLET_ADDRESS',
+  ),
+  algorandIndexerUrl: getOptional(
+    'ALGORAND_INDEXER_URL',
+    'http://localhost:8980',
+  ),
+  algorandMockVerification: (() => {
+    const raw = process.env.ALGORAND_MOCK_VERIFICATION;
+    if (raw !== undefined) {
+      return raw === 'true';
+    }
+    const env = process.env.NODE_ENV ?? 'development';
+    return env !== 'production';
+  })(),
   x402Config: getOptional('X402_CONFIG', '{}'),
   jwtSecret: getRequired('JWT_SECRET'),
   jwtExpiry: getOptional('JWT_EXPIRY', '24h'),

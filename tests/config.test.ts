@@ -28,5 +28,20 @@ describe('Config environment variable validation', () => {
 
     const { config } = await import('../src/config.ts');
     expect(config.jwtSecret).toBe('my-secure-test-jwt-secret');
+    expect(config.algorandReceiverWallet).toBe('ALGO_BIZARRE_CAFE_WALLET_ADDRESS');
+    expect(config.algorandIndexerUrl).toBe('http://localhost:8980');
+    expect(config.algorandMockVerification).toBe(true);
+  });
+
+  it('should allow overriding Algorand configuration via environment variables', async () => {
+    process.env.JWT_SECRET = 'my-secure-test-jwt-secret';
+    process.env.ALGORAND_RECEIVER_WALLET = 'CUSTOM_ALGO_WALLET';
+    process.env.ALGORAND_INDEXER_URL = 'https://custom-indexer.algo';
+    process.env.ALGORAND_MOCK_VERIFICATION = 'false';
+
+    const { config } = await import('../src/config.ts');
+    expect(config.algorandReceiverWallet).toBe('CUSTOM_ALGO_WALLET');
+    expect(config.algorandIndexerUrl).toBe('https://custom-indexer.algo');
+    expect(config.algorandMockVerification).toBe(false);
   });
 });

@@ -1,9 +1,26 @@
 import { EventSource } from 'eventsource';
 import { EventEmitter } from 'events';
 
+export interface X402Challenge {
+  paymentId: string;
+  receiverWallet: string;
+  amount: number;
+  currency: string;
+  network: string;
+  expiresAt: number;
+}
+
+export interface X402PaymentHeaderOptions {
+  receipt?: string;
+  paymentId?: string;
+}
+
+export type PaymentHandler = (challenge: X402Challenge) => Promise<string>;
+
 export interface AgentClientConfig {
   baseUrl: string;
   agentId: string;
+  onPaymentRequired?: PaymentHandler;
 }
 
 export interface JoinRoomRequest {
@@ -12,6 +29,77 @@ export interface JoinRoomRequest {
 
 export interface SendMessageRequest {
   content: string;
+}
+
+/**
+ * Formats an x402 payment header object from a transaction ID and optional receipt.
+ */
+export function createX402PaymentHeader(
+  txId: string,
+  options?: string | X402PaymentHeaderOptions,
+): Record<string, string> {
+  let receipt: string | undefined;
+  let paymentId: string | undefined;
+
+  if (typeof options === 'string') {
+    receipt = options;
+  } else if (options) {
+    receipt = options.receipt;
+    paymentId = options.paymentId;
+  }
+
+  if (receipt || paymentId) {
+    const payload: Record<string, string> = { txId };
+    if (receipt) payload.receipt = receipt;
+    if (paymentId) payload.paymentId = paymentId;
+    const jsonStr = JSON.stringify(payload);
+    const headers: Record<string, string> = {
+      'x-x402-payment': jsonStr,
+    };
+    if (receipt) {
+      headers['x-402-receipt'] = receipt;
+    }
+    return headers;
+  }
+
+  return { 'x-x402-payment': txId };
+}
+
+/**
+ * Extracts and normalizes the X402Challenge payload from an HTTP 402 response body.
+ */
+export function parse402Challenge(responseBody: any): X402Challenge | null {
+  if (!responseBody || typeof responseBody !== 'object') {
+    return null;
+  }
+
+  const challenge = responseBody.error?.challenge ?? responseBody.challenge;
+  if (!challenge || typeof challenge !== 'object') {
+    return null;
+  }
+
+  const paymentId = challenge.paymentId || challenge.proposal_id;
+  const receiverWallet =
+    challenge.receiverWallet || challenge.receiver_wallet || challenge.to_address;
+  const amount = Number(
+    challenge.amount ?? challenge.amountMicroAlgos ?? challenge.amount_micro_algos,
+  );
+  const currency = challenge.currency ?? 'microAlgos';
+  const network = challenge.network ?? 'algorand-testnet';
+  const expiresAt = Number(challenge.expiresAt ?? challenge.expires_at ?? 0);
+
+  if (!paymentId || !receiverWallet) {
+    return null;
+  }
+
+  return {
+    paymentId,
+    receiverWallet,
+    amount: Number.isFinite(amount) ? amount : 100000,
+    currency,
+    network,
+    expiresAt,
+  };
 }
 
 export class AgentClient extends EventEmitter {
@@ -184,17 +272,62 @@ export class AgentClient extends EventEmitter {
   }
 
   /**
+   * Perform an HTTP request with automatic x402 payment challenge resolution.
+   * If the response status is 402 and a payment handler is provided, it parses
+   * the challenge, invokes the payment handler to acquire payment credentials,
+   * attaches the payment header, and retries the request once.
+   */
+  public async requestWithPayment(
+    url: string,
+    init?: RequestInit,
+    onPaymentRequired?: PaymentHandler,
+  ): Promise<Response> {
+    const handler = onPaymentRequired ?? this.config.onPaymentRequired;
+    const response = await fetch(url, init);
+
+    if (response.status === 402 && handler) {
+      try {
+        const cloned = response.clone();
+        const errorBody = await cloned.json();
+        const challenge = parse402Challenge(errorBody);
+        if (challenge) {
+          const paymentResult = await handler(challenge);
+          const paymentHeaders = createX402PaymentHeader(paymentResult);
+
+          const headers = new Headers(init?.headers);
+          for (const [k, v] of Object.entries(paymentHeaders)) {
+            headers.set(k, v);
+          }
+
+          return await fetch(url, {
+            ...init,
+            headers,
+          });
+        }
+      } catch {
+        // Fall back to returning original 402 response
+      }
+    }
+
+    return response;
+  }
+
+  /**
    * Propose a narrative action to the DM (x402 wrapped)
    */
-  public async proposeAction(action: string, paymentReceipt: string): Promise<any> {
-    const response = await fetch(`${this.config.baseUrl}/api/owner/action`, {
+  public async proposeAction(action: string, paymentReceipt?: string): Promise<any> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-agent-id': this.config.agentId,
+    };
+    if (paymentReceipt) {
+      const paymentHeaders = createX402PaymentHeader(paymentReceipt);
+      Object.assign(headers, paymentHeaders);
+    }
+    const response = await this.requestWithPayment(`${this.config.baseUrl}/api/owner/action`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-agent-id': this.config.agentId,
-        'x-402-receipt': paymentReceipt
-      },
-      body: JSON.stringify({ action })
+      headers,
+      body: JSON.stringify({ action }),
     });
 
     if (!response.ok) {
@@ -206,15 +339,19 @@ export class AgentClient extends EventEmitter {
   /**
    * Interact directly with the Owner (x402 wrapped)
    */
-  public async interactWithOwner(message: string, paymentReceipt: string, roomId?: string): Promise<any> {
-    const response = await fetch(`${this.config.baseUrl}/api/owner/interact`, {
+  public async interactWithOwner(message: string, paymentReceipt?: string, roomId?: string): Promise<any> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-agent-id': this.config.agentId,
+    };
+    if (paymentReceipt) {
+      const paymentHeaders = createX402PaymentHeader(paymentReceipt);
+      Object.assign(headers, paymentHeaders);
+    }
+    const response = await this.requestWithPayment(`${this.config.baseUrl}/api/owner/interact`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-agent-id': this.config.agentId,
-        'x-402-receipt': paymentReceipt
-      },
-      body: JSON.stringify({ message, roomId })
+      headers,
+      body: JSON.stringify({ message, roomId }),
     });
 
     if (!response.ok) {
@@ -243,15 +380,24 @@ export class AgentClient extends EventEmitter {
   /**
    * Checkout / purchase a shop item via x402 payment
    */
-  public async checkoutItem(itemId: string, quantity: number = 1, paymentMethod: string = 'x402', paymentReceipt: string = 'dummy_receipt'): Promise<any> {
-    const response = await fetch(`${this.config.baseUrl}/api/shop/checkout`, {
+  public async checkoutItem(
+    itemId: string,
+    quantity: number = 1,
+    paymentMethod: string = 'x402',
+    paymentReceipt?: string,
+  ): Promise<any> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-agent-id': this.config.agentId,
+    };
+    if (paymentReceipt) {
+      const paymentHeaders = createX402PaymentHeader(paymentReceipt);
+      Object.assign(headers, paymentHeaders);
+    }
+    const response = await this.requestWithPayment(`${this.config.baseUrl}/api/shop/checkout`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-agent-id': this.config.agentId,
-        'x-402-receipt': paymentReceipt
-      },
-      body: JSON.stringify({ itemId, quantity, paymentMethod, agentId: this.config.agentId })
+      headers,
+      body: JSON.stringify({ itemId, quantity, paymentMethod, agentId: this.config.agentId }),
     });
 
     if (!response.ok) {
