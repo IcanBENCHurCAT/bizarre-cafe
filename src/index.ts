@@ -19,6 +19,7 @@ import { rateLimiter } from './middleware/rateLimiter';
 import { circuitBreaker } from './middleware/circuitBreaker';
 
 // Routes
+import healthRouter from './routes/health';
 import lobbyRouter from './routes/lobby';
 import roomsRouter from './routes/rooms';
 import chatRouter from './routes/chat';
@@ -29,19 +30,50 @@ import eventsRouter from './routes/events';
 import verificationRouter from './routes/verification';
 
 // SSE handler
-import { sseHandler } from './sse';
+import { sseHandler, clearAllClients } from './sse';
 
 // --- App ---
 const app = new Hono();
 
 // Global middleware
 app.use('*', logger());
-app.use('*', cors({ origin: config.corsAllowedOrigins }));
+app.use(
+  '*',
+  cors({
+    origin: config.corsAllowedOrigins,
+    allowHeaders: [
+      'Authorization',
+      'Content-Type',
+      'X-Agent-ID',
+      'x-agent-id',
+      'X-Agent-DID',
+      'x-agent-did',
+      'X-Agent-Signature',
+      'x-agent-signature',
+      'X-Agent-Nonce',
+      'x-agent-nonce',
+      'X-Agent-Timestamp',
+      'x-agent-timestamp',
+      'X-Room-ID',
+      'x-room-id',
+      'X-402-Payment',
+      'x-x402-payment',
+      'X-402-Receipt',
+      'x-402-receipt',
+      'X-Wallet-Sig',
+      'X-Wallet-Address',
+      'X-Wallet-Message',
+    ],
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    exposeHeaders: ['Content-Length', 'X-Response-Time', 'X-402-Payment-Required'],
+    credentials: true,
+  }),
+);
 app.use('*', secureHeaders());
 app.use('*', poweredBy());
 
-// Health check
-app.get('/health', (c) => c.json({ status: 'ok', version: '0.1.0' }));
+// Health check diagnostics
+app.route('/health', healthRouter);
 
 // SSE endpoint (real-time chat)
 app.get('/sse', sseHandler);
@@ -74,25 +106,47 @@ app.route('/api/owner', ownerRouter);
 app.route('/api/events', eventsRouter);
 app.route('/api/verification', verificationRouter);
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.warn('SIGTERM received, shutting down gracefully…');
-  process.exit(0);
-});
-
-process.on('SIGINT', () => {
-  console.warn('SIGINT received, shutting down gracefully…');
-  process.exit(0);
-});
-
 import { serve } from '@hono/node-server';
 import { OwnerCronService } from './services/owner_cron';
+
+// Active server handle for draining and graceful shutdown
+let serverInstance: ReturnType<typeof serve> | null = null;
+
+/**
+ * Gracefully shuts down the running application:
+ * 1. Stops autonomous Owner cron scheduler
+ * 2. Drains and disconnects active SSE streaming clients
+ * 3. Closes the HTTP server listener
+ */
+export async function gracefulShutdown(signal: string = 'SIGTERM'): Promise<void> {
+  console.warn(`[shutdown] ${signal} received, draining connections and stopping services...`);
+  OwnerCronService.stop();
+  clearAllClients();
+  if (serverInstance) {
+    await new Promise<void>((resolve) => {
+      serverInstance?.close(() => resolve());
+    });
+    serverInstance = null;
+  }
+  console.warn('[shutdown] Teardown complete.');
+}
+
+// Graceful shutdown listeners
+process.on('SIGTERM', async () => {
+  await gracefulShutdown('SIGTERM');
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  await gracefulShutdown('SIGINT');
+  process.exit(0);
+});
 
 // Start server if running directly (e.g. local dev)
 if (process.env.NODE_ENV !== 'production' || process.env.START_SERVER === 'true') {
   console.warn(`Starting local server on port ${config.port}`);
   OwnerCronService.start();
-  serve({
+  serverInstance = serve({
     fetch: app.fetch,
     port: config.port,
   });

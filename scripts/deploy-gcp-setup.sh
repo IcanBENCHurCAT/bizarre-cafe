@@ -60,6 +60,44 @@ enable_apis() {
   info "All APIs enabled."
 }
 
+# ── 2b. Setup runtime service account & IAM least-privilege roles ───────────
+setup_service_account() {
+  local sa_name="bizarre-cafe-runner"
+  local sa_email="${sa_name}@${PROJECT_ID}.iam.gserviceaccount.com"
+
+  log "Setting up runtime service account: ${sa_email}..."
+
+  if gcloud iam service-accounts describe "$sa_email" --project="$PROJECT_ID" &>/dev/null; then
+    warn "Service account '${sa_email}' already exists — skipping creation."
+  else
+    gcloud iam service-accounts create "$sa_name" \
+      --description="Dedicated least-privilege runtime service account for Bizarre Cafe" \
+      --display-name="Bizarre Cafe Runner" \
+      --project="$PROJECT_ID" 2>&1 || die "Failed to create service account"
+    info "Service account created: ${sa_email}"
+  fi
+
+  log "Binding least-privilege IAM roles to ${sa_email}..."
+  local roles=(
+    "roles/secretmanager.secretAccessor"
+    "roles/cloudsql.client"
+    "roles/storage.objectViewer"
+    "roles/logging.logWriter"
+    "roles/monitoring.metricWriter"
+  )
+
+  for role in "${roles[@]}"; do
+    log "  Assigning role: ${role}..."
+    gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+      --member="serviceAccount:${sa_email}" \
+      --role="$role" \
+      --condition=None \
+      --quiet &>/dev/null || warn "  Failed to assign ${role}"
+  done
+
+  info "IAM roles successfully bound to ${sa_email}."
+}
+
 # ── 3. Create Cloud SQL PostgreSQL instance ──────────────────────────────────
 create_cloudsql() {
   local instance_name="bizarre-cafe-db"
@@ -119,9 +157,12 @@ setup_secrets() {
   log "Setting up secrets in Secret Manager..."
 
   local secrets=(
+    "JWT_SECRET"
     "SUPABASE_URL"
     "SUPABASE_SERVICE_KEY"
     "ALGORAND_NETWORK"
+    "ALGORAND_ALGOD_TOKEN"
+    "OPENAI_API_KEY"
     "X402_CONFIG"
   )
 
@@ -187,6 +228,7 @@ main() {
 
   setup_project
   enable_apis
+  setup_service_account
   create_cloudsql
   create_storage_bucket
   setup_secrets

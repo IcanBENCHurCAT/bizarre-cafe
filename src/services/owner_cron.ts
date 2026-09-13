@@ -57,6 +57,13 @@ export class OwnerCronService {
   }
 
   /**
+   * Checks whether the autonomous cron service is currently running
+   */
+  public static isRunning(): boolean {
+    return this.interval !== null;
+  }
+
+  /**
    * Internal tick — runs every minute, but only acts on schedule.
    */
   private static async tick(): Promise<void> {

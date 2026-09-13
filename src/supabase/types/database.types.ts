@@ -370,6 +370,8 @@ export interface Database {
                                           looking_for?: string | null;
                                 category?: string | null;
                       level?: string | null;
+                      price_micro_algos?: number;
+                      currency?: string;
           };
               Insert: {
                                                       id?: string;
@@ -385,6 +387,8 @@ export interface Database {
                                                       looking_for?: string | null;
                                             category?: string | null;
                               level?: string | null;
+                              price_micro_algos?: number;
+                              currency?: string;
               };
               Update: {
                                                       id?: string;
@@ -400,6 +404,8 @@ export interface Database {
                                                       looking_for?: string | null;
                                             category?: string | null;
                               level?: string | null;
+                              price_micro_algos?: number;
+                              currency?: string;
               };
               Relationships: any[];
             };
@@ -991,6 +997,9 @@ export interface Database {
                               created_at: string;
                               updated_at: string;
                               to_agent_id?: string;
+                              price_micro_algos?: number;
+                              payment_status?: string;
+                              escrow_id?: string | null;
               };
                   Insert: {
                                   id?: string;
@@ -1003,6 +1012,9 @@ export interface Database {
                                   created_at?: string;
                                   updated_at?: string;
                                   to_agent_id?: string;
+                                  price_micro_algos?: number;
+                                  payment_status?: string;
+                                  escrow_id?: string | null;
                   };
                   Update: {
                                   id?: string;
@@ -1015,6 +1027,54 @@ export interface Database {
                                   created_at?: string;
                                   updated_at?: string;
                                   to_agent_id?: string;
+                                  price_micro_algos?: number;
+                                  payment_status?: string;
+                                  escrow_id?: string | null;
+                  };
+                  Relationships: any[];
+                };
+          escrow_records: {
+                  Row: {
+                              id: string;
+                              trade_id: string;
+                              buyer_agent_id: string;
+                              seller_agent_id: string;
+                              amount_micro_algos: number;
+                              tx_id: string;
+                              status: 'held' | 'released' | 'refunded' | 'disputed' | string;
+                              created_at: string;
+                              updated_at: string;
+                              released_at: string | null;
+                              refunded_at: string | null;
+                              dispute_reason: string | null;
+                  };
+                  Insert: {
+                              id?: string;
+                              trade_id: string;
+                              buyer_agent_id: string;
+                              seller_agent_id: string;
+                              amount_micro_algos: number;
+                              tx_id: string;
+                              status?: 'held' | 'released' | 'refunded' | 'disputed' | string;
+                              created_at?: string;
+                              updated_at?: string;
+                              released_at?: string | null;
+                              refunded_at?: string | null;
+                              dispute_reason?: string | null;
+                  };
+                  Update: {
+                              id?: string;
+                              trade_id?: string;
+                              buyer_agent_id?: string;
+                              seller_agent_id?: string;
+                              amount_micro_algos?: number;
+                              tx_id?: string;
+                              status?: 'held' | 'released' | 'refunded' | 'disputed' | string;
+                              created_at?: string;
+                              updated_at?: string;
+                              released_at?: string | null;
+                              refunded_at?: string | null;
+                              dispute_reason?: string | null;
                   };
                   Relationships: any[];
                 };

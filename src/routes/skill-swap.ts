@@ -26,11 +26,11 @@ import {
   updateSqliteSkillOfferStatus,
   createSqliteSkillRequest,
   getSqliteSkillRequests,
-  createSqliteTrade,
   getSqliteTradeById,
   getSqliteTradesForAgent,
   updateSqliteTrade,
 } from '../db/sqlite';
+import * as sqliteDb from '../db/sqlite';
 import { lockFundsInEscrow, releaseEscrow, refundEscrow } from '../services/escrow';
 
 type SkillOfferRow = Database['public']['Tables']['skill_offers']['Row'];
@@ -597,30 +597,30 @@ router.post('/offers/:id/accept', async (c) => {
       }
 
       // Lock succeeded: create trade in_progress and escrowed
-      const trade = {
-        id: tradeId,
-        offerId: offer.id,
-        requestId: null,
-        fromAgentId: offer.agentId,
-        toAgentId: user.agentId,
-        status: 'in_progress',
-        priceMicroAlgos: offer.priceMicroAlgos,
-        paymentStatus: 'escrowed',
-        escrowId: escrow.id,
-        notes: validated.notes ?? null,
-        createdAt: now,
-        updatedAt: now,
-      };
-
-      // Mark offer claimed
-      offer.status = 'claimed';
-      offer.updatedAt = now;
-      memOffers.set(offer.id, offer);
-
-      // Persist to SQLite
       try {
-        await updateSqliteSkillOfferStatus(offer.id, 'claimed');
-        await createSqliteTrade({
+        const trade = {
+          id: tradeId,
+          offerId: offer.id,
+          requestId: null,
+          fromAgentId: offer.agentId,
+          toAgentId: user.agentId,
+          status: 'in_progress',
+          priceMicroAlgos: offer.priceMicroAlgos,
+          paymentStatus: 'escrowed',
+          escrowId: escrow.id,
+          notes: validated.notes ?? null,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        // Mark offer claimed
+        offer.status = 'claimed';
+        offer.updatedAt = now;
+        memOffers.set(offer.id, offer);
+
+        // Persist to SQLite
+        await sqliteDb.updateSqliteSkillOfferStatus(offer.id, 'claimed');
+        await sqliteDb.createSqliteTrade({
           id: trade.id,
           offer_id: trade.offerId,
           from_agent_id: trade.fromAgentId,
@@ -633,15 +633,11 @@ router.post('/offers/:id/accept', async (c) => {
           created_at: now,
           updated_at: now,
         });
-      } catch (sqliteErr) {
-        console.warn('[skill-swap] SQLite trade creation warning:', sqliteErr);
-      }
 
-      memTrades.set(trade.id, trade);
+        memTrades.set(trade.id, trade);
 
-      // Supabase sync (optional)
-      if (!config.useLocalDb) {
-        try {
+        // Supabase sync (optional)
+        if (!config.useLocalDb) {
           const supabase = createSupabaseClient();
           await supabase.from('skill_offers').update({ status: 'claimed', updated_at: now }).eq('id', offer.id);
           await supabase.from('trades').insert({
@@ -650,16 +646,54 @@ router.post('/offers/:id/accept', async (c) => {
             from_agent_id: trade.fromAgentId,
             to_user_id: trade.toAgentId,
             status: trade.status,
+            price_micro_algos: trade.priceMicroAlgos,
+            payment_status: trade.paymentStatus,
+            escrow_id: trade.escrowId,
             notes: trade.notes,
             created_at: now,
             updated_at: now,
           });
-        } catch {
-          /* ignore */
         }
-      }
 
-      return c.json({ message: 'Offer accepted with escrow', trade, escrow }, 201);
+        return c.json({ message: 'Offer accepted with escrow', trade, escrow }, 201);
+      } catch (tradeError) {
+        console.error('[skill-swap] Trade creation failed after escrow lock, compensation executed:', tradeError);
+
+        // 1. Call refundEscrow(escrow.id, 'system', 'Trade creation failed after escrow lock')
+        try {
+          await refundEscrow(escrow.id, 'system', 'Trade creation failed after escrow lock');
+        } catch (refundErr) {
+          console.error('[skill-swap] CRITICAL: Escrow refund failed during compensation:', refundErr);
+        }
+
+        // 2. Revert offer status back to 'available'
+        offer.status = 'available';
+        offer.updatedAt = new Date().toISOString();
+        memOffers.set(offer.id, offer);
+        try {
+          await sqliteDb.updateSqliteSkillOfferStatus(offer.id, 'available');
+        } catch (revertErr) {
+          console.warn('[skill-swap] Failed to revert SQLite offer status:', revertErr);
+        }
+        if (!config.useLocalDb) {
+          try {
+            const supabase = createSupabaseClient();
+            await supabase.from('skill_offers').update({ status: 'available', updated_at: offer.updatedAt }).eq('id', offer.id);
+          } catch {
+            /* ignore */
+          }
+        }
+
+        return c.json(
+          {
+            error: {
+              code: 'TRADE_CREATION_FAILED',
+              message: 'Failed to create trade; escrowed funds refunded',
+            },
+          },
+          500,
+        );
+      }
     } else {
       // Unpriced / Pure Barter Trade
       const tradeId = randomUUID();
@@ -678,15 +712,15 @@ router.post('/offers/:id/accept', async (c) => {
         updatedAt: now,
       };
 
-      // Mark offer claimed
-      offer.status = 'claimed';
-      offer.updatedAt = now;
-      memOffers.set(offer.id, offer);
-
-      // Persist to SQLite
       try {
-        await updateSqliteSkillOfferStatus(offer.id, 'claimed');
-        await createSqliteTrade({
+        // Mark offer claimed
+        offer.status = 'claimed';
+        offer.updatedAt = now;
+        memOffers.set(offer.id, offer);
+
+        // Persist to SQLite
+        await sqliteDb.updateSqliteSkillOfferStatus(offer.id, 'claimed');
+        await sqliteDb.createSqliteTrade({
           id: trade.id,
           offer_id: trade.offerId,
           from_agent_id: trade.fromAgentId,
@@ -698,15 +732,11 @@ router.post('/offers/:id/accept', async (c) => {
           created_at: now,
           updated_at: now,
         });
-      } catch (sqliteErr) {
-        console.warn('[skill-swap] SQLite trade creation warning:', sqliteErr);
-      }
 
-      memTrades.set(trade.id, trade);
+        memTrades.set(trade.id, trade);
 
-      // Supabase sync (optional)
-      if (!config.useLocalDb) {
-        try {
+        // Supabase sync (optional)
+        if (!config.useLocalDb) {
           const supabase = createSupabaseClient();
           await supabase.from('skill_offers').update({ status: 'claimed', updated_at: now }).eq('id', offer.id);
           await supabase.from('trades').insert({
@@ -715,16 +745,46 @@ router.post('/offers/:id/accept', async (c) => {
             from_agent_id: trade.fromAgentId,
             to_user_id: trade.toAgentId,
             status: trade.status,
+            price_micro_algos: 0,
+            payment_status: 'unpaid',
             notes: trade.notes,
             created_at: now,
             updated_at: now,
           });
-        } catch {
-          /* ignore */
         }
-      }
 
-      return c.json({ message: 'Offer accepted', trade }, 201);
+        return c.json({ message: 'Offer accepted', trade }, 201);
+      } catch (tradeError) {
+        console.error('[skill-swap] Unpriced trade creation failed, reverting offer:', tradeError);
+
+        // Revert offer status back to 'available'
+        offer.status = 'available';
+        offer.updatedAt = new Date().toISOString();
+        memOffers.set(offer.id, offer);
+        try {
+          await sqliteDb.updateSqliteSkillOfferStatus(offer.id, 'available');
+        } catch (revertErr) {
+          console.warn('[skill-swap] Failed to revert SQLite offer status:', revertErr);
+        }
+        if (!config.useLocalDb) {
+          try {
+            const supabase = createSupabaseClient();
+            await supabase.from('skill_offers').update({ status: 'available', updated_at: offer.updatedAt }).eq('id', offer.id);
+          } catch {
+            /* ignore */
+          }
+        }
+
+        return c.json(
+          {
+            error: {
+              code: 'TRADE_CREATION_FAILED',
+              message: 'Failed to create trade',
+            },
+          },
+          500,
+        );
+      }
     }
   } catch (err) {
     if (err instanceof z.ZodError) {

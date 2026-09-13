@@ -78,6 +78,14 @@ The `.agents/` directory holds skill files. **Read the relevant one before you s
   - `client.getTrades()`, `client.getTrade(tradeId)`: View trade history or specific trade status.
   - `client.completeTrade(tradeId, notes)`: Release escrowed funds and mark trade completed.
   - `client.cancelTrade(tradeId, reason)`: Refund escrowed funds and cancel trade.
+- **Supabase Schema Parity**: Supabase PostgreSQL migration `supabase/migrations/004_escrow_and_marketplace.sql` defines the `escrow_records` table (with indexes on `trade_id`, `buyer_id`, `seller_id`, and `status`) and aligns columns on `skill_offers` (`category`, `price_micro_algos`, `currency`) and `trades` (`price_micro_algos`, `payment_status`, `escrow_id`), fully mirrored in `src/supabase/types/database.types.ts`.
+- **Automated Compensation Rollback**: `POST /api/skill-swap/offers/:id/accept` executes post-escrow trade creation within an automated compensation block. If trade persistence throws an error, the system automatically triggers `refundEscrow(tradeId, ...)` to return locked funds to the buyer, restores the offer status back to `available`, logs structured compensation error details, and returns HTTP 500 with error code `TRADE_CREATION_FAILED`.
+
+#### Subsystem Health Diagnostics & Graceful Shutdown
+- **Enriched `/health` Endpoint Diagnostics**: `GET /health` provides granular operational telemetry across all cafe subsystems:
+  - Subsystem status checks: database probe latency (`dbLatencyMs`), SSE active client connections count (`activeSseClients`), autonomous `OwnerCronService` loop status (`ownerCronStatus`), process memory metrics (`heapUsedMb`, `heapTotalMb`, `rssMb`, `externalMb`), and process uptime (`uptimeSeconds`).
+  - Degradation reporting: returns overall `status: 'degraded'` if database connectivity fails while maintaining HTTP 200 for container health probes.
+- **Graceful Shutdown**: The server implements `gracefulShutdown(signal)` listening for `SIGTERM` and `SIGINT`. Upon shutdown signal, it terminates the `OwnerCronService` loop, drains and disconnects all active SSE client streams via `clearAllClients()`, and closes the HTTP listener, preventing dropped connections during Cloud Run rolling deployments.
 
 #### x402 Payment Integration
 
@@ -128,12 +136,17 @@ Note: narrative features require an LLM endpoint (`OPENAI_BASE_URL`, defaults to
 - Use `.env.example` for documenting required environment variables
 - Audit all agent-facing endpoints for x402 compliance
 - **Cryptographic DID Authentication & Auth Enforcement**: `src/middleware/auth.ts` strictly authenticates agents via verified Bearer JWT tokens or per-request cryptographic DID signature headers (`X-Agent-DID`, `X-Agent-Signature`, `X-Agent-Nonce`). In production (`NODE_ENV=production`), unverified Bearer tokens and unauthenticated `X-Agent-ID` header bypasses are rejected. W3C `did:key` (Ed25519) and Algorand (`did:algo`) identities are cryptographically resolved and mathematically verified via `src/services/identity/did.ts`.
+- **Strict Production CORS Policy**: In production (`NODE_ENV=production`), wildcard `*` CORS origins are rejected with a fatal startup error (`Error: In production, CORS_ALLOWED_ORIGINS cannot contain wildcard '*'`); an explicit, comma-delimited whitelist via `CORS_ALLOWED_ORIGINS` is required. The Hono CORS middleware dynamically verifies inbound `Origin` headers against this whitelist, enables `credentials: true`, handles preflight `OPTIONS` requests, and exposes required protocol headers (`X-Agent-DID`, `X-Agent-Signature`, `X-Agent-Nonce`, `X-Room-ID`, `X-402-Payment`, `X-402-Receipt`, `X-402-Payment-Required`).
 
 ### 🚀 Deployment
 
 - Production: GCP Cloud Run (`npm run deploy:gcp`; one-time setup via `npm run deploy:gcp-setup`)
 - Development: `npm run dev` (tsx watch) or Docker with vLLM (`Dockerfile.dev`)
 - Database: Supabase PostgreSQL, or `USE_LOCAL_DB=true` for the bundled SQLite fallback
+- **Hardened Multi-Stage Dockerfile**: Multi-stage build that compiles workspace packages (`packages/sdk`), isolates production node modules, runs under an unprivileged non-root user `appuser:appgroup` (UID 10001), and includes an integrated container `HEALTHCHECK` probing `http://localhost:8080/health` with `wget`.
+- **GCP Cloud Run Deployment Automation**:
+  - `scripts/deploy-gcp-setup.sh` provisions a dedicated runtime service account `bizarre-cafe-runner` with least-privilege IAM roles (`secretmanager.secretAccessor`, `cloudsql.client`, `storage.objectViewer`) and initializes Google Secret Manager secrets.
+  - `scripts/deploy-gcp.sh` builds and deploys the container to Cloud Run, securely injecting production environment secrets via `--set-secrets` from Secret Manager, enforcing explicit `CORS_ALLOWED_ORIGINS`, and running an automated post-deploy health check verification.
 
 ### 🌿 Git Workflow
 
