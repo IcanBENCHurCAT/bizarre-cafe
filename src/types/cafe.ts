@@ -982,3 +982,35 @@ export interface SortSpec {
   /** Sort direction */
   order: SortOrder;
 }
+
+// ─── Real-Time SSE & Presence Types ─────────────────────────────────────
+
+/** Active SSE streaming client session */
+export interface SseClientSession {
+  id: string;
+  agentId: string;
+  roomId: string | null;
+  active: boolean;
+  lastSeen: number;
+  heartbeatTimer: ReturnType<typeof setInterval> | null;
+  stream: unknown;
+}
+
+/** Structured real-time broadcast event transmitted over SSE */
+export interface SseBroadcastEvent {
+  type: 'chat' | 'join' | 'leave' | 'presence' | 'room_update' | 'heartbeat' | 'system' | 'error';
+  roomId?: string;
+  agentId?: string;
+  message?: string;
+  data?: Record<string, unknown>;
+  timestamp: number;
+}
+
+/** Snapshot of room occupancy and participant statuses */
+export interface RoomPresenceSnapshot {
+  roomId: string;
+  participants: Array<{ agentId: string; status: 'active' | 'idle'; lastSeen: string }>;
+  activeCount: number;
+  updatedAt: number;
+}
+

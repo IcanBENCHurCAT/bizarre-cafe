@@ -12,27 +12,27 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../db';
-import { processMessage } from '../sse';
+import { broadcastToRoom, getRoomPresence, touchAgent } from '../sse';
 import type { ChatMessage } from '../types/cafe';
 
 const router = new Hono();
 
 // Zod schemas
 const sendMessageSchema = z.object({
-  roomId: z.string().uuid(),
+  roomId: z.string().min(1),
   content: z.string().min(1).max(5000),
   type: z.enum(['text', 'system', 'rich']).default('text'),
   metadata: z.record(z.unknown()).optional(),
 });
 
 const messagesQuerySchema = z.object({
-  roomId: z.string().uuid(),
+  roomId: z.string().min(1),
   limit: z.string().transform(Number).optional(),
   before: z.string().optional(),
 });
 
 const historyQuerySchema = z.object({
-  roomId: z.string().uuid(),
+  roomId: z.string().min(1),
   limit: z.string().transform(Number).optional(),
   before: z.string().optional(),
   after: z.string().optional(),
@@ -62,12 +62,15 @@ router.post('/messages', async (c) => {
       content: validated.content,
     });
 
-    // Broadcast via SSE
-    await processMessage({
+    // Update sender lastSeen timestamp
+    touchAgent(user.agentId);
+
+    // Broadcast via SSE channel isolation
+    broadcastToRoom({
       type: 'chat',
       roomId: validated.roomId,
       agentId: user.agentId,
-      content: validated.content,
+      message: validated.content,
       timestamp: Date.now(),
     });
 
@@ -172,19 +175,11 @@ router.get('/history', async (c) => {
 router.get('/presence', async (c) => {
   try {
     const query = c.req.query();
-    const { roomId } = z.object({ roomId: z.string().uuid() }).parse(query);
+    const { roomId } = z.object({ roomId: z.string().min(1) }).parse(query);
 
-    // TODO: Query Supabase presence table or Redis
     return c.json({
       roomId,
-      presence: [
-        { agentId: 'agent-1', lastSeen: new Date().toISOString(), status: 'active' },
-        {
-          agentId: 'agent-2',
-          lastSeen: new Date(Date.now() - 60000).toISOString(),
-          status: 'idle',
-        },
-      ],
+      presence: getRoomPresence(roomId),
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -203,7 +198,7 @@ router.get('/presence', async (c) => {
 router.get('/unread', async (c) => {
   try {
     const query = c.req.query();
-    const { roomId } = z.object({ roomId: z.string().uuid() }).parse(query);
+    const { roomId } = z.object({ roomId: z.string().min(1) }).parse(query);
     const user = c.user;
 
     if (!user) {

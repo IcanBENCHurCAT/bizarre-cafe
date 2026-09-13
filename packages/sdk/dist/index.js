@@ -63,44 +63,182 @@ export class AgentClient extends EventEmitter {
     config;
     es = null;
     isListening = false;
+    _sseConnectionState = 'disconnected';
+    currentRoomId;
+    retryConfig;
+    retryCount = 0;
+    reconnectTimer = null;
+    isManuallyDisconnected = false;
     constructor(config) {
         super();
         this.config = config;
+        this.retryConfig = {
+            autoReconnect: true,
+            initialDelayMs: 1000,
+            maxDelayMs: 15000,
+            maxRetries: 5,
+            jitter: 0.2,
+            ...(config.retryConfig || {}),
+        };
     }
     /**
-     * Connect to the SSE endpoint to listen for messages
+     * Current SSE connection lifecycle state
      */
-    connectSse() {
-        if (this.isListening)
-            return;
-        const url = `${this.config.baseUrl}/sse?agentId=${encodeURIComponent(this.config.agentId)}`;
-        this.es = new EventSource(url);
-        this.es.onmessage = (event) => {
+    get sseConnectionState() {
+        return this._sseConnectionState;
+    }
+    getHeaders(extraHeaders) {
+        const headers = {
+            'x-agent-id': this.config.agentId,
+            ...(extraHeaders || {}),
+        };
+        if (this.config.token && !headers['Authorization'] && !headers['authorization']) {
+            headers['Authorization'] = `Bearer ${this.config.token}`;
+        }
+        return headers;
+    }
+    clearReconnectTimer() {
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+    }
+    /**
+     * Connect to the SSE endpoint to listen for messages with auto-reconnection and typed events
+     */
+    connectSse(options) {
+        if (options?.roomId !== undefined) {
+            this.currentRoomId = options.roomId;
+        }
+        if (options?.retryConfig) {
+            this.retryConfig = {
+                ...this.retryConfig,
+                ...options.retryConfig,
+            };
+        }
+        this.isManuallyDisconnected = false;
+        this.retryCount = 0;
+        this.clearReconnectTimer();
+        this.establishSseStream(false);
+    }
+    establishSseStream(isReconnecting) {
+        if (this.es) {
             try {
-                const data = JSON.parse(event.data);
-                this.emit('message', data);
+                this.es.close();
             }
-            catch (err) {
-                this.emit('error', err);
+            catch {
+                // Ignore close error
             }
-        };
-        this.es.onerror = (err) => {
-            this.emit('error', err);
-        };
-        this.es.onopen = () => {
+            this.es = null;
+        }
+        this._sseConnectionState = isReconnecting ? 'reconnecting' : 'connecting';
+        if (!isReconnecting) {
+            this.emit('connecting');
+        }
+        let url = `${this.config.baseUrl}/sse?agentId=${encodeURIComponent(this.config.agentId)}`;
+        if (this.currentRoomId) {
+            url += `&roomId=${encodeURIComponent(this.currentRoomId)}`;
+        }
+        const es = new EventSource(url);
+        this.es = es;
+        es.onopen = () => {
+            if (this.es !== es)
+                return;
+            this._sseConnectionState = 'connected';
             this.isListening = true;
+            this.retryCount = 0;
             this.emit('connected');
         };
+        es.onmessage = (event) => {
+            if (this.es !== es)
+                return;
+            try {
+                const raw = event.data;
+                const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                this.emit('message', data);
+                if (data && typeof data === 'object') {
+                    const type = data.type;
+                    if (type === 'chat') {
+                        this.emit('chat', data);
+                    }
+                    else if (type === 'presence' || type === 'join' || type === 'leave') {
+                        this.emit('presence', data);
+                    }
+                    else if (type === 'heartbeat') {
+                        this.emit('heartbeat', data);
+                    }
+                    else if (type === 'system') {
+                        this.emit('system', data);
+                    }
+                    else if (type === 'room_update') {
+                        this.emit('room_update', data);
+                    }
+                }
+            }
+            catch (err) {
+                this.emit('error', err instanceof Error ? err : new Error(String(err)));
+            }
+        };
+        es.onerror = (err) => {
+            if (this.es !== es)
+                return;
+            try {
+                es.close();
+            }
+            catch {
+                // Ignore close error
+            }
+            this.es = null;
+            this.isListening = false;
+            const errorObj = err instanceof Error ? err : new Error(err?.message || 'SSE connection error');
+            this.emit('error', errorObj);
+            if (this.isManuallyDisconnected) {
+                this._sseConnectionState = 'disconnected';
+                this.emit('disconnected', 'manually disconnected');
+                return;
+            }
+            const autoReconnect = this.retryConfig.autoReconnect ?? true;
+            const initialDelayMs = this.retryConfig.initialDelayMs ?? 1000;
+            const maxDelayMs = this.retryConfig.maxDelayMs ?? 15000;
+            const maxRetries = this.retryConfig.maxRetries ?? 5;
+            const jitter = this.retryConfig.jitter ?? 0.2;
+            if (autoReconnect && this.retryCount < maxRetries) {
+                this._sseConnectionState = 'reconnecting';
+                const baseDelay = Math.min(maxDelayMs, initialDelayMs * Math.pow(2, this.retryCount));
+                const jitterMultiplier = 1 + (Math.random() * 2 - 1) * jitter;
+                const delay = Math.max(0, Math.round(baseDelay * jitterMultiplier));
+                this.retryCount++;
+                this.emit('reconnecting', this.retryCount, delay);
+                this.reconnectTimer = setTimeout(() => {
+                    if (!this.isManuallyDisconnected) {
+                        this.establishSseStream(true);
+                    }
+                }, delay);
+            }
+            else {
+                this._sseConnectionState = 'disconnected';
+                this.emit('disconnected', this.retryCount >= maxRetries ? 'max retries reached' : 'connection closed');
+            }
+        };
     }
     /**
-     * Close the SSE connection
+     * Close the SSE connection cleanly and suppress auto-reconnect
      */
     disconnectSse() {
+        this.isManuallyDisconnected = true;
+        this.clearReconnectTimer();
         if (this.es) {
-            this.es.close();
+            try {
+                this.es.close();
+            }
+            catch {
+                // Ignore close error
+            }
             this.es = null;
         }
         this.isListening = false;
+        this._sseConnectionState = 'disconnected';
+        this.emit('disconnected', 'client disconnected');
     }
     /**
      * Join a room
@@ -108,11 +246,10 @@ export class AgentClient extends EventEmitter {
     async joinRoom(roomId, req) {
         const response = await fetch(`${this.config.baseUrl}/api/rooms/${roomId}/join`, {
             method: 'POST',
-            headers: {
+            headers: this.getHeaders({
                 'Content-Type': 'application/json',
-                'x-agent-id': this.config.agentId
-            },
-            body: JSON.stringify(req || {})
+            }),
+            body: JSON.stringify(req || {}),
         });
         if (!response.ok) {
             throw new Error(`Failed to join room: ${response.statusText}`);
@@ -126,11 +263,10 @@ export class AgentClient extends EventEmitter {
     async sendMessage(roomId, content) {
         const response = await fetch(`${this.config.baseUrl}/api/chat/messages`, {
             method: 'POST',
-            headers: {
+            headers: this.getHeaders({
                 'Content-Type': 'application/json',
-                'x-agent-id': this.config.agentId
-            },
-            body: JSON.stringify({ roomId, content })
+            }),
+            body: JSON.stringify({ roomId, content }),
         });
         if (!response.ok) {
             throw new Error(`Failed to send message: ${response.statusText}`);
@@ -143,9 +279,7 @@ export class AgentClient extends EventEmitter {
      */
     async getRooms() {
         const response = await fetch(`${this.config.baseUrl}/api/rooms`, {
-            headers: {
-                'x-agent-id': this.config.agentId
-            }
+            headers: this.getHeaders(),
         });
         if (!response.ok) {
             throw new Error(`Failed to get rooms: ${response.statusText}`);
@@ -157,9 +291,7 @@ export class AgentClient extends EventEmitter {
      */
     async getPresence(roomId) {
         const response = await fetch(`${this.config.baseUrl}/api/chat/presence?roomId=${roomId}`, {
-            headers: {
-                'x-agent-id': this.config.agentId
-            }
+            headers: this.getHeaders(),
         });
         if (!response.ok) {
             throw new Error(`Failed to get presence: ${response.statusText}`);
@@ -171,9 +303,7 @@ export class AgentClient extends EventEmitter {
      */
     async getHistory(roomId, limit = 50) {
         const response = await fetch(`${this.config.baseUrl}/api/chat/history?roomId=${roomId}&limit=${limit}`, {
-            headers: {
-                'x-agent-id': this.config.agentId
-            }
+            headers: this.getHeaders(),
         });
         if (!response.ok) {
             throw new Error(`Failed to get history: ${response.statusText}`);
@@ -185,9 +315,7 @@ export class AgentClient extends EventEmitter {
      */
     async getUnread(roomId) {
         const response = await fetch(`${this.config.baseUrl}/api/chat/unread?roomId=${roomId}`, {
-            headers: {
-                'x-agent-id': this.config.agentId
-            }
+            headers: this.getHeaders(),
         });
         if (!response.ok) {
             throw new Error(`Failed to get unread count: ${response.statusText}`);
@@ -199,9 +327,7 @@ export class AgentClient extends EventEmitter {
      */
     async getVisualState() {
         const response = await fetch(`${this.config.baseUrl}/api/owner/visual-state`, {
-            headers: {
-                'x-agent-id': this.config.agentId
-            }
+            headers: this.getHeaders(),
         });
         if (!response.ok) {
             throw new Error(`Failed to get visual state: ${response.statusText}`);
@@ -245,10 +371,9 @@ export class AgentClient extends EventEmitter {
      * Propose a narrative action to the DM (x402 wrapped)
      */
     async proposeAction(action, paymentReceipt) {
-        const headers = {
+        const headers = this.getHeaders({
             'Content-Type': 'application/json',
-            'x-agent-id': this.config.agentId,
-        };
+        });
         if (paymentReceipt) {
             const paymentHeaders = createX402PaymentHeader(paymentReceipt);
             Object.assign(headers, paymentHeaders);
@@ -267,10 +392,9 @@ export class AgentClient extends EventEmitter {
      * Interact directly with the Owner (x402 wrapped)
      */
     async interactWithOwner(message, paymentReceipt, roomId) {
-        const headers = {
+        const headers = this.getHeaders({
             'Content-Type': 'application/json',
-            'x-agent-id': this.config.agentId,
-        };
+        });
         if (paymentReceipt) {
             const paymentHeaders = createX402PaymentHeader(paymentReceipt);
             Object.assign(headers, paymentHeaders);
@@ -292,7 +416,7 @@ export class AgentClient extends EventEmitter {
     async getShopItems(category) {
         const query = category ? `?category=${encodeURIComponent(category)}` : '';
         const response = await fetch(`${this.config.baseUrl}/api/shop/items${query}`, {
-            headers: { 'x-agent-id': this.config.agentId }
+            headers: this.getHeaders(),
         });
         if (!response.ok) {
             throw new Error(`Failed to fetch shop items: ${response.statusText}`);
@@ -303,10 +427,9 @@ export class AgentClient extends EventEmitter {
      * Checkout / purchase a shop item via x402 payment
      */
     async checkoutItem(itemId, quantity = 1, paymentMethod = 'x402', paymentReceipt) {
-        const headers = {
+        const headers = this.getHeaders({
             'Content-Type': 'application/json',
-            'x-agent-id': this.config.agentId,
-        };
+        });
         if (paymentReceipt) {
             const paymentHeaders = createX402PaymentHeader(paymentReceipt);
             Object.assign(headers, paymentHeaders);
@@ -326,7 +449,7 @@ export class AgentClient extends EventEmitter {
      */
     async getReceipts() {
         const response = await fetch(`${this.config.baseUrl}/api/shop/receipts`, {
-            headers: { 'x-agent-id': this.config.agentId }
+            headers: this.getHeaders(),
         });
         if (!response.ok) {
             throw new Error(`Failed to fetch receipts: ${response.statusText}`);
@@ -340,11 +463,10 @@ export class AgentClient extends EventEmitter {
     async postSkillOffer(skillName, description, wantedSkill) {
         const response = await fetch(`${this.config.baseUrl}/api/skill-swap/offer`, {
             method: 'POST',
-            headers: {
+            headers: this.getHeaders({
                 'Content-Type': 'application/json',
-                'x-agent-id': this.config.agentId
-            },
-            body: JSON.stringify({ skillName, description, wantedSkill })
+            }),
+            body: JSON.stringify({ skillName, description, wantedSkill }),
         });
         if (!response.ok) {
             throw new Error(`Failed to post skill offer: ${response.statusText}`);
@@ -357,7 +479,7 @@ export class AgentClient extends EventEmitter {
     async getSkillOffers(search) {
         const query = search ? `?search=${encodeURIComponent(search)}` : '';
         const response = await fetch(`${this.config.baseUrl}/api/skill-swap/offers${query}`, {
-            headers: { 'x-agent-id': this.config.agentId }
+            headers: this.getHeaders(),
         });
         if (!response.ok) {
             throw new Error(`Failed to fetch skill offers: ${response.statusText}`);
@@ -370,11 +492,10 @@ export class AgentClient extends EventEmitter {
     async acceptSkillOffer(offerId, notes) {
         const response = await fetch(`${this.config.baseUrl}/api/skill-swap/offers/${offerId}/accept`, {
             method: 'POST',
-            headers: {
+            headers: this.getHeaders({
                 'Content-Type': 'application/json',
-                'x-agent-id': this.config.agentId
-            },
-            body: JSON.stringify({ agentId: this.config.agentId, notes })
+            }),
+            body: JSON.stringify({ agentId: this.config.agentId, notes }),
         });
         if (!response.ok) {
             throw new Error(`Failed to accept skill offer: ${response.statusText}`);
@@ -386,7 +507,7 @@ export class AgentClient extends EventEmitter {
      */
     async getTrades() {
         const response = await fetch(`${this.config.baseUrl}/api/skill-swap/trades`, {
-            headers: { 'x-agent-id': this.config.agentId }
+            headers: this.getHeaders(),
         });
         if (!response.ok) {
             throw new Error(`Failed to fetch trades: ${response.statusText}`);
@@ -399,10 +520,9 @@ export class AgentClient extends EventEmitter {
     async completeTrade(tradeId) {
         const response = await fetch(`${this.config.baseUrl}/api/skill-swap/trades/${tradeId}/complete`, {
             method: 'POST',
-            headers: {
+            headers: this.getHeaders({
                 'Content-Type': 'application/json',
-                'x-agent-id': this.config.agentId
-            }
+            }),
         });
         if (!response.ok) {
             throw new Error(`Failed to complete trade: ${response.statusText}`);

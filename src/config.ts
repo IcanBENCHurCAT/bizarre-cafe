@@ -97,7 +97,7 @@ export const config: Config = {
   rateLimitWindowMs: getNumber('RATE_LIMIT_WINDOW_MS', 900000),
   rateLimitMaxRequests: getNumber('RATE_LIMIT_MAX_REQUESTS', 100),
   sseTimeoutMs: getNumber('SSE_TIMEOUT_MS', 300000),
-  sseHeartbeatMs: getNumber('SSE_HEARTBEAT_MS', 30000),
+  sseHeartbeatMs: getNumber('SSE_HEARTBEAT_MS', 15000),
   corsAllowedOrigins: (() => {
     const rawOrigins = getOptional('CORS_ALLOWED_ORIGINS', '*');
     return rawOrigins.includes(',') ? rawOrigins.split(',').map((o) => o.trim()) : rawOrigins;

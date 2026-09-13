@@ -490,17 +490,23 @@ router.post('/trades/:id/complete', async (c) => {
     const supabase = createSupabaseClient();
 
     // Get the trade
-    const { data: trade, error: tradeError } = await supabase.from('trades')
+    const { data: dbTrade } = await supabase.from('trades')
       .select('*')
       .eq('id', id)
       .single();
 
-    if (tradeError || !trade) {
+    const memTrade = memTrades.get(id);
+    const trade = dbTrade || memTrade;
+
+    if (!trade) {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Trade not found' } }, 404);
     }
 
+    const fromAgentId = trade.from_agent_id ?? trade.fromAgentId;
+    const toUserId = trade.to_user_id ?? trade.toAgentId;
+
     // Check if agent is part of this trade
-    if (trade.from_agent_id !== user.agentId && trade.to_user_id !== user.agentId) {
+    if (fromAgentId !== user.agentId && toUserId !== user.agentId) {
       return c.json({ error: { code: 'FORBIDDEN', message: 'Not involved in this trade' } }, 403);
     }
 
@@ -517,27 +523,30 @@ router.post('/trades/:id/complete', async (c) => {
       );
     }
 
-    // Update trade status
-    const { error: updateError } = await supabase.from('trades')
+    // Update in-memory trade if using fallback
+    if (memTrade) {
+      memTrade.status = 'completed';
+      memTrade.updatedAt = new Date().toISOString();
+      const offerId = memTrade.offerId ?? memTrade.offer_id;
+      if (offerId && memOffers.has(offerId)) {
+        memOffers.get(offerId).status = 'completed';
+      }
+    }
+
+    // Update trade status in DB if available
+    await supabase.from('trades')
       .update({
         status: 'completed',
         updated_at: new Date().toISOString(),
       })
       .eq('id', id);
 
-    if (updateError) {
-      console.error('Supabase update error:', updateError);
-      return c.json(
-        { error: { code: 'DATABASE_ERROR', message: 'Failed to complete trade' } },
-        500,
-      );
-    }
-
     // Update related offer/request
-    if (trade.offer_id) {
+    const offerId = trade.offer_id ?? trade.offerId;
+    if (offerId) {
       await supabase.from('skill_offers')
         .update({ status: 'completed', updated_at: new Date().toISOString() })
-        .eq('id', trade.offer_id);
+        .eq('id', offerId);
     }
 
     return c.json({

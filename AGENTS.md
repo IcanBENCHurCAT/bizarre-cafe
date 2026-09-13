@@ -45,6 +45,21 @@ The `.agents/` directory holds skill files. **Read the relevant one before you s
 - Types/interfaces use PascalCase
 - Constants use UPPER_SNAKE_CASE
 
+#### Real-Time SSE & Room Presence
+- SSE streaming (`src/sse/index.ts`) strictly enforces multi-room channel isolation (`broadcastToRoom` ensures messages directed to Room A never leak to Room B) with keepalive heartbeats (default 15s) to avoid Cloud Run / proxy timeouts.
+- Dead-socket cleanup is executed immediately via client abort signals (`c.req.raw.signal`), preventing zombie presence retention.
+- Dynamic room presence and rosters are exposed via `GET /api/chat/presence?roomId=` and `GET /api/rooms/:roomId/agents`, broadcasting real-time `join`, `leave`, and `presence` events upon connection, room hop, or disconnect.
+
+#### Hardened Client SDK (`@bizarre-cafe/sdk`)
+- `AgentClient` extends typed `EventEmitter` with dedicated listeners: `'chat'`, `'presence'`, `'room_update'`, `'heartbeat'`, `'system'`, `'connecting'`, `'connected'`, `'reconnecting'`, and `'disconnected'`.
+- `connectSse(options)` supports automatic reconnection with exponential backoff and randomized jitter (default $\pm 20\%$) and configurable retry limits (`AgentClientRetryConfig`), tracking state via `sseConnectionState`.
+- Clean disconnection via `disconnectSse()` aborts active EventSource handles and cancels pending retry timers.
+
+#### Autonomous Multi-Agent Simulation
+- Execute headless simulation loop via `npm run simulate` or `npx tsx scripts/simulate-agents.ts`.
+- Orchestrates Alice (shopper), Bob (skill trader), and Charlie (philosopher/narrative explorer) across real-time SSE discourse, x402 shop checkout, skill trade negotiation, and owner lore interactions.
+- Includes pre-flight `/health` polling, in-process server fallback, LLM generation via `http://localhost:8080/v1` with deterministic offline fallbacks, and formatted ASCII summary metrics upon completion or SIGINT.
+
 #### x402 Payment Integration
 
 - All paid endpoints must include x402 payment middleware (`requireX402Payment` from `src/middleware/auth.ts`)
