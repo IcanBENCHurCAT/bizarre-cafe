@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { createSupabaseClient } from '../supabase/client';
 import { requireX402Payment } from '../middleware/auth';
 import { broadcastToRoom } from '../sse';
+import { generateResponse, trackEvent } from '../services/narrative/index';
 import type { OwnerMessage as _OwnerMessage, OwnerMood, NarrativeEvent as _NarrativeEvent, LoreEntry, ApiError as _ApiError } from '../types/cafe';
 
 const router = new Hono();
@@ -97,9 +98,33 @@ router.post('/message', async (c) => {
       return c.json({ error: { code: 'DATABASE_ERROR', message: 'Failed to send message' } }, 500);
     }
 
-    // Generate owner response (AI-powered)
-    // In production, call AI service with cafe lore context
-    const ownerResponse = generateOwnerResponse(validated.content, sentiment, user);
+    // Generate owner response via Narrative AI Service (with template fallback)
+    const tone =
+      sentiment === 'positive'
+        ? 'whimsical'
+        : sentiment === 'negative'
+          ? 'encouraging'
+          : 'mysterious';
+
+    let ownerResponse = generateOwnerResponse(validated.content, sentiment, user);
+    try {
+      const aiResponse = await generateResponse(
+        `Agent ${user.agentId} is conversing with the cafe owner in room ${validated.roomId ?? 'main'}.`,
+        validated.content,
+        tone,
+      );
+      if (aiResponse?.content && !aiResponse.content.startsWith('[Error]')) {
+        ownerResponse = aiResponse.content;
+      }
+    } catch {
+      // Keep template fallback
+    }
+
+    trackEvent('owner_message', {
+      agentId: user.agentId,
+      sentiment,
+      roomId: validated.roomId ?? null,
+    });
 
     // Save owner's response and update mood concurrently to reduce latency
     await Promise.all([
@@ -265,6 +290,13 @@ router.post('/events', async (c) => {
       console.error('Supabase insert error:', error);
       return c.json({ error: { code: 'DATABASE_ERROR', message: 'Failed to create event' } }, 500);
     }
+
+    trackEvent('narrative_event', {
+      eventId: data.id,
+      title: data.title,
+      type: data.type,
+      agentId: user.agentId,
+    });
 
     return c.json(
       {
@@ -510,6 +542,13 @@ router.post('/action', requireX402Payment(), async (c) => {
       agentId: 'The Owner',
       message: `[Owner Action Evaluation]: "${validated.action}" -> ${ownerReply}`,
       timestamp: Date.now(),
+    });
+
+    trackEvent('owner_action', {
+      action: validated.action,
+      approved,
+      ownerReply,
+      agentId: user.agentId,
     });
 
     return c.json(

@@ -99,8 +99,8 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   if (authHeader?.startsWith('Bearer ')) {
     try {
       const token = authHeader.slice(7);
-      // For dev, accept any token
-      if (config.nodeEnv === 'development') {
+      // For dev/test, accept any token
+      if (config.nodeEnv === 'development' || config.nodeEnv === 'test') {
         user = generateFakeUser(agentId || 'dev-agent');
       } else {
         const secretKey = new TextEncoder().encode(config.jwtSecret);
@@ -134,7 +134,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   }
 
   // Method 3: Agent ID header (only for development/testing)
-  if (!user && agentId && config.nodeEnv === 'development') {
+  if (!user && agentId && (config.nodeEnv === 'development' || config.nodeEnv === 'test')) {
     user = generateFakeUser(agentId);
   }
 

@@ -10,9 +10,13 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
-import crypto from 'crypto';
 import { createSupabaseClient } from '../supabase/client';
-
+import {
+  challengeAgent,
+  verifyAgent,
+  getAgentStatus,
+  revokeAgent,
+} from '../services/verification/index';
 
 const router = new Hono();
 
@@ -55,18 +59,21 @@ router.post('/challenge', async (c) => {
       .eq('status', 'pending')
       .gte('expires_at', new Date().toISOString());
 
-    // Generate challenge
-    const challenge = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 minutes
+    // Generate challenge via Verification Service (with rate limiting and secure nonces)
+    const issued = await challengeAgent(agentId);
+    const expiresAt = new Date(issued.expiresAt).toISOString();
 
-    // Store challenge
+    // Store challenge in Supabase
     const { data, error } = await supabase.from('verification_challenges')
       .insert({
+        id: issued.challengeId,
         user_id: agentId,
-        challenge,
+        challenge: issued.nonce,
+        proof: issued.message,
         expires_at: expiresAt,
-        status: 'pending', method: 'signature',
-        created_at: new Date().toISOString(),
+        status: 'pending',
+        method: 'signature',
+        created_at: new Date(issued.issuedAt).toISOString(),
       })
       .select()
       .single();
@@ -86,6 +93,7 @@ router.post('/challenge', async (c) => {
           id: data.id,
           agentId: data.user_id,
           challenge: data.challenge,
+          message: issued.message,
           expiresAt: data.expires_at,
           verified: data.status === 'verified',
           createdAt: data.created_at,
@@ -93,9 +101,12 @@ router.post('/challenge', async (c) => {
       },
       200,
     );
-  } catch (err) {
+  } catch (err: any) {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+    }
+    if (err?.message?.includes('Rate limit')) {
+      return c.json({ error: { code: 'RATE_LIMITED', message: err.message } }, 429);
     }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to generate challenge' } },
@@ -138,16 +149,24 @@ router.post('/verify', async (c) => {
       );
     }
 
-    // Verify signature (simplified — in production, verify against Algorand)
-    const signatureValid = verifySignature(
-      validated.challenge,
+    // Verify signature using the verification service
+    const serviceResult = await verifyAgent(
+      agentId,
       validated.signature,
-      validated.walletAddress,
+      validated.challenge,
     );
+
+    const signatureValid =
+      serviceResult.verified ||
+      verifySignature(
+        validated.challenge,
+        validated.signature,
+        validated.walletAddress,
+      );
 
     if (!signatureValid) {
       return c.json(
-        { error: { code: 'INVALID_SIGNATURE', message: 'Wallet signature verification failed' } },
+        { error: { code: 'INVALID_SIGNATURE', message: serviceResult.reason ?? 'Wallet signature verification failed' } },
         400,
       );
     }
@@ -241,12 +260,13 @@ router.get('/status', async (c) => {
 
     if (verError) {
       if (verError.code === 'PGRST116') {
-        // No verification record — agent is unverified
+        const memStatus = getAgentStatus(agentId);
         return c.json({
           agentId,
-          isVerified: false,
-          tier: 'unverified' as const,
-        } as any);
+          isVerified: memStatus.status === 'verified',
+          tier: memStatus.status === 'verified' ? 'basic' : ('unverified' as const),
+          status: memStatus.status,
+        });
       }
 
       console.error('Supabase query error:', verError);
@@ -324,7 +344,6 @@ router.post('/revoke', async (c) => {
         verified_at: null,
         tier: 'unverified',
         updated_at: now,
-        // Optional: add revocation reason to a separate log
       })
       .eq('user_id', validated.agentId);
 
@@ -336,8 +355,8 @@ router.post('/revoke', async (c) => {
       );
     }
 
-    // Log revocation
-    // verification_log does not exist
+    // Revoke from in-memory verification engine as well
+    revokeAgent(validated.agentId);
 
     return c.json({
       message: 'Verification revoked',
@@ -366,13 +385,18 @@ router.post('/revoke', async (c) => {
 router.get('/log', async (c) => {
   try {
     const query = c.req.query();
-    const { agentId: _agentId } = statusQuerySchema.parse(query);
-    const _limit =
+    const { agentId } = statusQuerySchema.parse(query);
+    const limit =
       z.object({ limit: z.string().transform(Number).optional() }).parse(query).limit ?? 50;
 
-    const _supabase = createSupabaseClient();
+    const supabase = createSupabaseClient();
 
-    const data: any[] = []; const error = null;
+    const { data, error } = await supabase
+      .from('verification_challenges')
+      .select('*')
+      .eq('user_id', agentId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
 
     if (error) {
       console.error('Supabase query error:', error);
@@ -383,9 +407,12 @@ router.get('/log', async (c) => {
     }
 
     const log = (data ?? []).map((entry) => ({
-      agentId: entry.agent_id,
-      action: entry.action,
-      reason: entry.reason,
+      challengeId: entry.id,
+      agentId: entry.user_id,
+      status: entry.status,
+      method: entry.method,
+      expiresAt: entry.expires_at,
+      verifiedAt: entry.verified_at,
       createdAt: entry.created_at,
     }));
 
