@@ -1,7 +1,7 @@
  
-import { rooms, chat, verification } from '../supabase/queries';
+import { rooms, chat, verification, payments } from '../supabase/queries';
 import { supabase } from '../supabase/client';
-import type { DatabaseAdapter, RoomData, MessageData, AgentStatusData } from './index';
+import type { DatabaseAdapter, RoomData, MessageData, AgentStatusData, X402PaymentData } from './index';
 
 export const supabaseDb: DatabaseAdapter = {
   rooms: {
@@ -73,6 +73,48 @@ export const supabaseDb: DatabaseAdapter = {
         status_message: data.current_room_id,
       });
       return result as unknown as AgentStatusData;
+    },
+  },
+  payments: {
+    recordPayment: async (payment) => {
+      const result = await payments.recordPayment({
+        txn_hash: payment.txn_hash,
+        proposal_id: payment.proposal_id,
+        amount: payment.amount,
+        from_address: payment.from_address,
+        to_address: payment.to_address,
+        status: payment.status,
+        receipt: payment.receipt,
+      });
+      return {
+        id: result.id,
+        txn_hash: result.txn_hash ?? payment.txn_hash,
+        proposal_id: result.proposal_id,
+        amount: result.amount,
+        from_address: result.from_address,
+        to_address: result.to_address,
+        status: result.status,
+        receipt: result.receipt,
+        created_at: result.created_at,
+      } as X402PaymentData;
+    },
+    hasTxnHash: async (txnHash: string) => {
+      return payments.hasTxnHash(txnHash);
+    },
+    getByTxnHash: async (txnHash: string) => {
+      const result = await payments.getByTxnHash(txnHash);
+      if (!result) return null;
+      return {
+        id: result.id,
+        txn_hash: result.txn_hash ?? '',
+        proposal_id: result.proposal_id,
+        amount: result.amount,
+        from_address: result.from_address,
+        to_address: result.to_address,
+        status: result.status,
+        receipt: result.receipt,
+        created_at: result.created_at,
+      } as X402PaymentData;
     },
   },
 };

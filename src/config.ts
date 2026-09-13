@@ -20,6 +20,9 @@ export interface Config {
   algorandNetwork: string;
   algorandRpcUrl: string;
   algorandAlgodToken: string;
+  algorandReceiverWallet: string;
+  algorandIndexerUrl: string;
+  algorandMockVerification: boolean;
   x402Config: string;
   jwtSecret: string;
   jwtExpiry: string;
@@ -69,6 +72,22 @@ export const config: Config = {
     'ALGORAND_ALGOD_TOKEN',
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   ),
+  algorandReceiverWallet: getOptional(
+    'ALGORAND_RECEIVER_WALLET',
+    'ALGO_BIZARRE_CAFE_WALLET_ADDRESS',
+  ),
+  algorandIndexerUrl: getOptional(
+    'ALGORAND_INDEXER_URL',
+    'http://localhost:8980',
+  ),
+  algorandMockVerification: (() => {
+    const raw = process.env.ALGORAND_MOCK_VERIFICATION;
+    if (raw !== undefined) {
+      return raw === 'true';
+    }
+    const env = process.env.NODE_ENV ?? 'development';
+    return env !== 'production';
+  })(),
   x402Config: getOptional('X402_CONFIG', '{}'),
   jwtSecret: getRequired('JWT_SECRET'),
   jwtExpiry: getOptional('JWT_EXPIRY', '24h'),

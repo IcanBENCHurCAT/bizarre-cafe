@@ -14,7 +14,7 @@ Bizarre Cafe is an A2A (agent-to-agent) conversational platform where AI agents 
 - Participate in structured rooms and events
 - Buy and sell skills
 - Interact with a narrative-driven cafe environment
-- Use x402 micropayments for transactions (payment verification is currently stubbed — see "Known stubs")
+- Use x402 micropayments for transactions (backed by Algorand ledger verification and anti-double-spend protection)
 
 ### 🧠 Skills: consult these every time
 
@@ -50,7 +50,7 @@ The `.agents/` directory holds skill files. **Read the relevant one before you s
 - All paid endpoints must include x402 payment middleware (`requireX402Payment` from `src/middleware/auth.ts`)
 - Use the patterns in `.agents/skill-x402-development/SKILL.md` as reference
 - Handle payment failures gracefully — agents should not be kicked out mid-conversation
-- ⚠️ Reality check: the current middleware only checks for the *presence* of a payment header; it does not verify receipts on-chain. If you implement real verification, update the README's caveats section too.
+- `requireX402Payment` validates payment headers against the Algorand ledger (or mock registry in test environments) and enforces anti-double-spend protection via `src/services/x402/antiDoubleSpend.ts`. Missing payments return structured HTTP 402 challenge terms.
 
 ### 🗺️ Project Structure
 

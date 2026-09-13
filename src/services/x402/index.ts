@@ -385,3 +385,94 @@ export const cancelPayment = (paymentId: string): boolean => {
 export const clearPayments = (): void => {
   payments.clear();
 };
+
+// ──────────────────────────────────────────────
+// Algorand & Anti-Double-Spend Integration
+// ──────────────────────────────────────────────
+
+export * from './algorand';
+export * from './antiDoubleSpend';
+
+import { verifyAlgorandTransaction, type AlgorandVerificationResult } from './algorand';
+import { isTransactionSpent, recordSpentTransaction } from './antiDoubleSpend';
+
+export interface PaymentSubmission {
+  txId: string;
+  paymentId?: string;
+  receipt?: string;
+}
+
+export interface PaymentRequirements {
+  amountMicroAlgos: number;
+  serviceId: string;
+  receiverWallet?: string;
+  requiredNote?: string;
+}
+
+/**
+ * Coordinate payment verification:
+ * 1. Checks anti-double-spend registry
+ * 2. Verifies transaction on Algorand (or mock)
+ * 3. Records spent transaction in anti-double-spend registry upon success
+ */
+export async function verifyPaymentSubmission(
+  submission: PaymentSubmission,
+  requirements: PaymentRequirements,
+): Promise<AlgorandVerificationResult> {
+  const txId = submission.txId?.trim();
+  if (!txId) {
+    return {
+      verified: false,
+      txId: '',
+      reason: 'Missing transaction ID',
+    };
+  }
+
+  // 1. Anti-double-spend check
+  const alreadySpent = await isTransactionSpent(txId);
+  if (alreadySpent) {
+    return {
+      verified: false,
+      txId,
+      reason: 'DOUBLE_SPEND_DETECTED',
+    };
+  }
+
+  // 2. Ledger verification
+  const receiver = requirements.receiverWallet || config.algorandReceiverWallet;
+  const verification = await verifyAlgorandTransaction(
+    txId,
+    receiver,
+    requirements.amountMicroAlgos,
+    { requiredNote: requirements.requiredNote },
+  );
+
+  if (!verification.verified) {
+    return verification;
+  }
+
+  // 3. Record spent transaction
+  try {
+    await recordSpentTransaction({
+      txId,
+      amount: verification.amount ?? requirements.amountMicroAlgos,
+      payer: verification.sender ?? 'unknown',
+      receiver: verification.receiver ?? receiver,
+      serviceId: requirements.serviceId,
+      proposalId: submission.paymentId,
+    });
+  } catch (err: unknown) {
+    const error = err as { message?: string };
+    if (error?.message === 'DOUBLE_SPEND_DETECTED') {
+      return {
+        verified: false,
+        txId,
+        reason: 'DOUBLE_SPEND_DETECTED',
+      };
+    }
+    throw err;
+  }
+
+  return verification;
+}
+

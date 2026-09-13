@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { config } from '../config';
-import type { DatabaseAdapter, RoomData, MessageData, AgentStatusData } from './index';
+import type { DatabaseAdapter, RoomData, MessageData, AgentStatusData, X402PaymentData } from './index';
 
 let dbInstance: ReturnType<typeof Database> | null = null;
 
@@ -100,6 +100,18 @@ function getDb() {
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         verified_at TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS x402_payments (
+        id TEXT PRIMARY KEY,
+        txn_hash TEXT UNIQUE,
+        proposal_id TEXT,
+        amount INTEGER,
+        from_address TEXT,
+        to_address TEXT,
+        status TEXT,
+        receipt TEXT,
+        created_at TEXT NOT NULL
       );
     `);
   }
@@ -238,4 +250,48 @@ export const sqliteDb: DatabaseAdapter = {
       };
     },
   },
+  payments: {
+    recordPayment: async (payment) => {
+      const db = getDb();
+      const id = payment.id || generateId();
+      const createdAt = payment.created_at || new Date().toISOString();
+      const status = payment.status || 'verified';
+      const record: X402PaymentData = {
+        id,
+        txn_hash: payment.txn_hash,
+        proposal_id: payment.proposal_id ?? null,
+        amount: payment.amount,
+        from_address: payment.from_address,
+        to_address: payment.to_address,
+        status,
+        receipt: payment.receipt ?? null,
+        created_at: createdAt,
+      };
+
+      const stmt = db.prepare(`
+        INSERT INTO x402_payments (id, txn_hash, proposal_id, amount, from_address, to_address, status, receipt, created_at)
+        VALUES (@id, @txn_hash, @proposal_id, @amount, @from_address, @to_address, @status, @receipt, @created_at)
+      `);
+      stmt.run(record);
+      return record;
+    },
+    hasTxnHash: async (txnHash: string) => {
+      const db = getDb();
+      const row = db.prepare('SELECT 1 FROM x402_payments WHERE txn_hash = ?').get(txnHash);
+      return !!row;
+    },
+    getByTxnHash: async (txnHash: string) => {
+      const db = getDb();
+      const row = db.prepare('SELECT * FROM x402_payments WHERE txn_hash = ?').get(txnHash);
+      return (row as X402PaymentData) || null;
+    },
+  },
+};
+
+export const recordSqlitePayment = sqliteDb.payments.recordPayment;
+export const hasSqlitePaymentTxnHash = sqliteDb.payments.hasTxnHash;
+export const getSqlitePaymentByTxnHash = sqliteDb.payments.getByTxnHash;
+export const clearSqlitePayments = async (): Promise<void> => {
+  const db = getDb();
+  db.prepare('DELETE FROM x402_payments').run();
 };

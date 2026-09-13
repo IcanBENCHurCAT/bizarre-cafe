@@ -3,6 +3,13 @@ import { Hono } from 'hono';
 import { SignJWT } from 'jose';
 import { authMiddleware, requireX402Payment, createToken } from '../src/middleware/auth';
 import { config } from '../src/config';
+import {
+  registerMockTransaction,
+  clearMockTransactions,
+  clearSpentTransactions,
+  setMockVerificationMode,
+} from '../src/services/x402/index';
+import { clearSqlitePayments } from '../src/db/sqlite';
 
 describe('Auth Middleware Security Tests', () => {
   let originalEnv: typeof config.nodeEnv;
@@ -141,19 +148,114 @@ describe('Auth Middleware Security Tests', () => {
     expect(body.error).toBe('Unauthorized');
   });
 
-  it('should handle requireX402Payment middleware', async () => {
-    const app = new Hono();
-    app.use('/paid', requireX402Payment());
-    app.get('/paid', (c) => c.json({ success: true }));
+  describe('requireX402Payment Middleware', () => {
+    const validTxId = 'VALID_AUTH_TX_1234567890ABCDEFGH';
 
-    const resNoPayment = await app.request('/paid');
-    expect(resNoPayment.status).toBe(402);
-
-    const resWithPayment = await app.request('/paid', {
-      headers: {
-        'x-x402-payment': 'receipt-123',
-      },
+    beforeEach(async () => {
+      clearSpentTransactions();
+      clearMockTransactions();
+      setMockVerificationMode(true);
+      await clearSqlitePayments();
     });
-    expect(resWithPayment.status).toBe(200);
+
+    it('should return 402 with structured challenge when payment header is absent', async () => {
+      const app = new Hono();
+      app.use('/paid', requireX402Payment({ minAmountMicroAlgos: 150000 }));
+      app.get('/paid', (c) => c.json({ success: true }));
+
+      const res = await app.request('/paid');
+      expect(res.status).toBe(402);
+
+      const body = await res.json();
+      expect(body.error).toBeDefined();
+      expect(body.error.code).toBe('PAYMENT_REQUIRED');
+      expect(body.error.message).toBe('x402 payment required for this endpoint');
+      expect(body.error.challenge).toBeDefined();
+      expect(typeof body.error.challenge.paymentId).toBe('string');
+      expect(body.error.challenge.paymentId.length).toBeGreaterThan(0);
+      expect(body.error.challenge.receiverWallet).toBe(config.algorandReceiverWallet);
+      expect(body.error.challenge.amount).toBe(150000);
+      expect(body.error.challenge.currency).toBe('microAlgos');
+      expect(body.error.challenge.network).toBe(config.algorandNetwork || 'algorand-testnet');
+      expect(body.error.challenge.expiresAt).toBeGreaterThan(Date.now());
+    });
+
+    it('should return 402 when invalid/unknown txId or fake header is sent', async () => {
+      const app = new Hono();
+      app.use('/paid', requireX402Payment());
+      app.get('/paid', (c) => c.json({ success: true }));
+
+      const res = await app.request('/paid', {
+        headers: {
+          'x-x402-payment': 'notfound_tx_9999999999999999',
+        },
+      });
+
+      expect(res.status).toBe(402);
+      const body = await res.json();
+      expect(body.error).toBeDefined();
+      expect(body.error.code).toBe('PAYMENT_VERIFICATION_FAILED');
+      expect(body.error.txId).toBe('notfound_tx_9999999999999999');
+    });
+
+    it('should return 200 when valid registered mock txId is sent', async () => {
+      registerMockTransaction({
+        txId: validTxId,
+        sender: 'ALGO_TEST_SENDER_WALLET',
+        receiver: config.algorandReceiverWallet,
+        amount: 200000,
+        confirmedRound: 100,
+      });
+
+      const app = new Hono();
+      app.use('/paid', requireX402Payment({ minAmountMicroAlgos: 100000 }));
+      app.get('/paid', (c) => c.json({ success: true, receipt: c.get('x402Receipt') }));
+
+      const res = await app.request('/paid', {
+        headers: {
+          'x-x402-payment': validTxId,
+        },
+      });
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.receipt).toBeDefined();
+      expect(body.receipt.txId).toBe(validTxId);
+    });
+
+    it('should return 402 DOUBLE_SPEND_DETECTED when identical txId is replayed', async () => {
+      registerMockTransaction({
+        txId: validTxId,
+        sender: 'ALGO_TEST_SENDER_WALLET',
+        receiver: config.algorandReceiverWallet,
+        amount: 200000,
+        confirmedRound: 100,
+      });
+
+      const app = new Hono();
+      app.use('/paid', requireX402Payment({ minAmountMicroAlgos: 100000 }));
+      app.get('/paid', (c) => c.json({ success: true }));
+
+      // First request succeeds
+      const firstRes = await app.request('/paid', {
+        headers: {
+          'x-x402-payment': validTxId,
+        },
+      });
+      expect(firstRes.status).toBe(200);
+
+      // Replay request fails with DOUBLE_SPEND_DETECTED
+      const replayRes = await app.request('/paid', {
+        headers: {
+          'x-x402-payment': validTxId,
+        },
+      });
+      expect(replayRes.status).toBe(402);
+      const body = await replayRes.json();
+      expect(body.error).toBeDefined();
+      expect(body.error.code).toBe('DOUBLE_SPEND_DETECTED');
+      expect(body.error.txId).toBe(validTxId);
+    });
   });
 });
