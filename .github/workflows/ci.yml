@@ -110,6 +110,9 @@ jobs:
           echo "SUPABASE_KEY=test-anon-key" >> $GITHUB_ENV
           echo "SUPABASE_SERVICE_ROLE_KEY=test-service-key" >> $GITHUB_ENV
           echo "NODE_ENV=test" >> $GITHUB_ENV
+          echo "USE_LOCAL_DB=true" >> $GITHUB_ENV
+          echo "JWT_SECRET=test-jwt-secret-for-ci" >> $GITHUB_ENV
+          echo "ALGORAND_MOCK_VERIFICATION=true" >> $GITHUB_ENV
 
       - name: Run tests
         run: npm test

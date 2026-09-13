@@ -29,6 +29,7 @@ const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // In-memory cache keyed by txId
 const spentTxCache = new Map<string, CacheEntry>();
+const inFlightSpending = new Set<string>();
 
 function addToCache(txId: string, extra?: Partial<CacheEntry>): void {
   if (spentTxCache.size >= MAX_CACHE_ENTRIES) {
@@ -88,46 +89,53 @@ export async function isTransactionSpent(txId: string): Promise<boolean> {
 export async function recordSpentTransaction(payment: SpentPaymentDetails): Promise<void> {
   const normalizedTxId = payment.txId.trim();
 
-  // Check if already spent
-  const alreadySpent = await isTransactionSpent(normalizedTxId);
-  if (alreadySpent) {
+  // Check in-flight set immediately (synchronous check prevents race before await)
+  if (inFlightSpending.has(normalizedTxId)) {
     throw new Error('DOUBLE_SPEND_DETECTED');
   }
 
-  // Add to in-memory cache immediately (optimistic concurrency)
-  addToCache(normalizedTxId, {
-    amount: payment.amount,
-    payer: payment.payer,
-    receiver: payment.receiver,
-  });
+  // Reserve lock
+  inFlightSpending.add(normalizedTxId);
 
-  // Persist to database
   try {
-    await db.payments.recordPayment({
-      txn_hash: normalizedTxId,
-      proposal_id: payment.proposalId || payment.serviceId,
-      amount: payment.amount,
-      from_address: payment.payer,
-      to_address: payment.receiver,
-      status: 'verified',
-      receipt: JSON.stringify({
-        serviceId: payment.serviceId,
-        payer: payment.payer,
-        receiver: payment.receiver,
-      }),
-      created_at: new Date().toISOString(),
-    });
-  } catch (err: unknown) {
-    const error = err as { message?: string; code?: string };
-    if (
-      error?.message?.includes('UNIQUE') ||
-      error?.message?.includes('conflict') ||
-      error?.code === 'SQLITE_CONSTRAINT_UNIQUE' ||
-      error?.code === '23505'
-    ) {
+    // Check if already spent
+    const alreadySpent = await isTransactionSpent(normalizedTxId);
+    if (alreadySpent) {
       throw new Error('DOUBLE_SPEND_DETECTED');
     }
-    throw err;
+
+    // Add to in-memory cache immediately (optimistic concurrency)
+    addToCache(normalizedTxId, {
+      amount: payment.amount,
+      payer: payment.payer,
+      receiver: payment.receiver,
+    });
+
+    // Persist to database
+    try {
+      await db.payments.recordPayment({
+        txn_hash: normalizedTxId,
+        proposal_id: payment.proposalId || payment.serviceId,
+        amount: payment.amount,
+        from_address: payment.payer,
+        to_address: payment.receiver,
+        status: 'settled',
+        receipt: null,
+      });
+    } catch (err: unknown) {
+      const error = err as { message?: string; code?: string };
+      if (
+        error?.message?.includes('UNIQUE') ||
+        error?.message?.includes('conflict') ||
+        error?.code === 'SQLITE_CONSTRAINT_UNIQUE' ||
+        error?.code === '23505'
+      ) {
+        throw new Error('DOUBLE_SPEND_DETECTED');
+      }
+      throw err;
+    }
+  } finally {
+    inFlightSpending.delete(normalizedTxId);
   }
 }
 
@@ -136,6 +144,7 @@ export async function recordSpentTransaction(payment: SpentPaymentDetails): Prom
  */
 export function clearSpentTransactions(): void {
   spentTxCache.clear();
+  inFlightSpending.clear();
 }
 
 /**

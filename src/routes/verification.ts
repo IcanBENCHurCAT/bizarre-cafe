@@ -11,12 +11,20 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { createSupabaseClient } from '../supabase/client';
+import { config } from '../config';
+import { createToken } from '../middleware/auth';
 import {
   challengeAgent,
   verifyAgent,
   getAgentStatus,
   revokeAgent,
 } from '../services/verification/index';
+import {
+  createSqliteChallenge,
+  getSqliteChallenge,
+  upsertSqliteVerification,
+  getSqliteVerification,
+} from '../db/sqlite';
 
 const router = new Hono();
 
@@ -25,7 +33,7 @@ const challengeResponseSchema = z.object({
   agentId: z.string(),
   challenge: z.string(),
   signature: z.string().min(1),
-  walletAddress: z.string(),
+  walletAddress: z.string().optional(),
   didDocument: z.string().optional(),
 });
 
@@ -86,6 +94,23 @@ router.post('/challenge', async (c) => {
       );
     }
 
+    if (config.useLocalDb) {
+      try {
+        await createSqliteChallenge({
+          id: issued.challengeId,
+          user_id: agentId,
+          challenge: issued.nonce,
+          proof: issued.message,
+          expires_at: expiresAt,
+          status: 'pending',
+          method: 'signature',
+          created_at: new Date(issued.issuedAt).toISOString(),
+        });
+      } catch {
+        // Ignore SQLite error
+      }
+    }
+
     return c.json(
       {
         message: 'Challenge generated',
@@ -134,7 +159,8 @@ router.post('/verify', async (c) => {
     const supabase = createSupabaseClient();
 
     // Get active challenge
-    const { data: challenge, error: challengeError } = await supabase.from('verification_challenges')
+    let challenge: any = null;
+    const { data: supabaseChallenge, error: challengeError } = await supabase.from('verification_challenges')
       .select('*')
       .eq('user_id', agentId)
       .eq('challenge', validated.challenge)
@@ -142,7 +168,12 @@ router.post('/verify', async (c) => {
       .gte('expires_at', new Date().toISOString())
       .single();
 
-    if (challengeError || !challenge) {
+    challenge = supabaseChallenge;
+    if ((challengeError || !challenge) && config.useLocalDb) {
+      challenge = await getSqliteChallenge(validated.challenge, agentId);
+    }
+
+    if (!challenge) {
       return c.json(
         { error: { code: 'NOT_FOUND', message: 'Valid challenge not found. Request a new one.' } },
         404,
@@ -158,11 +189,12 @@ router.post('/verify', async (c) => {
 
     const signatureValid =
       serviceResult.verified ||
-      verifySignature(
-        validated.challenge,
-        validated.signature,
-        validated.walletAddress,
-      );
+      (config.nodeEnv !== 'production' &&
+        verifySignature(
+          validated.challenge,
+          validated.signature,
+          validated.walletAddress || '',
+        ));
 
     if (!signatureValid) {
       return c.json(
@@ -186,7 +218,7 @@ router.post('/verify', async (c) => {
       );
     }
 
-    // Check if verification record exists
+    // Check if verification record exists in Supabase
     const { data: existingVerification } = await supabase.from('agent_verification')
       .select('*')
       .eq('user_id', agentId)
@@ -197,7 +229,8 @@ router.post('/verify', async (c) => {
       await supabase.from('agent_verification')
         .update({
           is_verified: true,
-          wallet_address: validated.walletAddress,
+          status: 'verified',
+          wallet_address: validated.walletAddress ?? null,
           did_document: validated.didDocument ?? null,
           verified_at: now,
           tier: 'basic',
@@ -209,7 +242,8 @@ router.post('/verify', async (c) => {
       await supabase.from('agent_verification').insert({
         user_id: agentId,
         is_verified: true,
-        wallet_address: validated.walletAddress,
+        status: 'verified',
+        wallet_address: validated.walletAddress ?? null,
         did_document: validated.didDocument ?? null,
         verified_at: now,
         tier: 'basic',
@@ -218,9 +252,34 @@ router.post('/verify', async (c) => {
       });
     }
 
+    // Persist to SQLite
+    try {
+      await upsertSqliteVerification({
+        user_id: agentId,
+        is_verified: true,
+        status: 'verified',
+        tier: 'basic',
+        method: agentId.startsWith('did:key:') ? 'ed25519_did_key' : 'signature',
+        did_document: validated.didDocument ?? null,
+        wallet_address: validated.walletAddress ?? null,
+        verified_at: now,
+      });
+    } catch {
+      // Ignore if SQLite error
+    }
+
+    const token =
+      serviceResult.token ||
+      (await createToken({
+        agentId,
+        tier: 'basic',
+        walletAddress: validated.walletAddress,
+      }));
+
     return c.json(
       {
         message: 'Verification successful',
+        token,
         verification: {
           agentId,
           isVerified: true,
@@ -258,31 +317,41 @@ router.get('/status', async (c) => {
       .eq('user_id', agentId)
       .single();
 
-    if (verError) {
-      if (verError.code === 'PGRST116') {
-        const memStatus = getAgentStatus(agentId);
+    if (verError || !verification) {
+      // Check SQLite fallback
+      const sqliteVer = await getSqliteVerification(agentId);
+      if (sqliteVer) {
         return c.json({
-          agentId,
-          isVerified: memStatus.status === 'verified',
-          tier: memStatus.status === 'verified' ? 'basic' : ('unverified' as const),
-          status: memStatus.status,
+          agentId: sqliteVer.user_id,
+          isVerified: sqliteVer.is_verified,
+          didDocument: sqliteVer.did_document,
+          walletAddress: sqliteVer.wallet_address,
+          verifiedAt: sqliteVer.verified_at,
+          tier: sqliteVer.tier,
+          status: sqliteVer.status,
+          canVerify: !sqliteVer.is_verified,
         });
       }
 
-      console.error('Supabase query error:', verError);
-      return c.json(
-        { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch verification status' } },
-        500,
-      );
+      const memStatus = getAgentStatus(agentId);
+      return c.json({
+        agentId,
+        isVerified: memStatus.status === 'verified',
+        tier: memStatus.status === 'verified' ? 'basic' : ('unverified' as const),
+        status: memStatus.status,
+        canVerify: memStatus.canVerify,
+      });
     }
 
     return c.json({
-      agentId: verification.agent_id,
+      agentId: verification.agent_id || verification.user_id,
       isVerified: verification.is_verified,
       didDocument: verification.did_document,
       walletAddress: verification.wallet_address,
       verifiedAt: verification.verified_at,
       tier: verification.tier,
+      status: verification.status || (verification.is_verified ? 'verified' : 'unverified'),
+      canVerify: !verification.is_verified,
     } as any);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -322,13 +391,21 @@ router.post('/revoke', async (c) => {
     const supabase = createSupabaseClient();
     const now = new Date().toISOString();
 
-    // Check if agent has verification
+    // Check if agent has verification in Supabase
     const { data: verification } = await supabase.from('agent_verification')
       .select('*')
       .eq('user_id', validated.agentId)
       .single();
 
-    if (!verification || !verification.is_verified) {
+    const memStatus = getAgentStatus(validated.agentId);
+    const sqliteVer = await getSqliteVerification(validated.agentId);
+
+    const hasActiveVer =
+      (verification && verification.is_verified) ||
+      (sqliteVer && sqliteVer.is_verified) ||
+      memStatus.status === 'verified';
+
+    if (!hasActiveVer) {
       return c.json(
         { error: { code: 'NOT_FOUND', message: 'No active verification to revoke' } },
         404,
@@ -336,9 +413,10 @@ router.post('/revoke', async (c) => {
     }
 
     // Revoke: mark as unverified, clear DID
-    const { error: updateError } = await supabase.from('agent_verification')
+    await supabase.from('agent_verification')
       .update({
-        status: 'pending', method: 'signature',
+        status: 'revoked',
+        is_verified: false,
         did_document: null,
         wallet_address: null,
         verified_at: null,
@@ -347,12 +425,19 @@ router.post('/revoke', async (c) => {
       })
       .eq('user_id', validated.agentId);
 
-    if (updateError) {
-      console.error('Supabase update error:', updateError);
-      return c.json(
-        { error: { code: 'DATABASE_ERROR', message: 'Failed to revoke verification' } },
-        500,
-      );
+    // Revoke in SQLite
+    try {
+      await upsertSqliteVerification({
+        user_id: validated.agentId,
+        is_verified: false,
+        status: 'revoked',
+        tier: 'unverified',
+        did_document: null,
+        wallet_address: null,
+        verified_at: null,
+      });
+    } catch {
+      // Ignore
     }
 
     // Revoke from in-memory verification engine as well
@@ -508,6 +593,10 @@ router.post('/upgrade', async (c) => {
  * the Algorand network or a DID resolver.
  */
 function verifySignature(message: string, signature: string, walletAddress: string): boolean {
+  if (config.nodeEnv === 'production') {
+    return false;
+  }
+
   try {
     // Validate format
     if (!walletAddress.startsWith('ALGO:')) {

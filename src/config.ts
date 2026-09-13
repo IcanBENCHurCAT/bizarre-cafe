@@ -31,6 +31,8 @@ export interface Config {
   sseTimeoutMs: number;
   sseHeartbeatMs: number;
   corsAllowedOrigins: string | string[];
+  didChallengeTtlMs: number;
+  didMaxChallengesPerHour: number;
 }
 
 const getRequired = (key: string): string => {
@@ -58,7 +60,8 @@ const getNumber = (key: string, fallback: number): number => {
 export const config: Config = {
   port: getNumber('PORT', 3000),
   nodeEnv: getOptional('NODE_ENV', 'development') as Config['nodeEnv'],
-  useLocalDb: getOptional('USE_LOCAL_DB', 'false') === 'true',
+  useLocalDb:
+    getOptional('USE_LOCAL_DB', process.env.NODE_ENV === 'test' ? 'true' : 'false') === 'true',
   databaseUrl: getOptional('DATABASE_URL', 'sqlite.db'),
   supabaseUrl: getOptional('SUPABASE_URL', 'http://localhost:54321'),
   supabaseKey: getOptional('SUPABASE_KEY', 'dummy-anon-key'),
@@ -99,4 +102,6 @@ export const config: Config = {
     const rawOrigins = getOptional('CORS_ALLOWED_ORIGINS', '*');
     return rawOrigins.includes(',') ? rawOrigins.split(',').map((o) => o.trim()) : rawOrigins;
   })(),
+  didChallengeTtlMs: getNumber('DID_CHALLENGE_TTL_MS', 300000),
+  didMaxChallengesPerHour: getNumber('DID_MAX_CHALLENGES_PER_HOUR', 20),
 };

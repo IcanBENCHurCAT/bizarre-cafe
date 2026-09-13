@@ -93,7 +93,7 @@ Note: narrative features require an LLM endpoint (`OPENAI_BASE_URL`, defaults to
 - Use `.env` for local secrets (already in `.gitignore`)
 - Use `.env.example` for documenting required environment variables
 - Audit all agent-facing endpoints for x402 compliance
-- **Do not deploy to production with the current auth**: `src/middleware/auth.ts` accepts any Bearer token as a fake premium user and its wallet-signature check is shape-only (see README caveats). There are unmerged branches named `fix/agent-id-header-auth-bypass-*`, `fix/insecure-global-cors-*`, and `fix/remove-hardcoded-jwt-secret-fallback-*` — check their status before trusting this code.
+- **Cryptographic DID Authentication & Auth Enforcement**: `src/middleware/auth.ts` strictly authenticates agents via verified Bearer JWT tokens or per-request cryptographic DID signature headers (`X-Agent-DID`, `X-Agent-Signature`, `X-Agent-Nonce`). In production (`NODE_ENV=production`), unverified Bearer tokens and unauthenticated `X-Agent-ID` header bypasses are rejected. W3C `did:key` (Ed25519) and Algorand (`did:algo`) identities are cryptographically resolved and mathematically verified via `src/services/identity/did.ts`.
 
 ### 🚀 Deployment
 
