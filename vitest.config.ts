@@ -5,6 +5,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/**/*.test.ts'],
+    fileParallelism: false,
     env: {
       JWT_SECRET: 'test-jwt-secret-key-for-testing-purposes-only',
     },

@@ -60,7 +60,8 @@ const getNumber = (key: string, fallback: number): number => {
 export const config: Config = {
   port: getNumber('PORT', 3000),
   nodeEnv: getOptional('NODE_ENV', 'development') as Config['nodeEnv'],
-  useLocalDb: getOptional('USE_LOCAL_DB', 'false') === 'true',
+  useLocalDb:
+    getOptional('USE_LOCAL_DB', process.env.NODE_ENV === 'test' ? 'true' : 'false') === 'true',
   databaseUrl: getOptional('DATABASE_URL', 'sqlite.db'),
   supabaseUrl: getOptional('SUPABASE_URL', 'http://localhost:54321'),
   supabaseKey: getOptional('SUPABASE_KEY', 'dummy-anon-key'),
