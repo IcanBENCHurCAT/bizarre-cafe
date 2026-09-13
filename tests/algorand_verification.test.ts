@@ -7,7 +7,6 @@ import {
   algodClient,
   indexerClient,
 } from '../src/services/x402/algorand';
-import { config } from '../src/config';
 
 describe('Algorand Verification Service - Mock Mode', () => {
   const receiverWallet = 'CAFE_RECEIVER_ALGORAND_ADDRESS_XYZ12345';
