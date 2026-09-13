@@ -52,7 +52,7 @@ router.get('/items', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    let queryBuilder = (supabase as any).from('shop_items')
+    let queryBuilder = supabase.from('shop_items')
       .select('*')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
@@ -70,14 +70,14 @@ router.get('/items', async (c) => {
 
     const { data, error: _error } = await queryBuilder;
 
-    let items = (data ?? []).map((item: any) => ({
+    let items = (data ?? []).map((item) => ({
       id: item.id,
       name: item.name,
       description: item.description,
       price: item.price,
       currency: item.currency,
-      imageUrl: item.image_url,
-      stock: item.stock,
+      imageUrl: item.image_url || undefined,
+      stock: item.stock || undefined,
       tags: item.tags,
       isActive: item.is_active,
       createdAt: item.created_at,
@@ -91,7 +91,7 @@ router.get('/items', async (c) => {
           description: 'Beans roasted in a localized temporal pocket for infinite freshness.',
           price: 50,
           currency: 'microUSDC',
-          stock: 100,
+          stock: 100, imageUrl: undefined,
           tags: ['coffee', 'quantum'],
           isActive: true,
           createdAt: new Date().toISOString(),
@@ -102,7 +102,7 @@ router.get('/items', async (c) => {
           description: 'Tastes like your first clean deployment on production.',
           price: 120,
           currency: 'microUSDC',
-          stock: 50,
+          stock: 50, imageUrl: undefined,
           tags: ['syrup', 'nostalgia'],
           isActive: true,
           createdAt: new Date().toISOString(),
@@ -130,7 +130,7 @@ router.get('/items/:id', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    const { data, error } = await (supabase as any).from('shop_items')
+    const { data, error } = await supabase.from('shop_items')
       .select('*')
       .eq('id', id)
       .eq('is_active', true)
@@ -196,7 +196,7 @@ router.post('/checkout', async (c) => {
 
     // Get item details
     let item: any = null;
-    const { data: dbItem } = await (supabase as any).from('shop_items')
+    const { data: dbItem } = await supabase.from('shop_items')
       .select('*')
       .eq('id', validated.itemId)
       .single();
@@ -209,7 +209,7 @@ router.post('/checkout', async (c) => {
         name: 'Quantum Espresso Beans',
         price: 50,
         currency: 'microUSDC',
-        stock: 100,
+        stock: 100, imageUrl: null,
       };
     }
 
@@ -226,7 +226,7 @@ router.post('/checkout', async (c) => {
     const promiseId = generateId('x402');
 
     // Store receipt record
-    const { data: receipt, error: receiptError } = await (supabase as any).from('receipts')
+    const { data: receipt, error: receiptError } = await supabase.from('receipts')
       .insert({
         id: promiseId,
         user_id: user.agentId,
@@ -332,7 +332,7 @@ router.get('/receipts', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    const { data, error } = await (supabase as any).from('receipts')
+    const { data, error } = await supabase.from('receipts')
       .select('*')
       .eq('user_id', user.agentId)
       .order('created_at', { ascending: false })
@@ -346,7 +346,7 @@ router.get('/receipts', async (c) => {
       );
     }
 
-    const receipts = (data ?? []).map((r: any) => ({
+    const receipts = (data ?? []).map((r) => ({
       id: r.id,
       agentId: r.user_id,
       itemId: r.item_id,

@@ -49,7 +49,7 @@ router.post('/challenge', async (c) => {
     const supabase = createSupabaseClient();
 
     // Revoke any existing active challenge for this agent
-    await (supabase as any).from('verification_challenges')
+    await supabase.from('verification_challenges')
       .update({ status: 'expired' })
       .eq('user_id', agentId)
       .eq('status', 'pending')
@@ -60,7 +60,7 @@ router.post('/challenge', async (c) => {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 minutes
 
     // Store challenge
-    const { data, error } = await (supabase as any).from('verification_challenges')
+    const { data, error } = await supabase.from('verification_challenges')
       .insert({
         user_id: agentId,
         challenge,
@@ -123,7 +123,7 @@ router.post('/verify', async (c) => {
     const supabase = createSupabaseClient();
 
     // Get active challenge
-    const { data: challenge, error: challengeError } = await (supabase as any).from('verification_challenges')
+    const { data: challenge, error: challengeError } = await supabase.from('verification_challenges')
       .select('*')
       .eq('user_id', agentId)
       .eq('challenge', validated.challenge)
@@ -155,7 +155,7 @@ router.post('/verify', async (c) => {
     const now = new Date().toISOString();
 
     // Mark challenge as verified
-    const { error: updateError } = await (supabase as any).from('verification_challenges')
+    const { error: updateError } = await supabase.from('verification_challenges')
       .update({ status: 'verified', updated_at: now })
       .eq('id', challenge.id);
 
@@ -168,14 +168,14 @@ router.post('/verify', async (c) => {
     }
 
     // Check if verification record exists
-    const { data: existingVerification } = await (supabase as any).from('agent_verification')
+    const { data: existingVerification } = await supabase.from('agent_verification')
       .select('*')
       .eq('user_id', agentId)
       .single();
 
     if (existingVerification) {
       // Update existing verification
-      await (supabase as any).from('agent_verification')
+      await supabase.from('agent_verification')
         .update({
           is_verified: true,
           wallet_address: validated.walletAddress,
@@ -187,7 +187,7 @@ router.post('/verify', async (c) => {
         .eq('user_id', agentId);
     } else {
       // Create new verification record
-      await (supabase as any).from('agent_verification').insert({
+      await supabase.from('agent_verification').insert({
         user_id: agentId,
         is_verified: true,
         wallet_address: validated.walletAddress,
@@ -234,7 +234,7 @@ router.get('/status', async (c) => {
     const supabase = createSupabaseClient();
 
     // Get verification record
-    const { data: verification, error: verError } = await (supabase as any).from('agent_verification')
+    const { data: verification, error: verError } = await supabase.from('agent_verification')
       .select('*')
       .eq('user_id', agentId)
       .single();
@@ -303,7 +303,7 @@ router.post('/revoke', async (c) => {
     const now = new Date().toISOString();
 
     // Check if agent has verification
-    const { data: verification } = await (supabase as any).from('agent_verification')
+    const { data: verification } = await supabase.from('agent_verification')
       .select('*')
       .eq('user_id', validated.agentId)
       .single();
@@ -316,7 +316,7 @@ router.post('/revoke', async (c) => {
     }
 
     // Revoke: mark as unverified, clear DID
-    const { error: updateError } = await (supabase as any).from('agent_verification')
+    const { error: updateError } = await supabase.from('agent_verification')
       .update({
         status: 'pending', method: 'signature',
         did_document: null,
@@ -382,7 +382,7 @@ router.get('/log', async (c) => {
       );
     }
 
-    const log = (data ?? []).map((entry: any) => ({
+    const log = (data ?? []).map((entry) => ({
       agentId: entry.agent_id,
       action: entry.action,
       reason: entry.reason,
@@ -420,7 +420,7 @@ router.post('/upgrade', async (c) => {
     const supabase = createSupabaseClient();
 
     // Get current verification
-    const { data: verification, error: verError } = await (supabase as any).from('agent_verification')
+    const { data: verification, error: verError } = await supabase.from('agent_verification')
       .select('*')
       .eq('user_id', user.agentId)
       .single();
@@ -450,7 +450,7 @@ router.post('/upgrade', async (c) => {
     // For now, auto-approve upgrades (configurable)
     const now = new Date().toISOString();
 
-    await (supabase as any).from('agent_verification')
+    await supabase.from('agent_verification')
       .update({
         tier,
         updated_at: now,

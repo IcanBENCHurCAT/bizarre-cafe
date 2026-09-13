@@ -1,4 +1,3 @@
-// @ts-nocheck
  
 /**
  * Events Routes — Scheduled Cafe Events
@@ -54,7 +53,7 @@ router.post('/create', async (c) => {
 
     const scheduledAt = validated.scheduledAt || now;
 
-    const { data, error } = await (supabase as any).from('cafe_events')
+    const { data, error } = await supabase.from('cafe_events')
       .insert({
         name: validated.name,
         description: validated.description,
@@ -119,7 +118,7 @@ router.get('/upcoming', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    let queryBuilder = (supabase as any).from('cafe_events')
+    let queryBuilder = supabase.from('cafe_events')
       .select('*')
       .eq('status', 'upcoming')
       .gte('scheduled_at', new Date().toISOString())
@@ -180,18 +179,18 @@ router.get('/:id', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    const eventPromise = (supabase as any).from('cafe_events')
+    const eventPromise = supabase.from('cafe_events')
       .select('*')
       .eq('id', id)
       .single();
 
-    const countPromise = (supabase as any).from('event_attendance')
+    const countPromise = supabase.from('event_attendance')
       .select('*', { count: 'exact', head: true })
       .eq('event_id', id)
       .eq('status', 'joined');
 
     const userAttendancePromise = user
-      ? (supabase as any).from('event_attendance')
+      ? supabase.from('event_attendance')
           .select('*')
           .eq('event_id', id)
           .eq('user_id', user.agentId)
@@ -225,7 +224,6 @@ router.get('/:id', async (c) => {
         description: event.description,
         type: event.type as EventType,
         max_attendees: event.max_attendees,
-        max_attendees: undefined,
         status: event.status as EventStatus,
         location: event.location,
         hostAgentId: event.host_id,
@@ -262,17 +260,17 @@ router.post('/:id/join', async (c) => {
     const supabase = createSupabaseClient();
     const now = new Date().toISOString();
 
-    const eventPromise = (supabase as any).from('cafe_events')
+    const eventPromise = supabase.from('cafe_events')
       .select('*')
       .eq('id', id)
       .single();
 
-    const countPromise = (supabase as any).from('event_attendance')
+    const countPromise = supabase.from('event_attendance')
       .select('*', { count: 'exact', head: true })
       .eq('event_id', id)
       .eq('status', 'joined');
 
-    const existingPromise = (supabase as any).from('event_attendance')
+    const existingPromise = supabase.from('event_attendance')
       .select('*')
       .eq('event_id', id)
       .eq('user_id', user.agentId)
@@ -317,7 +315,7 @@ router.post('/:id/join', async (c) => {
     }
 
     // Add attendance record
-    const { data: attendance, error: attError } = await (supabase as any).from('event_attendance')
+    const { data: attendance, error: attError } = await supabase.from('event_attendance')
       .insert({
         event_id: id,
         user_id: user.agentId,
@@ -372,7 +370,7 @@ router.post('/:id/leave', async (c) => {
     const now = new Date().toISOString();
 
     // Check if user is joined
-    const { data: attendance, error: attError } = await (supabase as any).from('event_attendance')
+    const { data: attendance, error: attError } = await supabase.from('event_attendance')
       .select('*')
       .eq('event_id', id)
       .eq('user_id', user.agentId)
@@ -393,7 +391,7 @@ router.post('/:id/leave', async (c) => {
     }
 
     // Update attendance status
-    const { error: updateError } = await (supabase as any).from('event_attendance')
+    const { error: updateError } = await supabase.from('event_attendance')
       .update({
         status: 'left',
         updated_at: now,
@@ -433,7 +431,7 @@ router.get('/past', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    let queryBuilder = (supabase as any).from('cafe_events')
+    let queryBuilder = supabase.from('cafe_events')
       .select('*')
       .in('status', ['past', 'cancelled'])
       .order('scheduled_at', { ascending: false })

@@ -1,4 +1,3 @@
-// @ts-nocheck
  
 import { rooms, chat, verification } from '../supabase/queries';
 import { supabase } from '../supabase/client';

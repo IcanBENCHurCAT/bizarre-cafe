@@ -69,7 +69,7 @@ router.post('/offer', async (c) => {
     const supabase = createSupabaseClient();
     const now = new Date().toISOString();
 
-    const { data, error: _error } = await (supabase as any).from('skill_offers')
+    const { data, error: _error } = await supabase.from('skill_offers')
       .insert({
         user_id: user.agentId,
         skill_name: validated.skillName,
@@ -144,7 +144,7 @@ router.post('/request', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    const { data, error } = await (supabase as any).from('skill_requests')
+    const { data, error } = await supabase.from('skill_requests')
       .insert({
         user_id: user.agentId,
         requested_skill: validated.requestedSkill,
@@ -201,7 +201,7 @@ router.get('/offers', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    let queryBuilder = (supabase as any).from('skill_offers')
+    let queryBuilder = supabase.from('skill_offers')
       .select('*')
       .eq('status', 'available')
       .order('created_at', { ascending: false })
@@ -223,7 +223,7 @@ router.get('/offers', async (c) => {
       };
       return {
         id: row.id,
-        agentId: row.agent_id ?? row.user_id,
+        agentId: row.user_id ?? row.user_id,
         skillName: row.skill_name,
         description: row.description,
         tags: row.tags ?? [],
@@ -279,7 +279,7 @@ router.get('/requests', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    let queryBuilder = (supabase as any).from('skill_requests')
+    let queryBuilder = supabase.from('skill_requests')
       .select('*')
       .eq('status', 'open')
       .order('created_at', { ascending: false })
@@ -299,9 +299,9 @@ router.get('/requests', async (c) => {
       );
     }
 
-    const requests = (data ?? []).map((r: any) => ({
+    const requests = (data ?? []).map((r) => ({
       id: r.id,
-      agentId: r.agent_id,
+      agentId: r.user_id,
       requestedSkill: r.requested_skill,
       description: r.description,
       offeredValue: r.offered_value,
@@ -340,14 +340,14 @@ router.post('/offers/:id/accept', async (c) => {
     const now = new Date().toISOString();
 
     // Look up offer in DB first, then in-memory fallback
-    const { data: dbOffer } = await (supabase as any).from('skill_offers').select('*').eq('id', id).single();
+    const { data: dbOffer } = await supabase.from('skill_offers').select('*').eq('id', id).single();
 
     const offerSource = dbOffer || memOffers.get(id);
     if (!offerSource) {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Offer not found' } }, 404);
     }
 
-    const offerAgentId = dbOffer ? dbOffer.agent_id : offerSource.agentId;
+    const offerAgentId = dbOffer ? dbOffer.user_id : offerSource.agentId;
 
     // Can't accept your own offer
     if (offerAgentId === user.agentId) {
@@ -358,7 +358,7 @@ router.post('/offers/:id/accept', async (c) => {
     }
 
     // Create trade — try DB first, fall back to in-memory
-    const { data: dbTrade } = await (supabase as any).from('trades')
+    const { data: dbTrade } = await supabase.from('trades')
       .insert({
         offer_id: id,
         request_id: null,
@@ -429,7 +429,7 @@ router.get('/trades', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    const { data, error: _error } = await (supabase as any).from('trades')
+    const { data, error: _error } = await supabase.from('trades')
       .select('*')
       .or(`from_agent_id.eq.${user.agentId},to_agent_id.eq.${user.agentId}`)
       .order('created_at', { ascending: false })
@@ -490,7 +490,7 @@ router.post('/trades/:id/complete', async (c) => {
     const supabase = createSupabaseClient();
 
     // Get the trade
-    const { data: trade, error: tradeError } = await (supabase as any).from('trades')
+    const { data: trade, error: tradeError } = await supabase.from('trades')
       .select('*')
       .eq('id', id)
       .single();
@@ -518,7 +518,7 @@ router.post('/trades/:id/complete', async (c) => {
     }
 
     // Update trade status
-    const { error: updateError } = await (supabase as any).from('trades')
+    const { error: updateError } = await supabase.from('trades')
       .update({
         status: 'completed',
         updated_at: new Date().toISOString(),
@@ -535,7 +535,7 @@ router.post('/trades/:id/complete', async (c) => {
 
     // Update related offer/request
     if (trade.offer_id) {
-      await (supabase as any).from('skill_offers')
+      await supabase.from('skill_offers')
         .update({ status: 'completed', updated_at: new Date().toISOString() })
         .eq('id', trade.offer_id);
     }
@@ -569,7 +569,7 @@ router.post('/trades/:id/cancel', async (c) => {
 
     const supabase = createSupabaseClient();
 
-    const { data: trade, error: tradeError } = await (supabase as any).from('trades')
+    const { data: trade, error: tradeError } = await supabase.from('trades')
       .select('*')
       .eq('id', id)
       .single();
@@ -589,13 +589,13 @@ router.post('/trades/:id/cancel', async (c) => {
       );
     }
 
-    await (supabase as any).from('trades')
+    await supabase.from('trades')
       .update({ status: 'cancelled', updated_at: new Date().toISOString() })
       .eq('id', id);
 
     // Restore offer status
     if (trade.offer_id) {
-      await (supabase as any).from('skill_offers')
+      await supabase.from('skill_offers')
         .update({ status: 'available', updated_at: new Date().toISOString() })
         .eq('id', trade.offer_id);
     }
