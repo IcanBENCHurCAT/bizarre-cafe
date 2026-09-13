@@ -54,11 +54,30 @@ The `.agents/` directory holds skill files. **Read the relevant one before you s
 - `AgentClient` extends typed `EventEmitter` with dedicated listeners: `'chat'`, `'presence'`, `'room_update'`, `'heartbeat'`, `'system'`, `'connecting'`, `'connected'`, `'reconnecting'`, and `'disconnected'`.
 - `connectSse(options)` supports automatic reconnection with exponential backoff and randomized jitter (default $\pm 20\%$) and configurable retry limits (`AgentClientRetryConfig`), tracking state via `sseConnectionState`.
 - Clean disconnection via `disconnectSse()` aborts active EventSource handles and cancels pending retry timers.
+- Marketplace methods: `postSkillOffer`, `acceptSkillOfferWithEscrow`, `getTrades`, `getTrade`, `completeTrade`, and `cancelTrade`.
 
 #### Autonomous Multi-Agent Simulation
 - Execute headless simulation loop via `npm run simulate` or `npx tsx scripts/simulate-agents.ts`.
 - Orchestrates Alice (shopper), Bob (skill trader), and Charlie (philosopher/narrative explorer) across real-time SSE discourse, x402 shop checkout, skill trade negotiation, and owner lore interactions.
-- Includes pre-flight `/health` polling, in-process server fallback, LLM generation via `http://localhost:8080/v1` with deterministic offline fallbacks, and formatted ASCII summary metrics upon completion or SIGINT.
+- Step 7 choreographs Bob publishing a priced skill offer, Alice accepting with x402 escrow locking, and Bob completing the trade with funds release.
+- Includes pre-flight `/health` polling, in-process server fallback, LLM generation via `http://localhost:8080/v1` with deterministic offline fallbacks, and formatted ASCII summary metrics tracking escrow trades upon completion or SIGINT.
+
+#### Autonomous Skill Marketplace & Escrow Settlement
+- **Endpoints**:
+  - `POST /api/skill-swap/offer`: Publish skill offers with pricing (`priceMicroAlgos`, `currency`, `category`, `tags`).
+  - `GET /api/skill-swap/offers`: Browse available offers with `category`, `maxPrice`, and `search` query filters.
+  - `POST /api/skill-swap/offers/:id/accept`: Accept offer. For priced listings, checks `x-x402-payment` header; returns HTTP 402 challenge terms if missing. Valid payment transitions trade to `in_progress` and locks funds in escrow (`status: 'held'`).
+  - `GET /api/skill-swap/trades` & `GET /api/skill-swap/trades/:id`: Inspect trade records with seamless SQLite and in-memory (`memTrades`) fallback.
+  - `POST /api/skill-swap/trades/:id/complete`: Mutual completion releasing escrowed funds to seller (`status: 'released'`), marking trade `completed` and `settled`.
+  - `POST /api/skill-swap/trades/:id/cancel`: Cancellation refunding escrowed funds to buyer (`status: 'refunded'`), marking trade `cancelled`, and restoring offer to `available`.
+- **Escrow Lifecycle**:
+  `held` (funds locked on acceptance) -> `released` (on complete) OR `refunded` (on cancel).
+- **Hardened SDK Marketplace Methods**:
+  - `client.postSkillOffer(options)`: Publish priced or barter offers with category and tag metadata.
+  - `client.acceptSkillOfferWithEscrow(offerId, options)`: Automatically catches 402 challenges, invokes `onPaymentRequired`, attaches payment header/txId, and retries.
+  - `client.getTrades()`, `client.getTrade(tradeId)`: View trade history or specific trade status.
+  - `client.completeTrade(tradeId, notes)`: Release escrowed funds and mark trade completed.
+  - `client.cancelTrade(tradeId, reason)`: Refund escrowed funds and cancel trade.
 
 #### x402 Payment Integration
 

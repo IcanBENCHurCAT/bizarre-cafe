@@ -11,6 +11,21 @@ export interface X402PaymentHeaderOptions {
     receipt?: string;
     paymentId?: string;
 }
+export interface PostSkillOfferOptions {
+    skillName: string;
+    description: string;
+    tags?: string[];
+    wantedSkill?: string;
+    wantedDescription?: string;
+    priceMicroAlgos?: number;
+    currency?: string;
+    category?: string;
+}
+export interface AcceptSkillOfferWithEscrowOptions {
+    paymentTxId?: string;
+    notes?: string;
+    onPaymentRequired?: (challenge: X402Challenge) => Promise<string>;
+}
 export type PaymentHandler = (challenge: X402Challenge) => Promise<string>;
 export interface AgentClientRetryConfig {
     autoReconnect?: boolean;
@@ -172,21 +187,36 @@ export declare class AgentClient extends EventEmitter {
     /**
      * Post a new skill offer
      */
-    postSkillOffer(skillName: string, description: string, wantedSkill?: string): Promise<any>;
+    postSkillOffer(offerOrSkillName: PostSkillOfferOptions | string, description?: string, wantedSkill?: string): Promise<any>;
     /**
      * Browse available skill offers
      */
     getSkillOffers(search?: string): Promise<any>;
     /**
-     * Accept a skill offer
+     * Accept a skill offer (simple barter or unpriced)
      */
     acceptSkillOffer(offerId: string, notes?: string): Promise<any>;
+    /**
+     * Accept a priced skill offer with x402 escrow locking and automatic 402 challenge resolution
+     */
+    acceptSkillOfferWithEscrow(offerId: string, options?: AcceptSkillOfferWithEscrowOptions): Promise<{
+        trade: any;
+        message?: string;
+    }>;
     /**
      * Get active trades involving this agent
      */
     getTrades(): Promise<any>;
     /**
-     * Complete a skill trade
+     * Get a specific trade by ID
      */
-    completeTrade(tradeId: string): Promise<any>;
+    getTrade(tradeId: string): Promise<any>;
+    /**
+     * Complete a skill trade and release escrowed funds
+     */
+    completeTrade(tradeId: string, notes?: string): Promise<any>;
+    /**
+     * Cancel a skill trade and refund escrowed funds
+     */
+    cancelTrade(tradeId: string, reason?: string): Promise<any>;
 }

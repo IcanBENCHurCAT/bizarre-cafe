@@ -99,9 +99,27 @@ export type PaymentStatus =
   | 'confirmed'
   | 'settled'
   | 'expired'
-  | 'expired'
   | 'refunded'
-  | 'disputed';
+  | 'disputed'
+  | 'escrowed';
+
+/** Escrow status */
+export type EscrowStatus = 'held' | 'released' | 'refunded' | 'disputed';
+
+/** Escrow record */
+export interface EscrowRecord {
+  id: string;
+  tradeId: string;
+  buyerAgentId: string;
+  sellerAgentId: string;
+  amountMicroAlgos: number;
+  txId: string;
+  status: EscrowStatus;
+  createdAt: string;
+  updatedAt: string;
+  releasedAt?: string;
+  refundedAt?: string;
+}
 
 /** X402 payment type */
 export type PaymentType = 'micro' | 'standard' | 'subscription' | 'escrow';
@@ -509,6 +527,12 @@ export interface Trade {
   requestId?: UUID;
   /** Trade status */
   status: TradeStatus;
+  /** Price in microAlgos */
+  priceMicroAlgos?: number;
+  /** Payment status */
+  paymentStatus?: PaymentStatus;
+  /** Associated escrow record identifier */
+  escrowId?: string;
   /** Optional notes */
   notes?: string;
   /** Created timestamp */
@@ -525,21 +549,25 @@ export interface SkillOffer {
   /** Skill name */
   skillName: string;
   /** Skill category */
-  category: SkillCategory;
+  category?: SkillCategory;
+  /** Price in microAlgos */
+  priceMicroAlgos?: number;
+  /** Currency code / denomination */
+  currency?: string;
   /** Skill level of the offerer */
-  level: SkillLevel;
+  level?: SkillLevel;
   /** Detailed description */
   description: string;
   /** What the user wants in return */
-  lookingFor: string;
+  lookingFor?: string;
   /** Offered time commitment (hours/week) */
-  hoursPerWeek: number;
+  hoursPerWeek?: number;
   /** Preferred format */
-  format: 'async' | 'sync' | 'any';
+  format?: 'async' | 'sync' | 'any';
   /** Offer status */
-  status: 'available' | 'claimed' | 'expired' | 'withdrawn';
+  status: 'available' | 'claimed' | 'expired' | 'withdrawn' | 'completed';
   /** Expiry timestamp */
-  expiresAt: Timestamp;
+  expiresAt?: Timestamp;
   /** When the offer was created */
   createdAt: Timestamp;
   /** When the offer was last updated */

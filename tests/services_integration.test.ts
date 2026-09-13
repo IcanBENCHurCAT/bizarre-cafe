@@ -226,6 +226,24 @@ describe('Service Integration Tests', () => {
     const statusBody = await statusRes.json();
     expect(statusBody.promiseId).toBe(body.checkout.promiseId);
     expect(statusBody.total).toBe(100);
+
+    // Verify GET /receipts and GET /receipts/:id with in-memory fallback
+    const receiptsRes = await app.request('/api/shop/receipts', {
+      headers: authHeaders,
+    });
+    expect(receiptsRes.status).toBe(200);
+    const receiptsBody = await receiptsRes.json();
+    expect(receiptsBody.receipts).toBeDefined();
+    expect(receiptsBody.receipts.length).toBeGreaterThan(0);
+    expect(receiptsBody.receipts[0].id).toBe(body.checkout.promiseId);
+
+    const singleReceiptRes = await app.request(`/api/shop/receipts/${body.checkout.promiseId}`, {
+      headers: authHeaders,
+    });
+    expect(singleReceiptRes.status).toBe(200);
+    const singleReceiptBody = await singleReceiptRes.json();
+    expect(singleReceiptBody.receipt.id).toBe(body.checkout.promiseId);
+    expect(singleReceiptBody.receipt.totalAmount).toBe(100);
   });
 
   it('should execute full verification flow: challenge -> verify -> log', async () => {

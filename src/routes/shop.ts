@@ -14,10 +14,13 @@ import { createSupabaseClient } from '../supabase/client';
 import { requireX402Payment } from '../middleware/auth';
 import { generateId as _generateId } from '../utils/index';
 import { createPaymentPromise, getPaymentStatus } from '../services/x402/index';
-import type { ShopItem, Receipt, ApiError as _ApiError } from '../types/cafe';
+import type { ShopItem, Receipt as _Receipt, ApiError as _ApiError } from '../types/cafe';
 
 const router = new Hono();
-const memReceipts = new Map<string, any>();
+export const memReceipts = new Map<string, any>();
+export const clearMemReceipts = (): void => {
+  memReceipts.clear();
+};
 
 // Zod schemas
 const purchaseSchema = z.object({
@@ -251,8 +254,10 @@ router.post('/checkout', requireX402Payment(), async (c) => {
       .select()
       .single();
 
-    if (receiptError) {
-      console.warn('[shop] Supabase unavailable, storing receipt in-memory:', promiseId);
+      if (receiptError) {
+        console.warn('[shop] Supabase unavailable, storing receipt in-memory:', promiseId);
+      }
+
       memReceipts.set(promiseId, {
         id: promiseId,
         user_id: user.agentId,
@@ -263,9 +268,8 @@ router.post('/checkout', requireX402Payment(), async (c) => {
         payment_method: validated.paymentMethod,
         status: 'pending',
         x402_promise_id: promiseId,
-        created_at: new Date().toISOString(),
+        created_at: receipt?.created_at ?? new Date().toISOString(),
       });
-    }
 
     const x402TxId = c.get('x402TxId');
     const _x402Receipt = c.get('x402Receipt');
@@ -364,7 +368,7 @@ router.post('/purchase', async (c) => {
  * GET /receipts — View purchase history
  *
  * Returns all receipts for the authenticated agent, sorted by date.
- * Supports filtering by status and limit.
+ * Supports filtering by limit, with seamless in-memory fallback.
  */
 router.get('/receipts', async (c) => {
   try {
@@ -377,41 +381,136 @@ router.get('/receipts', async (c) => {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
     }
 
-    const supabase = createSupabaseClient();
+    const receiptMap = new Map<string, any>();
 
-    const { data, error } = await supabase.from('receipts')
-      .select('*')
-      .eq('user_id', user.agentId)
-      .order('created_at', { ascending: false })
-      .limit(limit);
+    // 1. Attempt Supabase query
+    try {
+      const supabase = createSupabaseClient();
+      const { data, error } = await supabase.from('receipts')
+        .select('*')
+        .eq('user_id', user.agentId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
 
-    if (error) {
-      console.error('Supabase query error:', error);
-      return c.json(
-        { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch receipts' } },
-        500,
-      );
+      if (!error && data) {
+        for (const r of data) {
+          receiptMap.set(r.id, {
+            id: r.id,
+            agentId: r.user_id,
+            itemId: r.item_id,
+            quantity: r.quantity,
+            totalAmount: r.total_amount,
+            currency: r.currency,
+            paymentMethod: r.payment_method,
+            status: r.status,
+            x402PromiseId: r.x402_promise_id,
+            createdAt: r.created_at,
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('[shop] Supabase query error, falling back to memory:', err);
     }
 
-    const receipts = (data ?? []).map((r) => ({
-      id: r.id,
-      agentId: r.user_id,
-      itemId: r.item_id,
-      quantity: r.quantity,
-      totalAmount: r.total_amount,
-      currency: r.currency,
-      paymentMethod: r.payment_method,
-      status: r.status,
-      x402PromiseId: r.x402_promise_id,
-      createdAt: r.created_at,
-    })) satisfies Partial<Receipt>[];
+    // 2. Check memReceipts (fallback / merge)
+    for (const r of memReceipts.values()) {
+      if (r.user_id === user.agentId && !receiptMap.has(r.id)) {
+        receiptMap.set(r.id, {
+          id: r.id,
+          agentId: r.user_id,
+          itemId: r.item_id,
+          quantity: r.quantity,
+          totalAmount: r.total_amount,
+          currency: r.currency,
+          paymentMethod: r.payment_method,
+          status: r.status,
+          x402PromiseId: r.x402_promise_id,
+          createdAt: r.created_at,
+        });
+      }
+    }
 
-    return c.json({ receipts, total: receipts.length });
+    const receipts = Array.from(receiptMap.values());
+    receipts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const limitedReceipts = receipts.slice(0, limit);
+
+    return c.json({ receipts: limitedReceipts, total: limitedReceipts.length });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch receipts' } }, 500);
+  }
+});
+
+/**
+ * GET /receipts/:id — View specific receipt details
+ */
+router.get('/receipts/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const user = c.user;
+
+    if (!user) {
+      return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
+    }
+
+    let receipt: any = null;
+
+    // 1. Try Supabase
+    try {
+      const supabase = createSupabaseClient();
+      const { data, error } = await supabase.from('receipts')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (!error && data) {
+        receipt = {
+          id: data.id,
+          agentId: data.user_id,
+          itemId: data.item_id,
+          quantity: data.quantity,
+          totalAmount: data.total_amount,
+          currency: data.currency,
+          paymentMethod: data.payment_method,
+          status: data.status,
+          x402PromiseId: data.x402_promise_id,
+          createdAt: data.created_at,
+        };
+      }
+    } catch {
+      /* ignore Supabase error */
+    }
+
+    // 2. Fall back to memReceipts
+    if (!receipt && memReceipts.has(id)) {
+      const r = memReceipts.get(id);
+      receipt = {
+        id: r.id,
+        agentId: r.user_id,
+        itemId: r.item_id,
+        quantity: r.quantity,
+        totalAmount: r.total_amount,
+        currency: r.currency,
+        paymentMethod: r.payment_method,
+        status: r.status,
+        x402PromiseId: r.x402_promise_id,
+        createdAt: r.created_at,
+      };
+    }
+
+    if (!receipt) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Receipt not found' } }, 404);
+    }
+
+    if (receipt.agentId !== user.agentId) {
+      return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);
+    }
+
+    return c.json({ receipt });
+  } catch (_err) {
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch receipt' } }, 500);
   }
 });
 
