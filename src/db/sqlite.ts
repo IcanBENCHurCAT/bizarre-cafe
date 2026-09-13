@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import { config } from '../config';
 import type { DatabaseAdapter, RoomData, MessageData, AgentStatusData, X402PaymentData } from './index';
+import type { EscrowRecord, EscrowStatus } from '../types/cafe';
 
 let dbInstance: ReturnType<typeof Database> | null = null;
 
@@ -65,12 +66,55 @@ function getDb() {
         agent_id TEXT NOT NULL,
         skill_name TEXT NOT NULL,
         description TEXT NOT NULL,
+        category TEXT,
+        price_micro_algos INTEGER DEFAULT 0,
+        currency TEXT DEFAULT 'microAlgos',
         tags TEXT,
         wanted_skill TEXT,
         wanted_description TEXT,
         status TEXT DEFAULT 'available',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS skill_requests (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        requested_skill TEXT NOT NULL,
+        description TEXT,
+        offered_value TEXT,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS trades (
+        id TEXT PRIMARY KEY,
+        offer_id TEXT,
+        request_id TEXT,
+        from_agent_id TEXT NOT NULL,
+        to_user_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        price_micro_algos INTEGER DEFAULT 0,
+        payment_status TEXT DEFAULT 'unpaid',
+        escrow_id TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS escrow_records (
+        id TEXT PRIMARY KEY,
+        trade_id TEXT NOT NULL,
+        buyer_agent_id TEXT NOT NULL,
+        seller_agent_id TEXT NOT NULL,
+        amount_micro_algos INTEGER NOT NULL,
+        tx_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        released_at TEXT,
+        refunded_at TEXT
       );
 
       CREATE TABLE IF NOT EXISTS cafe_events (
@@ -134,6 +178,16 @@ function getDb() {
         created_at TEXT NOT NULL
       );
     `);
+
+      // Migrations / column checks for existing SQLite tables
+      try { dbInstance.exec(`ALTER TABLE skill_offers ADD COLUMN category TEXT`); } catch { /* column may exist */ }
+      try { dbInstance.exec(`ALTER TABLE skill_offers ADD COLUMN price_micro_algos INTEGER DEFAULT 0`); } catch { /* column may exist */ }
+      try { dbInstance.exec(`ALTER TABLE skill_offers ADD COLUMN currency TEXT DEFAULT 'microAlgos'`); } catch { /* column may exist */ }
+      try { dbInstance.exec(`ALTER TABLE skill_offers ADD COLUMN wanted_description TEXT`); } catch { /* column may exist */ }
+      try { dbInstance.exec(`ALTER TABLE skill_offers ADD COLUMN tags TEXT`); } catch { /* column may exist */ }
+      try { dbInstance.exec(`ALTER TABLE trades ADD COLUMN price_micro_algos INTEGER DEFAULT 0`); } catch { /* column may exist */ }
+      try { dbInstance.exec(`ALTER TABLE trades ADD COLUMN payment_status TEXT DEFAULT 'unpaid'`); } catch { /* column may exist */ }
+      try { dbInstance.exec(`ALTER TABLE trades ADD COLUMN escrow_id TEXT`); } catch { /* column may exist */ }
     } catch {
       // Ignore concurrent schema initialization from parallel test runners
     }
@@ -432,5 +486,512 @@ export const getSqliteChallenge = async (
       .prepare('SELECT * FROM verification_challenges WHERE challenge = ?')
       .get(challenge) || null
   );
+};
+
+// ─── Skill Marketplace & Escrow SQLite Helpers ──────────────────────────────
+
+export interface SqliteSkillOffer {
+  id: string;
+  agentId: string;
+  skillName: string;
+  description: string;
+  category?: string;
+  priceMicroAlgos: number;
+  currency: string;
+  tags: string[];
+  wantedSkill: string | null;
+  wantedDescription: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const createSqliteSkillOffer = async (offer: {
+  id?: string;
+  agent_id: string;
+  skill_name: string;
+  description: string;
+  category?: string | null;
+  price_micro_algos?: number;
+  currency?: string;
+  tags?: string[] | null;
+  wanted_skill?: string | null;
+  wanted_description?: string | null;
+  status?: string;
+  created_at?: string;
+  updated_at?: string;
+}): Promise<SqliteSkillOffer> => {
+  const db = getDb();
+  const id = offer.id || generateId();
+  const now = offer.created_at || new Date().toISOString();
+  const tagsStr = offer.tags ? JSON.stringify(offer.tags) : JSON.stringify([]);
+  const category = offer.category || null;
+  const price = offer.price_micro_algos ?? 0;
+  const currency = offer.currency || 'microAlgos';
+  const status = offer.status || 'available';
+
+  db.prepare(`
+    INSERT INTO skill_offers (id, agent_id, skill_name, description, category, price_micro_algos, currency, tags, wanted_skill, wanted_description, status, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    offer.agent_id,
+    offer.skill_name,
+    offer.description,
+    category,
+    price,
+    currency,
+    tagsStr,
+    offer.wanted_skill || null,
+    offer.wanted_description || null,
+    status,
+    now,
+    offer.updated_at || now,
+  );
+
+  return {
+    id,
+    agentId: offer.agent_id,
+    skillName: offer.skill_name,
+    description: offer.description,
+    category: category || undefined,
+    priceMicroAlgos: price,
+    currency,
+    tags: offer.tags || [],
+    wantedSkill: offer.wanted_skill || null,
+    wantedDescription: offer.wanted_description || null,
+    status,
+    createdAt: now,
+    updatedAt: offer.updated_at || now,
+  };
+};
+
+export const getSqliteSkillOffers = async (params: {
+  category?: string;
+  maxPrice?: number;
+  search?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<SqliteSkillOffer[]> => {
+  const db = getDb();
+  const status = params.status || 'available';
+  let query = 'SELECT * FROM skill_offers WHERE status = ?';
+  const args: any[] = [status];
+
+  if (params.category) {
+    query += ' AND category = ?';
+    args.push(params.category);
+  }
+
+  if (params.maxPrice !== undefined) {
+    query += ' AND price_micro_algos <= ?';
+    args.push(params.maxPrice);
+  }
+
+  if (params.search) {
+    query += ' AND (skill_name LIKE ? OR description LIKE ?)';
+    args.push(`%${params.search}%`, `%${params.search}%`);
+  }
+
+  query += ' ORDER BY created_at DESC';
+
+  if (params.limit !== undefined) {
+    query += ' LIMIT ?';
+    args.push(params.limit);
+    if (params.offset !== undefined) {
+      query += ' OFFSET ?';
+      args.push(params.offset);
+    }
+  }
+
+  const rows: any[] = db.prepare(query).all(...args);
+  return rows.map((row) => {
+    let parsedTags: string[] = [];
+    if (row.tags) {
+      try {
+        parsedTags = typeof row.tags === 'string' ? JSON.parse(row.tags) : row.tags;
+      } catch {
+        parsedTags = [];
+      }
+    }
+    return {
+      id: row.id,
+      agentId: row.agent_id,
+      skillName: row.skill_name,
+      description: row.description,
+      category: row.category || undefined,
+      priceMicroAlgos: row.price_micro_algos ?? 0,
+      currency: row.currency || 'microAlgos',
+      tags: Array.isArray(parsedTags) ? parsedTags : [],
+      wantedSkill: row.wanted_skill || null,
+      wantedDescription: row.wanted_description || null,
+      status: row.status,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  });
+};
+
+export const getSqliteSkillOfferById = async (id: string): Promise<SqliteSkillOffer | null> => {
+  const db = getDb();
+  const row: any = db.prepare('SELECT * FROM skill_offers WHERE id = ?').get(id);
+  if (!row) return null;
+  let parsedTags: string[] = [];
+  if (row.tags) {
+    try {
+      parsedTags = typeof row.tags === 'string' ? JSON.parse(row.tags) : row.tags;
+    } catch {
+      parsedTags = [];
+    }
+  }
+  return {
+    id: row.id,
+    agentId: row.agent_id,
+    skillName: row.skill_name,
+    description: row.description,
+    category: row.category || undefined,
+    priceMicroAlgos: row.price_micro_algos ?? 0,
+    currency: row.currency || 'microAlgos',
+    tags: Array.isArray(parsedTags) ? parsedTags : [],
+    wantedSkill: row.wanted_skill || null,
+    wantedDescription: row.wanted_description || null,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+};
+
+export const updateSqliteSkillOfferStatus = async (id: string, status: string): Promise<void> => {
+  const db = getDb();
+  const now = new Date().toISOString();
+  db.prepare('UPDATE skill_offers SET status = ?, updated_at = ? WHERE id = ?').run(status, now, id);
+};
+
+export interface SqliteSkillRequest {
+  id: string;
+  agentId: string;
+  requestedSkill: string;
+  description: string | null;
+  offeredValue: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const createSqliteSkillRequest = async (request: {
+  id?: string;
+  user_id: string;
+  requested_skill: string;
+  description?: string | null;
+  offered_value: string;
+  status?: string;
+  created_at?: string;
+  updated_at?: string;
+}): Promise<SqliteSkillRequest> => {
+  const db = getDb();
+  const id = request.id || generateId();
+  const now = request.created_at || new Date().toISOString();
+  const status = request.status || 'open';
+
+  db.prepare(`
+    INSERT INTO skill_requests (id, user_id, requested_skill, description, offered_value, status, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    request.user_id,
+    request.requested_skill,
+    request.description || null,
+    request.offered_value,
+    status,
+    now,
+    request.updated_at || now,
+  );
+
+  return {
+    id,
+    agentId: request.user_id,
+    requestedSkill: request.requested_skill,
+    description: request.description || null,
+    offeredValue: request.offered_value,
+    status,
+    createdAt: now,
+    updatedAt: request.updated_at || now,
+  };
+};
+
+export const getSqliteSkillRequests = async (params: {
+  search?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<SqliteSkillRequest[]> => {
+  const db = getDb();
+  const status = params.status || 'open';
+  let query = 'SELECT * FROM skill_requests WHERE status = ?';
+  const args: any[] = [status];
+
+  if (params.search) {
+    query += ' AND (requested_skill LIKE ? OR description LIKE ?)';
+    args.push(`%${params.search}%`, `%${params.search}%`);
+  }
+
+  query += ' ORDER BY created_at DESC';
+
+  if (params.limit !== undefined) {
+    query += ' LIMIT ?';
+    args.push(params.limit);
+    if (params.offset !== undefined) {
+      query += ' OFFSET ?';
+      args.push(params.offset);
+    }
+  }
+
+  const rows: any[] = db.prepare(query).all(...args);
+  return rows.map((row) => ({
+    id: row.id,
+    agentId: row.user_id,
+    requestedSkill: row.requested_skill,
+    description: row.description || null,
+    offeredValue: row.offered_value,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+};
+
+export interface SqliteTrade {
+  id: string;
+  offerId: string | null;
+  requestId: string | null;
+  fromAgentId: string;
+  toAgentId: string;
+  status: string;
+  priceMicroAlgos: number;
+  paymentStatus: string;
+  escrowId: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const createSqliteTrade = async (trade: {
+  id?: string;
+  offer_id?: string | null;
+  request_id?: string | null;
+  from_agent_id: string;
+  to_user_id: string;
+  status: string;
+  price_micro_algos?: number;
+  payment_status?: string;
+  escrow_id?: string | null;
+  notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}): Promise<SqliteTrade> => {
+  const db = getDb();
+  const id = trade.id || generateId();
+  const now = trade.created_at || new Date().toISOString();
+  const price = trade.price_micro_algos ?? 0;
+  const paymentStatus = trade.payment_status || 'unpaid';
+
+  db.prepare(`
+    INSERT INTO trades (id, offer_id, request_id, from_agent_id, to_user_id, status, price_micro_algos, payment_status, escrow_id, notes, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    trade.offer_id || null,
+    trade.request_id || null,
+    trade.from_agent_id,
+    trade.to_user_id,
+    trade.status,
+    price,
+    paymentStatus,
+    trade.escrow_id || null,
+    trade.notes || null,
+    now,
+    trade.updated_at || now,
+  );
+
+  return {
+    id,
+    offerId: trade.offer_id || null,
+    requestId: trade.request_id || null,
+    fromAgentId: trade.from_agent_id,
+    toAgentId: trade.to_user_id,
+    status: trade.status,
+    priceMicroAlgos: price,
+    paymentStatus,
+    escrowId: trade.escrow_id || null,
+    notes: trade.notes || null,
+    createdAt: now,
+    updatedAt: trade.updated_at || now,
+  };
+};
+
+export const getSqliteTradeById = async (id: string): Promise<SqliteTrade | null> => {
+  const db = getDb();
+  const row: any = db.prepare('SELECT * FROM trades WHERE id = ?').get(id);
+  if (!row) return null;
+  return {
+    id: row.id,
+    offerId: row.offer_id || null,
+    requestId: row.request_id || null,
+    fromAgentId: row.from_agent_id,
+    toAgentId: row.to_user_id,
+    status: row.status,
+    priceMicroAlgos: row.price_micro_algos ?? 0,
+    paymentStatus: row.payment_status || 'unpaid',
+    escrowId: row.escrow_id || null,
+    notes: row.notes || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+};
+
+export const getSqliteTradesForAgent = async (agentId: string, limit: number = 20): Promise<SqliteTrade[]> => {
+  const db = getDb();
+  const rows: any[] = db
+    .prepare('SELECT * FROM trades WHERE from_agent_id = ? OR to_user_id = ? ORDER BY created_at DESC LIMIT ?')
+    .all(agentId, agentId, limit);
+  return rows.map((row) => ({
+    id: row.id,
+    offerId: row.offer_id || null,
+    requestId: row.request_id || null,
+    fromAgentId: row.from_agent_id,
+    toAgentId: row.to_user_id,
+    status: row.status,
+    priceMicroAlgos: row.price_micro_algos ?? 0,
+    paymentStatus: row.payment_status || 'unpaid',
+    escrowId: row.escrow_id || null,
+    notes: row.notes || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+};
+
+export const updateSqliteTrade = async (
+  id: string,
+  updates: Partial<{ status: string; payment_status: string; escrow_id: string | null; notes: string | null; updated_at: string }>,
+): Promise<void> => {
+  const db = getDb();
+  const sets: string[] = [];
+  const args: any[] = [];
+
+  if (updates.status !== undefined) {
+    sets.push('status = ?');
+    args.push(updates.status);
+  }
+  if (updates.payment_status !== undefined) {
+    sets.push('payment_status = ?');
+    args.push(updates.payment_status);
+  }
+  if (updates.escrow_id !== undefined) {
+    sets.push('escrow_id = ?');
+    args.push(updates.escrow_id);
+  }
+  if (updates.notes !== undefined) {
+    sets.push('notes = ?');
+    args.push(updates.notes);
+  }
+  sets.push('updated_at = ?');
+  args.push(updates.updated_at || new Date().toISOString());
+
+  args.push(id);
+  db.prepare(`UPDATE trades SET ${sets.join(', ')} WHERE id = ?`).run(...args);
+};
+
+export const createSqliteEscrowRecord = async (record: EscrowRecord): Promise<EscrowRecord> => {
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO escrow_records (id, trade_id, buyer_agent_id, seller_agent_id, amount_micro_algos, tx_id, status, created_at, updated_at, released_at, refunded_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    record.id,
+    record.tradeId,
+    record.buyerAgentId,
+    record.sellerAgentId,
+    record.amountMicroAlgos,
+    record.txId,
+    record.status,
+    record.createdAt,
+    record.updatedAt,
+    record.releasedAt || null,
+    record.refundedAt || null,
+  );
+  return record;
+};
+
+export const getSqliteEscrowRecord = async (id: string): Promise<EscrowRecord | null> => {
+  const db = getDb();
+  const row: any = db.prepare('SELECT * FROM escrow_records WHERE id = ?').get(id);
+  if (!row) return null;
+  return {
+    id: row.id,
+    tradeId: row.trade_id,
+    buyerAgentId: row.buyer_agent_id,
+    sellerAgentId: row.seller_agent_id,
+    amountMicroAlgos: row.amount_micro_algos,
+    txId: row.tx_id,
+    status: row.status as EscrowStatus,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    releasedAt: row.released_at || undefined,
+    refundedAt: row.refunded_at || undefined,
+  };
+};
+
+export const getSqliteEscrowByTradeId = async (tradeId: string): Promise<EscrowRecord | null> => {
+  const db = getDb();
+  const row: any = db.prepare('SELECT * FROM escrow_records WHERE trade_id = ?').get(tradeId);
+  if (!row) return null;
+  return {
+    id: row.id,
+    tradeId: row.trade_id,
+    buyerAgentId: row.buyer_agent_id,
+    sellerAgentId: row.seller_agent_id,
+    amountMicroAlgos: row.amount_micro_algos,
+    txId: row.tx_id,
+    status: row.status as EscrowStatus,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    releasedAt: row.released_at || undefined,
+    refundedAt: row.refunded_at || undefined,
+  };
+};
+
+export const updateSqliteEscrowRecord = async (
+  id: string,
+  updates: Partial<EscrowRecord>,
+): Promise<void> => {
+  const db = getDb();
+  const sets: string[] = [];
+  const args: any[] = [];
+
+  if (updates.status !== undefined) {
+    sets.push('status = ?');
+    args.push(updates.status);
+  }
+  if (updates.releasedAt !== undefined) {
+    sets.push('released_at = ?');
+    args.push(updates.releasedAt);
+  }
+  if (updates.refundedAt !== undefined) {
+    sets.push('refunded_at = ?');
+    args.push(updates.refundedAt);
+  }
+  sets.push('updated_at = ?');
+  args.push(updates.updatedAt || new Date().toISOString());
+
+  args.push(id);
+  db.prepare(`UPDATE escrow_records SET ${sets.join(', ')} WHERE id = ?`).run(...args);
+};
+
+export const clearSqliteSkillSwap = async (): Promise<void> => {
+  const db = getDb();
+  db.prepare('DELETE FROM skill_offers').run();
+  db.prepare('DELETE FROM skill_requests').run();
+  db.prepare('DELETE FROM trades').run();
+  db.prepare('DELETE FROM escrow_records').run();
 };
 

@@ -15,6 +15,23 @@ export interface X402PaymentHeaderOptions {
   paymentId?: string;
 }
 
+export interface PostSkillOfferOptions {
+  skillName: string;
+  description: string;
+  tags?: string[];
+  wantedSkill?: string;
+  wantedDescription?: string;
+  priceMicroAlgos?: number;
+  currency?: string;
+  category?: string;
+}
+
+export interface AcceptSkillOfferWithEscrowOptions {
+  paymentTxId?: string;
+  notes?: string;
+  onPaymentRequired?: (challenge: X402Challenge) => Promise<string>;
+}
+
 export type PaymentHandler = (challenge: X402Challenge) => Promise<string>;
 
 export interface AgentClientRetryConfig {
@@ -609,13 +626,24 @@ export class AgentClient extends EventEmitter {
   /**
    * Post a new skill offer
    */
-  public async postSkillOffer(skillName: string, description: string, wantedSkill?: string): Promise<any> {
+  public async postSkillOffer(
+    offerOrSkillName: PostSkillOfferOptions | string,
+    description?: string,
+    wantedSkill?: string,
+  ): Promise<any> {
+    let body: any;
+    if (typeof offerOrSkillName === 'string') {
+      body = { skillName: offerOrSkillName, description, wantedSkill };
+    } else {
+      body = offerOrSkillName;
+    }
+
     const response = await fetch(`${this.config.baseUrl}/api/skill-swap/offer`, {
       method: 'POST',
       headers: this.getHeaders({
         'Content-Type': 'application/json',
       }),
-      body: JSON.stringify({ skillName, description, wantedSkill }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -640,7 +668,7 @@ export class AgentClient extends EventEmitter {
   }
 
   /**
-   * Accept a skill offer
+   * Accept a skill offer (simple barter or unpriced)
    */
   public async acceptSkillOffer(offerId: string, notes?: string): Promise<any> {
     const response = await fetch(`${this.config.baseUrl}/api/skill-swap/offers/${offerId}/accept`, {
@@ -654,6 +682,81 @@ export class AgentClient extends EventEmitter {
     if (!response.ok) {
       throw new Error(`Failed to accept skill offer: ${response.statusText}`);
     }
+    return response.json();
+  }
+
+  /**
+   * Accept a priced skill offer with x402 escrow locking and automatic 402 challenge resolution
+   */
+  public async acceptSkillOfferWithEscrow(
+    offerId: string,
+    options?: AcceptSkillOfferWithEscrowOptions,
+  ): Promise<{ trade: any; message?: string }> {
+    const url = `${this.config.baseUrl}/api/skill-swap/offers/${offerId}/accept`;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (options?.paymentTxId) {
+      headers['x-x402-payment'] = options.paymentTxId;
+      headers['x-payment-tx-id'] = options.paymentTxId;
+    }
+
+    const requestBody: Record<string, any> = {
+      agentId: this.config.agentId,
+      notes: options?.notes,
+    };
+    if (options?.paymentTxId) {
+      requestBody.txId = options.paymentTxId;
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: this.getHeaders(headers),
+      body: JSON.stringify(requestBody),
+    });
+
+    if (response.status === 402) {
+      const handler = options?.onPaymentRequired ?? this.config.onPaymentRequired;
+      if (handler) {
+        const errorBody = await response.json();
+        const challenge = parse402Challenge(errorBody);
+        if (challenge) {
+          const generatedTxId = await handler(challenge);
+          const retryHeaders: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'x-x402-payment': generatedTxId,
+            'x-payment-tx-id': generatedTxId,
+          };
+          const retryBody: Record<string, any> = {
+            agentId: this.config.agentId,
+            notes: options?.notes,
+            txId: generatedTxId,
+          };
+
+          const retryResponse = await fetch(url, {
+            method: 'POST',
+            headers: this.getHeaders(retryHeaders),
+            body: JSON.stringify(retryBody),
+          });
+
+          if (!retryResponse.ok) {
+            const errJson = await retryResponse.json().catch(() => null);
+            const msg = errJson?.error?.message || retryResponse.statusText;
+            throw new Error(`Failed to accept skill offer with escrow: ${msg}`);
+          }
+          return retryResponse.json();
+        }
+      }
+      throw new Error('Payment required: 402 challenge returned but no payment handler resolved it');
+    }
+
+    if (!response.ok) {
+      const errJson = await response.json().catch(() => null);
+      const msg = errJson?.error?.message || response.statusText;
+      throw new Error(`Failed to accept skill offer: ${msg}`);
+    }
+
     return response.json();
   }
 
@@ -672,18 +775,55 @@ export class AgentClient extends EventEmitter {
   }
 
   /**
-   * Complete a skill trade
+   * Get a specific trade by ID
    */
-  public async completeTrade(tradeId: string): Promise<any> {
+  public async getTrade(tradeId: string): Promise<any> {
+    const response = await fetch(`${this.config.baseUrl}/api/skill-swap/trades/${tradeId}`, {
+      headers: this.getHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch trade: ${response.statusText}`);
+    }
+    return response.json();
+  }
+
+  /**
+   * Complete a skill trade and release escrowed funds
+   */
+  public async completeTrade(tradeId: string, notes?: string): Promise<any> {
     const response = await fetch(`${this.config.baseUrl}/api/skill-swap/trades/${tradeId}/complete`, {
       method: 'POST',
       headers: this.getHeaders({
         'Content-Type': 'application/json',
       }),
+      body: JSON.stringify({ notes }),
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to complete trade: ${response.statusText}`);
+      const errJson = await response.json().catch(() => null);
+      const msg = errJson?.error?.message || response.statusText;
+      throw new Error(`Failed to complete trade: ${msg}`);
+    }
+    return response.json();
+  }
+
+  /**
+   * Cancel a skill trade and refund escrowed funds
+   */
+  public async cancelTrade(tradeId: string, reason?: string): Promise<any> {
+    const response = await fetch(`${this.config.baseUrl}/api/skill-swap/trades/${tradeId}/cancel`, {
+      method: 'POST',
+      headers: this.getHeaders({
+        'Content-Type': 'application/json',
+      }),
+      body: JSON.stringify({ reason }),
+    });
+
+    if (!response.ok) {
+      const errJson = await response.json().catch(() => null);
+      const msg = errJson?.error?.message || response.statusText;
+      throw new Error(`Failed to cancel trade: ${msg}`);
     }
     return response.json();
   }

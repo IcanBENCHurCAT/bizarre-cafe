@@ -9,6 +9,8 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AgentClient } from '../packages/sdk/src/index';
+import { registerMockTransaction } from '../src/services/x402/algorand';
+import { config } from '../src/config';
 
 export interface AgentPersona {
   name: string;
@@ -35,6 +37,8 @@ export interface SimulationStats {
   messagesExchanged: number;
   paymentsExecuted: number;
   tradesCompleted: number;
+  escrowTradesCreated: number;
+  escrowTradesSettled: number;
   ownerInteractions: number;
   errorsEncountered: number;
   durationSeconds: number;
@@ -44,6 +48,8 @@ export class SimulationStatsTracker {
   private messages = 0;
   private payments = 0;
   private trades = 0;
+  private escrowTradesCreated = 0;
+  private escrowTradesSettled = 0;
   private ownerInteractions = 0;
   private errors: string[] = [];
   private startTime = Date.now();
@@ -60,6 +66,14 @@ export class SimulationStatsTracker {
     this.trades++;
   }
 
+  recordEscrowTradeCreated(): void {
+    this.escrowTradesCreated++;
+  }
+
+  recordEscrowTradeSettled(): void {
+    this.escrowTradesSettled++;
+  }
+
   recordOwnerInteraction(): void {
     this.ownerInteractions++;
   }
@@ -74,6 +88,8 @@ export class SimulationStatsTracker {
       messagesExchanged: this.messages,
       paymentsExecuted: this.payments,
       tradesCompleted: this.trades,
+      escrowTradesCreated: this.escrowTradesCreated,
+      escrowTradesSettled: this.escrowTradesSettled,
       ownerInteractions: this.ownerInteractions,
       errorsEncountered: this.errors.length,
       durationSeconds: Math.round((Date.now() - this.startTime) / 1000),
@@ -90,6 +106,7 @@ export class SimulationStatsTracker {
       ` Messages Exchanged: ${s.messagesExchanged}`,
       ` Payments Executed:  ${s.paymentsExecuted}`,
       ` Trades Completed:   ${s.tradesCompleted}`,
+      ` Escrow Trades:      ${s.escrowTradesCreated} created / ${s.escrowTradesSettled} settled`,
       ` Owner Lore Events:  ${s.ownerInteractions}`,
       ` Errors Encountered: ${s.errorsEncountered}`,
       '==================================================',
@@ -341,6 +358,13 @@ export async function runSimulation(options?: SimulationOptions): Promise<Simula
         const itemToBuy = items[0];
         console.log(`[Simulation] Alice purchasing '${itemToBuy.name}' via x402 payment receipt...`);
         const txId = `ALGO_SIM_TX_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+        registerMockTransaction({
+          txId,
+          sender: 'ALICE_WALLET_SIM',
+          receiver: config.algorandReceiverWallet,
+          amount: 100000,
+          confirmedRound: 1,
+        });
         await alice.checkoutItem(itemToBuy.id, 1, 'x402', txId);
         stats.recordPayment();
         console.log('[Simulation] Alice x402 payment verified and checkout settled!');
@@ -352,24 +376,52 @@ export async function runSimulation(options?: SimulationOptions): Promise<Simula
 
     await new Promise((r) => setTimeout(r, turnDelayMs));
 
-    // 7. Bob lists skill offer, Alice accepts, Bob completes trade
-    console.log('[Simulation] Bob posting skill offer on marketplace...');
+    // 7. Bob lists priced skill offer, Alice accepts with escrow, Bob completes trade
+    console.log('[Simulation] Bob posting priced skill offer on marketplace...');
     try {
-      const offerRes = await bob.postSkillOffer(
-        'Quantum Diagnostics',
-        'In-depth temporal fluctuation diagnosis and resonance tuning',
-        'Espresso Barista Arts',
-      );
+      const offerRes = await bob.postSkillOffer({
+        skillName: 'Quantum Algorithm Optimization',
+        description: 'Advanced temporal fluctuation diagnosis and QPU pipeline resonance tuning',
+        category: 'coding',
+        priceMicroAlgos: 100000,
+        currency: 'microAlgos',
+        tags: ['quantum', 'optimization', 'qpu'],
+      });
       const offerId = offerRes?.offer?.id;
       if (offerId) {
-        console.log(`[Simulation] Skill offer posted: ID ${offerId}. Alice accepting...`);
-        const acceptRes = await alice.acceptSkillOffer(offerId, 'Happy to exchange knowledge!');
+        console.log(`[Simulation] Priced skill offer posted: ID ${offerId} (100,000 microAlgos). Alice accepting with escrow...`);
+        const simTxId = `ALGO_ESCROW_TX_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+        registerMockTransaction({
+          txId: simTxId,
+          sender: 'ALICE_WALLET_SIM',
+          receiver: config.algorandReceiverWallet,
+          amount: 100000,
+          confirmedRound: 1,
+        });
+
+        const acceptRes = await alice.acceptSkillOfferWithEscrow(offerId, {
+          paymentTxId: simTxId,
+          notes: 'Happy to fund escrow for quantum optimization!',
+          onPaymentRequired: async (challenge) => {
+            const fallbackTxId = `ALGO_CHALLENGE_TX_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+            registerMockTransaction({
+              txId: fallbackTxId,
+              sender: 'ALICE_WALLET_SIM',
+              receiver: challenge.receiverWallet || config.algorandReceiverWallet,
+              amount: challenge.amount,
+              confirmedRound: 1,
+            });
+            return fallbackTxId;
+          },
+        });
         const tradeId = acceptRes?.trade?.id;
         if (tradeId) {
-          console.log(`[Simulation] Alice accepted trade ${tradeId}. Bob completing trade...`);
-          await bob.completeTrade(tradeId);
+          stats.recordEscrowTradeCreated();
+          console.log(`[Simulation] Alice accepted trade ${tradeId} into escrow (Payment status: ${acceptRes.trade.paymentStatus}). Bob completing trade...`);
+          await bob.completeTrade(tradeId, 'Quantum optimization delivered and verified');
           stats.recordTrade();
-          console.log('[Simulation] Trade settled successfully on skill-swap board!');
+          stats.recordEscrowTradeSettled();
+          console.log('[Simulation] Escrow settled and funds released to Bob successfully!');
         }
       }
     } catch (err) {
