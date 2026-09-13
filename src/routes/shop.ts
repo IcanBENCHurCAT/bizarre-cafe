@@ -12,7 +12,8 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { createSupabaseClient } from '../supabase/client';
 import { requireX402Payment } from '../middleware/auth';
-import { generateId } from '../utils/index';
+import { generateId as _generateId } from '../utils/index';
+import { createPaymentPromise, getPaymentStatus } from '../services/x402/index';
 import type { ShopItem, Receipt, ApiError as _ApiError } from '../types/cafe';
 
 const router = new Hono();
@@ -177,12 +178,8 @@ router.get('/items/:id', async (c) => {
  * payment details including the promise ID that the buyer must
  * sign with their Algorand wallet.
  */
-router.post('/checkout', async (c) => {
+router.post('/checkout', requireX402Payment(), async (c) => {
   try {
-    // Require x402 payment for this endpoint
-    await requireX402Payment()(c, async () => {
-      // This will be called after the middleware
-    });
 
     const body = await c.req.json();
     const validated = checkoutSchema.parse(body);
@@ -221,9 +218,20 @@ router.post('/checkout', async (c) => {
       );
     }
 
-    // Create x402 promise
+    // Create x402 promise via payment service
     const totalAmount = item.price * validated.quantity;
-    const promiseId = generateId('x402');
+    const paymentPromise = createPaymentPromise(
+      [
+        {
+          service: item.name,
+          price: item.price,
+          quantity: validated.quantity,
+          description: item.description ?? `Purchase of ${item.name}`,
+        },
+      ],
+      user.walletAddress ?? user.agentId,
+    );
+    const promiseId = paymentPromise.paymentId;
 
     // Store receipt record
     const { data: receipt, error: receiptError } = await supabase.from('receipts')
@@ -274,6 +282,32 @@ router.post('/checkout', async (c) => {
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Checkout failed' } }, 500);
   }
+});
+
+/**
+ * GET /checkout/:promiseId — Inspect payment promise status
+ */
+router.get('/checkout/:promiseId', async (c) => {
+  const promiseId = c.req.param('promiseId');
+  const paymentStatus = getPaymentStatus(promiseId);
+  const supabase = createSupabaseClient();
+
+  const { data: receipt } = await supabase.from('receipts')
+    .select('*')
+    .eq('id', promiseId)
+    .single();
+
+  if (!paymentStatus && !receipt) {
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Payment promise not found' } }, 404);
+  }
+
+  return c.json({
+    promiseId,
+    status: paymentStatus?.status ?? receipt?.status ?? 'pending',
+    total: paymentStatus?.total ?? receipt?.total_amount,
+    verifiedAt: paymentStatus?.verifiedAt,
+    receipt,
+  });
 });
 
 /**
