@@ -9,8 +9,13 @@ function getDb() {
     const dbPath = config.databaseUrl.endsWith('.sqlite') || config.databaseUrl.endsWith('.db')
       ? config.databaseUrl
       : 'local.sqlite';
-    dbInstance = new Database(dbPath);
-    dbInstance.pragma('journal_mode = WAL');
+    dbInstance = new Database(dbPath, { timeout: 10000 });
+    try {
+      dbInstance.pragma('journal_mode = WAL');
+      dbInstance.pragma('busy_timeout = 10000');
+    } catch {
+      // ignore pragma error on restricted filesystems
+    }
 
     // Initialize schema
     dbInstance.exec(`
