@@ -122,7 +122,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
           agentId ||
           'unknown-agent',
         walletAddress: payload.walletAddress as string | undefined,
-        tier: (payload.tier as 'free' | 'premium') || 'free',
+        tier: (payload.tier as 'free' | 'basic' | 'premium') || 'free',
         paidRoutes: Array.isArray(payload.paidRoutes) ? (payload.paidRoutes as string[]) : [],
       };
     } catch {

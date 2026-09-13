@@ -1,4 +1,93 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+const { tables, mockSupabase } = vi.hoisted(() => {
+  const tables: Record<string, any[]> = {
+    verification_challenges: [],
+    agent_verification: [],
+  };
+
+  class MockQueryBuilder {
+    private tableName: string;
+    private currentRows: any[];
+    private currentData: any = null;
+    private isSingle = false;
+
+    constructor(tableName: string) {
+      this.tableName = tableName;
+      if (!tables[tableName]) {
+        tables[tableName] = [];
+      }
+      this.currentRows = [...tables[tableName]];
+    }
+
+    select(_fields = '*') {
+      if (!this.currentData) {
+        this.currentData = this.currentRows;
+      }
+      return this;
+    }
+
+    insert(data: any) {
+      const toInsert = Array.isArray(data) ? data : [data];
+      tables[this.tableName].push(...toInsert);
+      this.currentRows.push(...toInsert);
+      this.currentData = data;
+      return this;
+    }
+
+    update(updates: any) {
+      for (const row of this.currentRows) {
+        Object.assign(row, updates);
+      }
+      for (const row of tables[this.tableName]) {
+        const match = this.currentRows.find((r) => r.id && r.id === row.id);
+        if (match) {
+          Object.assign(row, updates);
+        }
+      }
+      this.currentData = this.currentRows;
+      return this;
+    }
+
+    eq(col: string, val: any) {
+      this.currentRows = this.currentRows.filter((r) => r[col] === val);
+      this.currentData = this.currentRows;
+      return this;
+    }
+
+    gte(col: string, val: any) {
+      this.currentRows = this.currentRows.filter((r) => r[col] >= val);
+      this.currentData = this.currentRows;
+      return this;
+    }
+
+    single() {
+      this.isSingle = true;
+      return this;
+    }
+
+    then(resolve: (val: any) => any, reject?: (err: any) => any) {
+      let result = this.currentData ?? this.currentRows;
+      if (this.isSingle) {
+        result = Array.isArray(result) ? (result[0] ?? null) : result;
+      }
+      return Promise.resolve({ data: result, error: null }).then(resolve, reject);
+    }
+  }
+
+  const mockSupabase = {
+    from: (tableName: string) => new MockQueryBuilder(tableName),
+  };
+
+  return { tables, mockSupabase };
+});
+
+vi.mock('../src/supabase/client', () => ({
+  createSupabaseClient: () => mockSupabase,
+  supabase: mockSupabase,
+  supabaseAdmin: mockSupabase,
+}));
+
 import {
   challengeAgent,
   verifyAgent,
@@ -11,6 +100,8 @@ import * as legacyVerification from '../src/services/verification';
 describe('Agent Verification Service', () => {
   beforeEach(() => {
     clearState();
+    tables.verification_challenges = [];
+    tables.agent_verification = [];
   });
 
   const testDid = 'did:algo:test-agent-1234567890abcdef';
@@ -202,4 +293,59 @@ describe('Agent Verification Service', () => {
       expect(fetched?.status).toBe('revoked');
     });
   });
+
+  describe('Production Route Signature Verification (/verify)', () => {
+    it('should reject shape-only ALGO signatures in NODE_ENV=production with HTTP 400 INVALID_SIGNATURE', async () => {
+      const { default: router } = await import('../src/routes/verification');
+      const { createSqliteChallenge } = await import('../src/db/sqlite');
+      const { config } = await import('../src/config');
+
+      const testAgent = 'test-agent-production-check';
+      const challenge = await challengeAgent(testAgent);
+
+      // Record challenge in SQLite so /verify finds it
+      await createSqliteChallenge({
+        id: challenge.challengeId,
+        user_id: testAgent,
+        challenge: challenge.nonce,
+        proof: challenge.message,
+        expires_at: new Date(challenge.expiresAt).toISOString(),
+        status: 'pending',
+      });
+
+      tables.verification_challenges.push({
+        id: challenge.challengeId,
+        user_id: testAgent,
+        challenge: challenge.nonce,
+        proof: challenge.message,
+        expires_at: new Date(challenge.expiresAt).toISOString(),
+        status: 'pending',
+      });
+
+      const originalEnv = config.nodeEnv;
+      try {
+        config.nodeEnv = 'production';
+
+        const dummySignature = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+        const res = await router.request('/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agentId: testAgent,
+            challenge: challenge.nonce,
+            signature: dummySignature,
+            walletAddress: 'ALGO:TEST_WALLET_ADDRESS_PROD',
+          }),
+        });
+
+        expect(res.status).toBe(400);
+        const body = await res.json();
+        expect(body.error).toBeDefined();
+        expect(body.error.code).toBe('INVALID_SIGNATURE');
+      } finally {
+        config.nodeEnv = originalEnv;
+      }
+    });
+  });
 });
+

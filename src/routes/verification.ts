@@ -189,11 +189,12 @@ router.post('/verify', async (c) => {
 
     const signatureValid =
       serviceResult.verified ||
-      verifySignature(
-        validated.challenge,
-        validated.signature,
-        validated.walletAddress || '',
-      );
+      (config.nodeEnv !== 'production' &&
+        verifySignature(
+          validated.challenge,
+          validated.signature,
+          validated.walletAddress || '',
+        ));
 
     if (!signatureValid) {
       return c.json(
@@ -592,6 +593,10 @@ router.post('/upgrade', async (c) => {
  * the Algorand network or a DID resolver.
  */
 function verifySignature(message: string, signature: string, walletAddress: string): boolean {
+  if (config.nodeEnv === 'production') {
+    return false;
+  }
+
   try {
     // Validate format
     if (!walletAddress.startsWith('ALGO:')) {

@@ -149,6 +149,7 @@ import app from '../src/index';
 import { clearPayments } from '../src/services/x402/index';
 import { clearState } from '../src/services/verification/index';
 import { resetStore as resetNarrativeStore } from '../src/services/narrative/index';
+import { config } from '../src/config';
 
 describe('Service Integration Tests', () => {
   beforeEach(() => {
@@ -269,5 +270,47 @@ describe('Service Integration Tests', () => {
     expect(logBody.log).toBeDefined();
     expect(Array.isArray(logBody.log)).toBe(true);
     expect(logBody.log.length).toBeGreaterThan(0);
+  });
+
+  it('should reject shape-only ALGO signature in production mode with HTTP 400 INVALID_SIGNATURE', async () => {
+    const originalEnv = config.nodeEnv;
+    try {
+      config.nodeEnv = 'production';
+
+      // 1. Request challenge
+      const challengeRes = await app.request('/api/verification/challenge', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          agentId: 'test-agent-service-prod-check',
+        }),
+      });
+
+      expect(challengeRes.status).toBe(200);
+      const challengeBody = await challengeRes.json();
+      expect(challengeBody.challenge).toBeDefined();
+      const nonce = challengeBody.challenge.challenge;
+      expect(nonce).toBeDefined();
+
+      // 2. Submit shape-only signature with ALGO: address
+      const dummySignature = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+      const verifyRes = await app.request('/api/verification/verify', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          agentId: 'test-agent-service-prod-check',
+          challenge: nonce,
+          signature: dummySignature,
+          walletAddress: 'ALGO:TEST_WALLET_ADDRESS_PROD',
+        }),
+      });
+
+      expect(verifyRes.status).toBe(400);
+      const verifyBody = await verifyRes.json();
+      expect(verifyBody.error).toBeDefined();
+      expect(verifyBody.error.code).toBe('INVALID_SIGNATURE');
+    } finally {
+      config.nodeEnv = originalEnv;
+    }
   });
 });
