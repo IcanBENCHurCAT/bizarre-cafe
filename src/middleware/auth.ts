@@ -11,11 +11,12 @@ import { Context, MiddlewareHandler } from 'hono';
 import { jwtVerify, SignJWT } from 'jose';
 import { config } from '../config';
 import { verifyPaymentSubmission } from '../services/x402/index';
+import { verifyAgentDID } from '../services/identity/did';
 
 export interface AuthUser {
   agentId: string;
   walletAddress?: string;
-  tier: 'free' | 'premium';
+  tier: 'free' | 'basic' | 'premium';
   paidRoutes: string[];
 }
 
@@ -98,6 +99,13 @@ export const createToken = async (
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
   const authHeader = c.req.header('Authorization');
   const agentId = c.req.header('X-Agent-ID') ?? c.req.header('x-agent-id');
+  const didHeader = c.req.header('X-Agent-DID') ?? c.req.header('x-agent-did');
+  const sigHeader = c.req.header('X-Agent-Signature') ?? c.req.header('x-agent-signature');
+  const nonceHeader =
+    c.req.header('X-Agent-Nonce') ??
+    c.req.header('x-agent-nonce') ??
+    c.req.header('X-Agent-Timestamp') ??
+    c.req.header('x-agent-timestamp');
 
   let user: AuthUser | undefined;
 
@@ -105,25 +113,43 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   if (authHeader?.startsWith('Bearer ')) {
     try {
       const token = authHeader.slice(7);
-      // For dev/test, accept any token
+      const secretKey = new TextEncoder().encode(config.jwtSecret);
+      const { payload } = await jwtVerify(token, secretKey);
+      user = {
+        agentId:
+          (payload.agentId as string) ||
+          (payload.sub as string) ||
+          agentId ||
+          'unknown-agent',
+        walletAddress: payload.walletAddress as string | undefined,
+        tier: (payload.tier as 'free' | 'premium') || 'free',
+        paidRoutes: Array.isArray(payload.paidRoutes) ? (payload.paidRoutes as string[]) : [],
+      };
+    } catch {
+      // In development or test, allow fallback if arbitrary Bearer token passed
       if (config.nodeEnv === 'development' || config.nodeEnv === 'test') {
         user = generateFakeUser(agentId || 'dev-agent');
-      } else {
-        const secretKey = new TextEncoder().encode(config.jwtSecret);
-        const { payload } = await jwtVerify(token, secretKey);
-        user = {
-          agentId: (payload.agentId as string) || agentId || (payload.sub as string) || 'unknown-agent',
-          walletAddress: payload.walletAddress as string | undefined,
-          tier: (payload.tier as 'free' | 'premium') || 'free',
-          paidRoutes: Array.isArray(payload.paidRoutes) ? (payload.paidRoutes as string[]) : [],
-        };
       }
-    } catch {
-      // JWT invalid, try wallet signature
     }
   }
 
-  // Method 2: Wallet signature (for x402)
+  // Method 2: Stateless DID signature headers (X-Agent-DID, X-Agent-Signature, X-Agent-Nonce)
+  if (!user && didHeader && sigHeader && nonceHeader) {
+    const outcome = await verifyAgentDID(didHeader, sigHeader, nonceHeader);
+    if (outcome.verified) {
+      user = {
+        agentId: didHeader,
+        walletAddress:
+          didHeader.startsWith('did:algo:') || didHeader.startsWith('ALGO:')
+            ? didHeader.replace(/^did:algo:/, '')
+            : undefined,
+        tier: 'premium',
+        paidRoutes: ['*', '/api/shop/*', '/api/skill-swap/*'],
+      };
+    }
+  }
+
+  // Method 2b: Legacy wallet signature headers (for x402)
   if (!user) {
     const walletSig = extractWalletSignature(c);
     if (walletSig) {

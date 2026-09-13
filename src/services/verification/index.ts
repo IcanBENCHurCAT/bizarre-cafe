@@ -15,6 +15,9 @@
 
 
 
+import { verifyAgentDID } from '../identity/did';
+import { createToken } from '../../middleware/auth';
+
 // ──────────────────────────────────────────────
 // Types
 // ──────────────────────────────────────────────
@@ -44,6 +47,8 @@ export interface VerificationResult {
   verified: boolean;
   /** DID that was verified */
   did: string;
+  /** Signed session JWT issued upon successful verification */
+  token?: string;
   /** Reason if verification failed */
   reason?: string;
   /** Verified timestamp if successful */
@@ -55,6 +60,7 @@ interface StoredChallenge {
   challengeId: string;
   did: string;
   nonce: string;
+  message: string;
   issuedAt: number;
   expiresAt: number;
 }
@@ -168,60 +174,7 @@ const formatChallengeMessage = (nonce: string, did: string): string => {
   return `Bizarre Cafe Verification\nDID: ${did}\nNonce: ${nonce}\nTimestamp: ${Date.now()}`;
 };
 
-/**
- * Verify a wallet signature against a DID.
- *
- * In production, this would:
- * 1. Resolve the DID to an Algorand address
- * 2. Verify the ed25519 signature
- * 3. Check that the address matches the DID document
- *
- * For now, uses the auth middleware's signature verification pattern.
- *
- * @param did - The agent's DID
- * @param signature - The signature to verify (hex or base64)
- * @param nonce - The nonce that was signed
- * @returns true if the signature is valid
- */
-const verifySignature = async (did: string, signature: string, nonce: string): Promise<boolean> => {
-  try {
-    // Resolve DID to wallet address (production: use DID resolver)
-    // For dev, derive from DID string
-    const address = `ALGO:${did.slice(-16)}`;
 
-    // Prepare the message that was signed
-    const message = formatChallengeMessage(nonce, did);
-    const _messageBytes = new TextEncoder().encode(message);
-
-    // Decode signature (supports hex or base64)
-    let sigBytes: Uint8Array;
-    if (/^[0-9a-fA-F]+$/.test(signature) && signature.length % 2 === 0) {
-      sigBytes = new Uint8Array(signature.length / 2);
-      for (let i = 0; i < signature.length; i += 2) {
-        sigBytes[i / 2] = parseInt(signature.slice(i, i + 2), 16);
-      }
-    } else {
-      try {
-        sigBytes = Uint8Array.from(atob(signature), (c) => c.charCodeAt(0));
-      } catch {
-        sigBytes = new Uint8Array(0);
-      }
-    }
-
-    // Simplified verification (production: use @noble/ed25519)
-    // Check signature is valid length (64-byte ed25519 or 32-byte test hash) and address looks correct
-    if (sigBytes.length !== 64 && sigBytes.length !== 32) return false;
-    if (!address.startsWith('ALGO:')) return false;
-
-    // In production:
-    // const isValid = verify(sigBytes, messageBytes, addressBytes);
-    // return isValid;
-
-    return true; // Accept for dev
-  } catch {
-    return false;
-  }
-};
 
 /**
  * Clean up expired challenges from memory.
@@ -334,8 +287,13 @@ export const verifyAgent = async (
     };
   }
 
-  // Verify the signature
-  const isValid = await verifySignature(did, signature, nonce);
+  // Verify the signature against the challenge message or raw nonce
+  const msgOutcome = await verifyAgentDID(did, signature, validChallenge.message);
+  const nonceOutcome = !msgOutcome.verified
+    ? await verifyAgentDID(did, signature, validChallenge.nonce)
+    : msgOutcome;
+
+  const isValid = msgOutcome.verified || nonceOutcome.verified;
 
   if (isValid) {
     // Update agent record
@@ -352,17 +310,33 @@ export const verifyAgent = async (
     // Remove the used challenge
     challenges.delete(nonce);
 
+    // Generate session JWT
+    const token = await createToken({
+      agentId: did,
+      tier: 'basic',
+      walletAddress:
+        did.startsWith('did:algo:') || did.startsWith('ALGO:')
+          ? did.replace(/^did:algo:/, '')
+          : undefined,
+    });
+
     return {
       verified: true,
       did,
+      token,
       verifiedAt: now,
     };
   }
 
+  const reason =
+    msgOutcome.reason ??
+    nonceOutcome.reason ??
+    'Invalid signature. The signed message does not match the challenge.';
+
   return {
     verified: false,
     did,
-    reason: 'Invalid signature. The signed message does not match the challenge.',
+    reason,
   };
 };
 

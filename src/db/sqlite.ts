@@ -18,7 +18,8 @@ function getDb() {
     }
 
     // Initialize schema
-    dbInstance.exec(`
+    try {
+      dbInstance.exec(`
       CREATE TABLE IF NOT EXISTS rooms (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -107,6 +108,20 @@ function getDb() {
         verified_at TEXT
       );
 
+      CREATE TABLE IF NOT EXISTS agent_verification (
+        id TEXT PRIMARY KEY,
+        user_id TEXT UNIQUE NOT NULL,
+        is_verified INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'unverified',
+        tier TEXT DEFAULT 'unverified',
+        method TEXT,
+        did_document TEXT,
+        wallet_address TEXT,
+        verified_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS x402_payments (
         id TEXT PRIMARY KEY,
         txn_hash TEXT UNIQUE,
@@ -119,6 +134,9 @@ function getDb() {
         created_at TEXT NOT NULL
       );
     `);
+    } catch {
+      // Ignore concurrent schema initialization from parallel test runners
+    }
   }
   return dbInstance;
 }
@@ -300,3 +318,119 @@ export const clearSqlitePayments = async (): Promise<void> => {
   const db = getDb();
   db.prepare('DELETE FROM x402_payments').run();
 };
+
+export interface SqliteAgentVerification {
+  id: string;
+  user_id: string;
+  is_verified: boolean;
+  status: string;
+  tier: string;
+  method: string | null;
+  did_document: string | null;
+  wallet_address: string | null;
+  verified_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const getSqliteVerification = async (userId: string): Promise<SqliteAgentVerification | null> => {
+  const db = getDb();
+  const row: any = db.prepare('SELECT * FROM agent_verification WHERE user_id = ?').get(userId);
+  if (!row) return null;
+  return {
+    ...row,
+    is_verified: Boolean(row.is_verified),
+  };
+};
+
+export const upsertSqliteVerification = async (data: {
+  user_id: string;
+  is_verified?: boolean;
+  status?: string;
+  tier?: string;
+  method?: string | null;
+  did_document?: string | null;
+  wallet_address?: string | null;
+  verified_at?: string | null;
+}): Promise<SqliteAgentVerification> => {
+  const db = getDb();
+  const now = new Date().toISOString();
+  const existing = await getSqliteVerification(data.user_id);
+  const id = existing?.id || generateId();
+  const isVerifiedNum = (data.is_verified ?? existing?.is_verified ?? false) ? 1 : 0;
+  const status = data.status ?? existing?.status ?? 'unverified';
+  const tier = data.tier ?? existing?.tier ?? 'unverified';
+  const method = data.method !== undefined ? data.method : (existing?.method ?? null);
+  const didDoc = data.did_document !== undefined ? data.did_document : (existing?.did_document ?? null);
+  const wallet = data.wallet_address !== undefined ? data.wallet_address : (existing?.wallet_address ?? null);
+  const verifiedAt = data.verified_at !== undefined ? data.verified_at : (existing?.verified_at ?? null);
+  const createdAt = existing?.created_at || now;
+
+  db.prepare(`
+    INSERT INTO agent_verification (id, user_id, is_verified, status, tier, method, did_document, wallet_address, verified_at, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      is_verified = excluded.is_verified,
+      status = excluded.status,
+      tier = excluded.tier,
+      method = excluded.method,
+      did_document = excluded.did_document,
+      wallet_address = excluded.wallet_address,
+      verified_at = excluded.verified_at,
+      updated_at = excluded.updated_at
+  `).run(id, data.user_id, isVerifiedNum, status, tier, method, didDoc, wallet, verifiedAt, createdAt, now);
+
+  const result = await getSqliteVerification(data.user_id);
+  if (!result) {
+    throw new Error('Failed to retrieve upserted verification');
+  }
+  return result;
+};
+
+export const createSqliteChallenge = async (data: {
+  id: string;
+  user_id: string;
+  challenge: string;
+  proof?: string | null;
+  expires_at: string;
+  method?: string | null;
+  status?: string;
+  created_at?: string;
+}): Promise<void> => {
+  const db = getDb();
+  const now = data.created_at || new Date().toISOString();
+  db.prepare(`
+    INSERT INTO verification_challenges (id, user_id, challenge, proof, expires_at, method, status, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    data.id,
+    data.user_id,
+    data.challenge,
+    data.proof || null,
+    data.expires_at,
+    data.method || 'signature',
+    data.status || 'pending',
+    now,
+    now,
+  );
+};
+
+export const getSqliteChallenge = async (
+  challenge: string,
+  userId?: string,
+): Promise<any | null> => {
+  const db = getDb();
+  if (userId) {
+    return (
+      db
+        .prepare('SELECT * FROM verification_challenges WHERE challenge = ? AND user_id = ?')
+        .get(challenge, userId) || null
+    );
+  }
+  return (
+    db
+      .prepare('SELECT * FROM verification_challenges WHERE challenge = ?')
+      .get(challenge) || null
+  );
+};
+

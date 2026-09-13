@@ -871,6 +871,59 @@ export const verification = {
     if (error) return false;
     return true;
   },
+
+  /** Get agent verification record from agent_verification table */
+  async getAgentVerification(userId: string) {
+    const { data, error } = await (supabase.from('agent_verification' as any) as any)
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (error) return null;
+    return data;
+  },
+
+  /** Upsert agent verification record */
+  async upsertAgentVerification(data: {
+    user_id: string;
+    is_verified: boolean;
+    wallet_address?: string | null;
+    did_document?: string | null;
+    verified_at?: string | null;
+    tier?: string;
+    status?: string;
+    method?: string;
+  }) {
+    const now = new Date().toISOString();
+    const { data: record, error } = await (supabase.from('agent_verification' as any) as any)
+      .upsert({
+        ...data,
+        updated_at: now,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return record;
+  },
+
+  /** Revoke agent verification */
+  async revokeAgentVerification(userId: string) {
+    const now = new Date().toISOString();
+    const { data: record, error } = await (supabase.from('agent_verification' as any) as any)
+      .update({
+        is_verified: false,
+        status: 'revoked',
+        tier: 'unverified',
+        updated_at: now,
+      })
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return record;
+  },
 };
 
 // ─── Users ───────────────────────────────────────────────────────────

@@ -31,6 +31,8 @@ export interface Config {
   sseTimeoutMs: number;
   sseHeartbeatMs: number;
   corsAllowedOrigins: string | string[];
+  didChallengeTtlMs: number;
+  didMaxChallengesPerHour: number;
 }
 
 const getRequired = (key: string): string => {
@@ -99,4 +101,6 @@ export const config: Config = {
     const rawOrigins = getOptional('CORS_ALLOWED_ORIGINS', '*');
     return rawOrigins.includes(',') ? rawOrigins.split(',').map((o) => o.trim()) : rawOrigins;
   })(),
+  didChallengeTtlMs: getNumber('DID_CHALLENGE_TTL_MS', 300000),
+  didMaxChallengesPerHour: getNumber('DID_MAX_CHALLENGES_PER_HOUR', 20),
 };

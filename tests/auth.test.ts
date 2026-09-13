@@ -148,6 +148,72 @@ describe('Auth Middleware Security Tests', () => {
     expect(body.error).toBe('Unauthorized');
   });
 
+  it('should authenticate via valid X-Agent-DID, X-Agent-Signature, and X-Agent-Nonce in production', async () => {
+    const { generateTestDidKeyPair } = await import('../src/services/identity/did');
+    const ed = await import('@noble/ed25519');
+
+    config.nodeEnv = 'production';
+    const app = new Hono();
+    app.use('/test', authMiddleware);
+    app.get('/test', (c) => {
+      if (!c.auth.user) {
+        return c.json({ error: 'Unauthorized' }, 401);
+      }
+      return c.json({ auth: c.auth });
+    });
+
+    const keypair = await generateTestDidKeyPair();
+    const nonce = 'stateless-auth-nonce-999888';
+    const sigBytes = ed.sign(new TextEncoder().encode(nonce), keypair.privateKey);
+    const sigHex = Buffer.from(sigBytes).toString('hex');
+
+    const res = await app.request('/test', {
+      headers: {
+        'X-Agent-DID': keypair.did,
+        'X-Agent-Signature': sigHex,
+        'X-Agent-Nonce': nonce,
+      },
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.auth.user).toBeDefined();
+    expect(body.auth.user.agentId).toBe(keypair.did);
+  });
+
+  it('should reject invalid X-Agent-Signature with X-Agent-DID in production', async () => {
+    const { generateTestDidKeyPair } = await import('../src/services/identity/did');
+    const ed = await import('@noble/ed25519');
+
+    config.nodeEnv = 'production';
+    const app = new Hono();
+    app.use('/test', authMiddleware);
+    app.get('/test', (c) => {
+      if (!c.auth.user) {
+        return c.json({ error: 'Unauthorized' }, 401);
+      }
+      return c.json({ auth: c.auth });
+    });
+
+    const keypair = await generateTestDidKeyPair();
+    const nonce = 'stateless-auth-nonce-999888';
+    const sigBytes = ed.sign(new TextEncoder().encode(nonce), keypair.privateKey);
+    sigBytes[0] ^= 0xff; // Tamper signature
+    const sigHex = Buffer.from(sigBytes).toString('hex');
+
+    const res = await app.request('/test', {
+      headers: {
+        'X-Agent-DID': keypair.did,
+        'X-Agent-Signature': sigHex,
+        'X-Agent-Nonce': nonce,
+      },
+    });
+
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error).toBe('Unauthorized');
+  });
+
   describe('requireX402Payment Middleware', () => {
     const validTxId = 'VALID_AUTH_TX_1234567890ABCDEFGH';
 
