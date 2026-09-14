@@ -19,3 +19,7 @@
 ## 2026-08-21 - [Avoid O(N) Array Allocations on Cryptographic Utilities]
 **Learning:** Functions like `generateNonce` and `hashNonce` allocated multiple intermediate arrays via `Array.from(bytes).map(...).join('')` to perform simple byte-to-hex and byte-to-char conversions. This creates unnecessary O(N) memory allocations (creating intermediate Number and String arrays) on high-frequency code paths.
 **Action:** Replace `Array.from()` conversions with direct `for` loops and `+=` string concatenations in performance-critical cryptographic utility functions.
+
+## 2024-11-20 - [O(N) Memory Allocation in Map Iteration via Array.from]
+**Learning:** In `src/sse/index.ts` and `src/routes/skill-swap.ts`, `Array.from()` was being used to create an intermediate array before iterating in a `for...of` loop or before chaining with `.filter()`. This caused unnecessary O(N) memory allocation and garbage collection pressure.
+**Action:** When only iterating over a `Map` or `Set`, never use `Array.from()`. Instead, iterate directly over the iterator object using a `for...of` loop (e.g., `for (const client of clients.values())`). For chained array methods like `.filter()` after a conversion from an iterator, you can optimize them using single `for...of` iterations and conditionally adding items to your final array. However, never replace a direct `Array.from()` return with a manual `.push()` loop, as it offers no memory benefit and hurts readability.

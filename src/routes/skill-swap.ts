@@ -327,15 +327,17 @@ router.get('/offers', async (c) => {
     const searchLower = search?.toLowerCase();
     const categoryLower = category?.toLowerCase();
 
-    let offers = Array.from(offerMap.values()).filter((o) => {
-      if (o.status !== 'available') return false;
+    // ⚡ Bolt Optimization: Avoid O(N) memory allocation from Array.from()
+    let offers: any[] = [];
+    for (const o of offerMap.values()) {
+      if (o.status !== 'available') continue;
 
       if (categoryLower && (!o.category || o.category.toLowerCase() !== categoryLower)) {
-        return false;
+        continue;
       }
 
       if (maxPrice !== undefined && (o.priceMicroAlgos ?? 0) > maxPrice) {
-        return false;
+        continue;
       }
 
       if (searchLower) {
@@ -344,12 +346,13 @@ router.get('/offers', async (c) => {
         const matchesWanted = o.wantedSkill?.toLowerCase().includes(searchLower);
         const matchesTags = Array.isArray(o.tags) && o.tags.some((t: string) => t.toLowerCase().includes(searchLower));
         if (!matchesSkill && !matchesDesc && !matchesWanted && !matchesTags) {
-          return false;
+          continue;
         }
       }
 
-      return true;
-    });
+      offers.push(o);
+    }
+
 
     // Sort by createdAt descending
     offers.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -433,15 +436,18 @@ router.get('/requests', async (c) => {
     }
 
     const searchLower = search?.toLowerCase();
-    let requests = Array.from(requestMap.values()).filter((r) => {
-      if (r.status !== 'open') return false;
+    // ⚡ Bolt Optimization: Avoid O(N) memory allocation from Array.from()
+    let requests: any[] = [];
+    for (const r of requestMap.values()) {
+      if (r.status !== 'open') continue;
       if (searchLower) {
         const matchesSkill = r.requestedSkill?.toLowerCase().includes(searchLower);
         const matchesDesc = r.description?.toLowerCase().includes(searchLower);
-        if (!matchesSkill && !matchesDesc) return false;
+        if (!matchesSkill && !matchesDesc) continue;
       }
-      return true;
-    });
+      requests.push(r);
+    }
+
 
     requests.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     if (requests.length > limit) {
