@@ -194,7 +194,7 @@ export const triggerHeartbeat = (): void => {
     timestamp: now,
   });
 
-  for (const client of Array.from(clients.values())) {
+  for (const client of clients.values()) { // ⚡ Bolt Optimization: Avoid O(N) memory allocation from Array.from()
     if (!client.active) {
       cleanupClient(client.id);
       continue;
@@ -401,11 +401,16 @@ export const getRoomPresence = (roomId: string): RoomParticipant[] => {
     }
   }
 
-  return Array.from(agentMap.entries()).map(([agentId, data]) => ({
-    agentId,
-    lastSeen: new Date(data.lastSeen).toISOString(),
-    status: data.status,
-  }));
+  // ⚡ Bolt Optimization: Avoid O(N) memory allocation from Array.from()
+  const result = [];
+  for (const [agentId, data] of agentMap.entries()) {
+    result.push({
+      agentId,
+      lastSeen: new Date(data.lastSeen).toISOString(),
+      status: data.status,
+    });
+  }
+  return result;
 };
 
 export const getRoomAgents = (roomId: string): string[] => {
