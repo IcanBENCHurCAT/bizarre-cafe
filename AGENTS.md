@@ -140,13 +140,25 @@ Note: narrative features require an LLM endpoint (`OPENAI_BASE_URL`, defaults to
 
 ### 🚀 Deployment
 
-- Production: GCP Cloud Run (`npm run deploy:gcp`; one-time setup via `npm run deploy:gcp-setup`)
+- Production: GCP Cloud Run (`npm run deploy:gcp`; one-time setup via `npm run deploy:gcp-setup`) or OCI Ampere A1 VM (`npm run deploy:oci`; check via `npm run deploy:oci-check`)
 - Development: `npm run dev` (tsx watch) or Docker with vLLM (`Dockerfile.dev`)
 - Database: Supabase PostgreSQL, or `USE_LOCAL_DB=true` for the bundled SQLite fallback
 - **Hardened Multi-Stage Dockerfile**: Multi-stage build that compiles workspace packages (`packages/sdk`), isolates production node modules, runs under an unprivileged non-root user `appuser:appgroup` (UID 10001), and includes an integrated container `HEALTHCHECK` probing `http://localhost:8080/health` with `wget`.
 - **GCP Cloud Run Deployment Automation**:
   - `scripts/deploy-gcp-setup.sh` provisions a dedicated runtime service account `bizarre-cafe-runner` with least-privilege IAM roles (`secretmanager.secretAccessor`, `cloudsql.client`, `storage.objectViewer`) and initializes Google Secret Manager secrets.
   - `scripts/deploy-gcp.sh` builds and deploys the container to Cloud Run, securely injecting production environment secrets via `--set-secrets` from Secret Manager, enforcing explicit `CORS_ALLOWED_ORIGINS`, and running an automated post-deploy health check verification.
+- **OCI Ampere VM Deployment Pipeline (InkPanel Pattern)**:
+  - **Multi-Arch GHCR Publishing**: `.github/workflows/deploy.yml` builds dual-architecture images (`linux/amd64` and native `linux/arm64`) using QEMU and Docker Buildx, tagged with `latest` and `sha-<commit>`, published to GitHub Container Registry (`ghcr.io`) using GitHub Actions layer cache (`type=gha,mode=max`).
+  - **Zero-Buffering Caddy Reverse Proxy**: `Caddyfile` orchestrates Caddy 2 with automatic Let's Encrypt TLS certificates, strict production security headers (`Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `-Server`), and sets `flush_interval -1` on `reverse_proxy app:8080` to prevent proxy buffering of real-time A2A SSE streams. Persistent volumes (`bizarre_cafe_caddy_data`, `bizarre_cafe_caddy_config`) retain TLS certificates across deployments.
+  - **Dynamic DNS Updater**: Sidecar container (`lscr.io/linuxserver/duckdns`) keeps `${DUCKDNS_SUBDOMAIN}.duckdns.org` synchronized with host IP changes.
+  - **Automated SSH/SCP CD & Healthcheck Retries**: On push to `main`/`master`, the GitHub Actions `deploy` job skips gracefully if `OCI_VM_HOST` is not set; otherwise connects via `appleboy/ssh-action` and `appleboy/scp-action`, syncs `docker-compose.prod.yml` and `Caddyfile` to `/opt/bizarre-cafe`, writes production `.env`, pulls the newly published image, restarts services, and runs an automated 12-attempt retry healthcheck loop polling `https://${DOMAIN}/health`.
+  - **Required GitHub Secrets for OCI**:
+    - `OCI_VM_HOST`: Public IP or hostname of the OCI Ampere A1 instance.
+    - `OCI_SSH_PRIVATE_KEY`: Private SSH key authorized for the `ubuntu` user on the host.
+    - `DUCKDNS_TOKEN`: DuckDNS API token for dynamic DNS updates.
+    - `DOMAIN`: Public domain (e.g. `bizarre-cafe.duckdns.org`).
+    - `DUCKDNS_SUBDOMAIN`: DuckDNS subdomain prefix (e.g. `bizarre-cafe`).
+    - Plus standard runtime secrets: `JWT_SECRET`, `ALGORAND_*`, `SUPABASE_*`, `CORS_ALLOWED_ORIGINS`.
 
 ### 🌿 Git Workflow
 
@@ -277,6 +289,15 @@ npm run deploy:gcp
 curl https://<cloud-run-url>/health
 ```
 
+**Production Deploy (OCI Ampere VM - InkPanel Pattern)**
+```bash
+# Manual CLI deploy to remote OCI VM
+npm run deploy:oci
+
+# Automated health check probe (12 retries with 5s delay)
+npm run deploy:oci-check
+```
+
 **Supabase Migrations**
 
 Database changes go through Supabase migrations:
@@ -287,6 +308,7 @@ Database changes go through Supabase migrations:
 **Rollback**
 
 - Cloud Run: redeploy previous revision via GCP Console or `gcloud run deploy ...`
+- OCI Ampere VM: Repoint `BIZARRE_CAFE_IMAGE` in `/opt/bizarre-cafe/.env` to a previous tag (e.g. `ghcr.io/icanbenchurcat/bizarre-cafe:sha-<previous>`) and run `docker compose -f docker-compose.prod.yml up -d`
 - Database: use Supabase migration undo or restore from backup
 
 ### 🤝 Agent-to-Agent Protocol

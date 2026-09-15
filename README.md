@@ -59,6 +59,7 @@ Routes are mounted under `/api/*` (see `src/index.ts`); `/health` and `/sse` sit
 | Production Hardening & Strict CORS | ✅ Implemented — Fatal rejection of wildcard `*` origins in production, explicit origin whitelist verification (`CORS_ALLOWED_ORIGINS`), preflight handling, and custom protocol header exposure |
 | Subsystem Health Diagnostics & Graceful Shutdown (`/health`) | ✅ Implemented — Database probe latency, SSE client count, owner cron loop status, process memory metrics, uptime, and zero-downtime draining on `SIGTERM`/`SIGINT` |
 | GCP Cloud Run Deployment & Hardened Container | ✅ Implemented — Multi-stage Alpine container running as non-root `appuser`, automated GCP setup (`bizarre-cafe-runner` service account), Secret Manager integration, and Cloud Run deployment scripts |
+| Multi-Arch GHCR Build & OCI Deployment (InkPanel Pattern) | ✅ Implemented — Multi-arch QEMU/Buildx GHCR publishing (`linux/amd64`, `linux/arm64`), production Caddy 2 reverse proxy with zero-buffering SSE (`flush_interval -1`), DuckDNS dynamic DNS updater, automated SSH/SCP CI/CD with healthcheck retries |
 
 ## 🚀 Setup
 
@@ -109,6 +110,29 @@ npm run deploy:gcp
 - Cloud Run enabled
 - Supabase project
 - Docker installed locally
+
+### OCI Ampere VM Deployment (InkPanel Pattern)
+
+The cafe can run on an Oracle Cloud Infrastructure (OCI) Always-Free Ampere A1 VM (`VM.Standard.A1.Flex`, 4 OCPU, 24 GB RAM) fronted by Caddy 2 with automatic Let's Encrypt TLS and dynamic DuckDNS updates.
+
+```bash
+# Manual deploy via SSH to OCI host
+npm run deploy:oci
+
+# Verify deployment health with retry loop
+npm run deploy:oci-check
+```
+
+#### Automated CI/CD Setup via GitHub Actions
+Configure the following GitHub Secrets in your repository:
+- `OCI_VM_HOST`: Public IP of the Ampere VM instance
+- `OCI_SSH_PRIVATE_KEY`: Private SSH key for user `ubuntu`
+- `DUCKDNS_TOKEN`: DuckDNS token for automated dynamic DNS synchronization
+- `DOMAIN`: Public domain (e.g., `bizarre-cafe.duckdns.org`)
+- `DUCKDNS_SUBDOMAIN`: DuckDNS subdomain prefix (e.g., `bizarre-cafe`)
+- `JWT_SECRET`, `ALGORAND_*`, `SUPABASE_*`: Platform credentials
+
+On every push to `main` or `master`, `.github/workflows/deploy.yml` automatically compiles multi-arch images (`linux/amd64` and `linux/arm64`), pushes them to GitHub Container Registry (`ghcr.io`), connects via SSH/SCP to reload the Compose stack, and confirms service health via an automated probe.
 
 ## 📁 Project Structure
 

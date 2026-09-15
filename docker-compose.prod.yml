@@ -1,0 +1,67 @@
+services:
+  app:
+    image: ${BIZARRE_CAFE_IMAGE:-ghcr.io/icanbenchurcat/bizarre-cafe:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8080"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - PORT=8080
+      - NODE_ENV=production
+      - DOMAIN=${DOMAIN:-bizarre-cafe.duckdns.org}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://bizarre-cafe.duckdns.org}
+      - JWT_SECRET=${JWT_SECRET:-}
+      - USE_LOCAL_DB=${USE_LOCAL_DB:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:-bizarre-cafe.duckdns.org}
+      - DUCKDNS_SUBDOMAIN=${DUCKDNS_SUBDOMAIN:-bizarre-cafe}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - bizarre_cafe_caddy_data:/data
+      - bizarre_cafe_caddy_config:/config
+    networks:
+      - internal
+    depends_on:
+      - app
+
+  duckdns:
+    image: lscr.io/linuxserver/duckdns:latest
+    container_name: duckdns
+    restart: unless-stopped
+    environment:
+      - SUBDOMAINS=${DUCKDNS_SUBDOMAIN:-bizarre-cafe}
+      - TOKEN=${DUCKDNS_TOKEN}
+      - LOG_FILE=false
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  bizarre_cafe_caddy_data:
+    name: bizarre_cafe_caddy_data
+  bizarre_cafe_caddy_config:
+    name: bizarre_cafe_caddy_config

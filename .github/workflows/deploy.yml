@@ -1,0 +1,192 @@
+name: Build & Deploy Bizarre Cafe to OCI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    name: Build & Publish Multi-Arch Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (ARM64 & AMD64)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable=true
+            type=sha,format=short,prefix=sha-
+
+      - name: Build and Push Multi-Arch Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to OCI Ampere VM
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    env:
+      HOST: ${{ secrets.OCI_VM_HOST }}
+    steps:
+      - name: Skip if no VM host configured
+        if: env.HOST == ''
+        run: echo "No OCI_VM_HOST configured. Skipping VM deployment."
+
+      - name: Checkout Repository
+        if: env.HOST != ''
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH to OCI VM
+        if: env.HOST != ''
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.OCI_VM_HOST }}
+          username: ubuntu
+          key: ${{ secrets.OCI_SSH_PRIVATE_KEY }}
+          envs: GITHUB_TOKEN,GITHUB_ACTOR,REGISTRY,IMAGE_NAME
+          script: |
+            set -e
+            echo "[1/4] Preparing deployment directory..."
+            sudo mkdir -p /opt/bizarre-cafe
+            sudo chown -R ubuntu:ubuntu /opt/bizarre-cafe
+            cd /opt/bizarre-cafe
+
+            echo "[2/4] Authenticating with GHCR..."
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+            echo "[3/4] Pulling latest multi-arch image..."
+            export BIZARRE_CAFE_IMAGE="ghcr.io/${{ github.repository }}:latest"
+            export DOMAIN="${{ vars.DOMAIN || secrets.DOMAIN || 'bizarre-cafe.duckdns.org' }}"
+
+            docker compose -f docker-compose.prod.yml pull app || true
+
+      - name: Synchronize Deployment Manifests
+        if: env.HOST != ''
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.OCI_VM_HOST }}
+          username: ubuntu
+          key: ${{ secrets.OCI_SSH_PRIVATE_KEY }}
+          source: "docker-compose.prod.yml,Caddyfile"
+          target: "/opt/bizarre-cafe"
+
+      - name: Reload Stack on VM
+        if: env.HOST != ''
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.OCI_VM_HOST }}
+          username: ubuntu
+          key: ${{ secrets.OCI_SSH_PRIVATE_KEY }}
+          script: |
+            cd /opt/bizarre-cafe
+            export BIZARRE_CAFE_IMAGE="ghcr.io/${{ github.repository }}:latest"
+            export DOMAIN="${{ vars.DOMAIN || secrets.DOMAIN || 'bizarre-cafe.duckdns.org' }}"
+            export DUCKDNS_SUBDOMAIN="${{ vars.DUCKDNS_SUBDOMAIN || 'bizarre-cafe' }}"
+            export DUCKDNS_TOKEN="${{ secrets.DUCKDNS_TOKEN }}"
+            export JWT_SECRET="${{ secrets.JWT_SECRET }}"
+            export ALGORAND_NETWORK="${{ vars.ALGORAND_NETWORK || secrets.ALGORAND_NETWORK || 'testnet' }}"
+            export ALGORAND_ALGOD_SERVER="${{ vars.ALGORAND_ALGOD_SERVER || secrets.ALGORAND_ALGOD_SERVER || 'https://testnet-api.algonode.cloud' }}"
+            export ALGORAND_ALGOD_PORT="${{ vars.ALGORAND_ALGOD_PORT || secrets.ALGORAND_ALGOD_PORT || '443' }}"
+            export ALGORAND_ALGOD_TOKEN="${{ secrets.ALGORAND_ALGOD_TOKEN || '' }}"
+            export ALGORAND_INDEXER_SERVER="${{ vars.ALGORAND_INDEXER_SERVER || secrets.ALGORAND_INDEXER_SERVER || 'https://testnet-idx.algonode.cloud' }}"
+            export ALGORAND_INDEXER_PORT="${{ vars.ALGORAND_INDEXER_PORT || secrets.ALGORAND_INDEXER_PORT || '443' }}"
+            export ALGORAND_INDEXER_TOKEN="${{ secrets.ALGORAND_INDEXER_TOKEN || '' }}"
+            export ALGORAND_RECEIVER_WALLET="${{ secrets.ALGORAND_RECEIVER_WALLET || '' }}"
+            export SUPABASE_URL="${{ vars.SUPABASE_URL || secrets.SUPABASE_URL || '' }}"
+            export SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY || '' }}"
+            export SUPABASE_SERVICE_ROLE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY || '' }}"
+            export CORS_ALLOWED_ORIGINS="${{ vars.CORS_ALLOWED_ORIGINS || secrets.CORS_ALLOWED_ORIGINS || 'https://bizarre-cafe.duckdns.org' }}"
+            export USE_LOCAL_DB="${{ vars.USE_LOCAL_DB || 'false' }}"
+
+            # Create or update production .env
+            cat << EOF > .env
+            DOMAIN=${DOMAIN}
+            DUCKDNS_SUBDOMAIN=${DUCKDNS_SUBDOMAIN}
+            DUCKDNS_TOKEN=${DUCKDNS_TOKEN}
+            JWT_SECRET=${JWT_SECRET}
+            ALGORAND_NETWORK=${ALGORAND_NETWORK}
+            ALGORAND_ALGOD_SERVER=${ALGORAND_ALGOD_SERVER}
+            ALGORAND_ALGOD_PORT=${ALGORAND_ALGOD_PORT}
+            ALGORAND_ALGOD_TOKEN=${ALGORAND_ALGOD_TOKEN}
+            ALGORAND_INDEXER_SERVER=${ALGORAND_INDEXER_SERVER}
+            ALGORAND_INDEXER_PORT=${ALGORAND_INDEXER_PORT}
+            ALGORAND_INDEXER_TOKEN=${ALGORAND_INDEXER_TOKEN}
+            ALGORAND_RECEIVER_WALLET=${ALGORAND_RECEIVER_WALLET}
+            SUPABASE_URL=${SUPABASE_URL}
+            SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+            SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+            CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
+            USE_LOCAL_DB=${USE_LOCAL_DB}
+            PORT=8080
+            NODE_ENV=production
+            EOF
+            chmod 600 .env
+
+            docker compose -f docker-compose.prod.yml pull app
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+      - name: Automated Healthcheck Validation
+        if: env.HOST != ''
+        run: |
+          DOMAIN="${{ vars.DOMAIN || secrets.DOMAIN || 'bizarre-cafe.duckdns.org' }}"
+          TARGET_URL="https://${DOMAIN}/health"
+          echo "Probing deployment health at ${TARGET_URL}..."
+
+          MAX_RETRIES=12
+          DELAY=5
+          SUCCESS=0
+
+          for ((i=1;i<=MAX_RETRIES;i++)); do
+            echo "Attempt $i of $MAX_RETRIES: Checking ${TARGET_URL}..."
+            HTTP_STATUS=$(curl -k -s --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "${TARGET_URL}" || echo "000")
+
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "✓ Healthcheck succeeded with HTTP 200 OK!"
+              SUCCESS=1
+              break
+            fi
+
+            echo "  HTTP status: $HTTP_STATUS. Sleeping $DELAY seconds..."
+            sleep $DELAY
+          done
+
+          if [ $SUCCESS -ne 1 ]; then
+            echo "✗ Healthcheck failed after $MAX_RETRIES attempts."
+            exit 1
+          fi
