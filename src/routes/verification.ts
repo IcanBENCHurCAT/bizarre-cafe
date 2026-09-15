@@ -218,39 +218,18 @@ router.post('/verify', async (c) => {
       );
     }
 
-    // Check if verification record exists in Supabase
-    const { data: existingVerification } = await supabase.from('agent_verification')
-      .select('*')
-      .eq('user_id', agentId)
-      .single();
-
-    if (existingVerification) {
-      // Update existing verification
-      await supabase.from('agent_verification')
-        .update({
-          is_verified: true,
-          status: 'verified',
-          wallet_address: validated.walletAddress ?? null,
-          did_document: validated.didDocument ?? null,
-          verified_at: now,
-          tier: 'basic',
-          updated_at: now,
-        })
-        .eq('user_id', agentId);
-    } else {
-      // Create new verification record
-      await supabase.from('agent_verification').insert({
-        user_id: agentId,
-        is_verified: true,
-        status: 'verified',
-        wallet_address: validated.walletAddress ?? null,
-        did_document: validated.didDocument ?? null,
-        verified_at: now,
-        tier: 'basic',
-        created_at: now,
-        updated_at: now,
-      });
-    }
+    // ⚡ Bolt Optimization: Replace sequential select and update/insert with a single upsert
+    // Removes an unnecessary round trip to the database
+    await supabase.from('agent_verification').upsert({
+      user_id: agentId,
+      is_verified: true,
+      status: 'verified',
+      wallet_address: validated.walletAddress ?? null,
+      did_document: validated.didDocument ?? null,
+      verified_at: now,
+      tier: 'basic',
+      updated_at: now,
+    }, { onConflict: 'user_id' });
 
     // Persist to SQLite
     try {
