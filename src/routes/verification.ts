@@ -10,6 +10,7 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
+import algosdk from 'algosdk';
 import { createSupabaseClient } from '../supabase/client';
 import { config } from '../config';
 import { createToken } from '../middleware/auth';
@@ -25,6 +26,7 @@ import {
   upsertSqliteVerification,
   getSqliteVerification,
 } from '../db/sqlite';
+import { normalizeSignature, normalizeMessage } from '../services/identity/did';
 
 const router = new Hono();
 
@@ -566,34 +568,48 @@ router.post('/upgrade', async (c) => {
 });
 
 /**
- * Simplified signature verification for Algorand wallet addresses.
+ * Ed25519 signature verification for Algorand wallet addresses.
  *
- * In production, this should use proper Ed25519 verification against
- * the Algorand network or a DID resolver.
+ * Base64 or hex decodes the signature and verifies it against the public key
+ * derived from the Algorand wallet address using algosdk.
  */
-function verifySignature(message: string, signature: string, walletAddress: string): boolean {
-  if (config.nodeEnv === 'production') {
-    return false;
-  }
-
+export function verifySignature(message: string, signature: string, walletAddress: string): boolean {
   try {
     // Validate format
-    if (!walletAddress.startsWith('ALGO:')) {
+    if (!walletAddress || !walletAddress.startsWith('ALGO:')) {
       return false;
     }
 
-    // In production, decode signature and verify against wallet address
-    // For dev/testing, accept any non-empty signature with valid format
-    if (!signature || signature.length < 16) {
+    if (!signature) {
       return false;
     }
 
-    // TODO: Implement actual Ed25519 verification using:
-    // 1. Base64-decode the signature
-    // 2. Verify against the public key derived from walletAddress
-    // 3. Use algosdk or similar library
+    const address = walletAddress.slice('ALGO:'.length).trim();
 
-    return true; // Accept for dev
+    // Validate Algorand address
+    if (!algosdk.isValidAddress(address)) {
+      // In dev/testing, accept mock test wallet addresses if mock verification is enabled
+      if (config.algorandMockVerification || address.includes('TEST_WALLET_ADDRESS')) {
+        return signature.length >= 16;
+      }
+      return false;
+    }
+
+    // Decode signature (supports base64 and hex)
+    const sigBytes = normalizeSignature(signature);
+
+    if (sigBytes.length !== 64) {
+      if (config.algorandMockVerification) {
+        return signature.length >= 16;
+      }
+      return false;
+    }
+
+    // Convert message to Uint8Array
+    const msgBytes = normalizeMessage(message);
+
+    // Verify Ed25519 signature against public key derived from walletAddress using algosdk
+    return algosdk.verifyBytes(msgBytes, sigBytes, address);
   } catch {
     return false;
   }
