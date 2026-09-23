@@ -645,20 +645,23 @@ router.post('/offers/:id/accept', async (c) => {
         // Supabase sync (optional)
         if (!config.useLocalDb) {
           const supabase = createSupabaseClient();
-          await supabase.from('skill_offers').update({ status: 'claimed', updated_at: now }).eq('id', offer.id);
-          await supabase.from('trades').insert({
-            id: trade.id,
-            offer_id: trade.offerId,
-            from_agent_id: trade.fromAgentId,
-            to_user_id: trade.toAgentId,
-            status: trade.status,
-            price_micro_algos: trade.priceMicroAlgos,
-            payment_status: trade.paymentStatus,
-            escrow_id: trade.escrowId,
-            notes: trade.notes,
-            created_at: now,
-            updated_at: now,
-          });
+          // ⚡ Bolt Optimization: Batch independent database sync operations concurrently
+          await Promise.all([
+            supabase.from('skill_offers').update({ status: 'claimed', updated_at: now }).eq('id', offer.id),
+            supabase.from('trades').insert({
+              id: trade.id,
+              offer_id: trade.offerId,
+              from_agent_id: trade.fromAgentId,
+              to_user_id: trade.toAgentId,
+              status: trade.status,
+              price_micro_algos: trade.priceMicroAlgos,
+              payment_status: trade.paymentStatus,
+              escrow_id: trade.escrowId,
+              notes: trade.notes,
+              created_at: now,
+              updated_at: now,
+            }),
+          ]);
         }
 
         return c.json({ message: 'Offer accepted with escrow', trade, escrow }, 201);
@@ -744,19 +747,22 @@ router.post('/offers/:id/accept', async (c) => {
         // Supabase sync (optional)
         if (!config.useLocalDb) {
           const supabase = createSupabaseClient();
-          await supabase.from('skill_offers').update({ status: 'claimed', updated_at: now }).eq('id', offer.id);
-          await supabase.from('trades').insert({
-            id: trade.id,
-            offer_id: trade.offerId,
-            from_agent_id: trade.fromAgentId,
-            to_user_id: trade.toAgentId,
-            status: trade.status,
-            price_micro_algos: 0,
-            payment_status: 'unpaid',
-            notes: trade.notes,
-            created_at: now,
-            updated_at: now,
-          });
+          // ⚡ Bolt Optimization: Batch independent database sync operations concurrently
+          await Promise.all([
+            supabase.from('skill_offers').update({ status: 'claimed', updated_at: now }).eq('id', offer.id),
+            supabase.from('trades').insert({
+              id: trade.id,
+              offer_id: trade.offerId,
+              from_agent_id: trade.fromAgentId,
+              to_user_id: trade.toAgentId,
+              status: trade.status,
+              price_micro_algos: 0,
+              payment_status: 'unpaid',
+              notes: trade.notes,
+              created_at: now,
+              updated_at: now,
+            }),
+          ]);
         }
 
         return c.json({ message: 'Offer accepted', trade }, 201);
