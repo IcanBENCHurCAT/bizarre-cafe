@@ -1070,22 +1070,31 @@ router.post('/trades/:id/complete', async (c) => {
       console.warn('[skill-swap] SQLite trade update warning:', err);
     }
 
+    const offerId = trade.offerId ?? trade.offer_id;
+
     // Update Supabase
     if (!config.useLocalDb) {
       try {
         const supabase = createSupabaseClient();
-        await supabase.from('trades').update({
-          status: 'completed',
-          notes: trade.notes,
-          updated_at: now,
-        }).eq('id', id);
+        const promises: PromiseLike<any>[] = [
+          supabase.from('trades').update({
+            status: 'completed',
+            notes: trade.notes,
+            updated_at: now,
+          }).eq('id', id)
+        ];
+        if (offerId) {
+          promises.push(
+            supabase.from('skill_offers').update({ status: 'completed', updated_at: now }).eq('id', offerId)
+          );
+        }
+        await Promise.all(promises);
       } catch {
         /* ignore */
       }
     }
 
-    // Update related offer status
-    const offerId = trade.offerId ?? trade.offer_id;
+    // Update related offer status in memory & SQLite
     if (offerId) {
       if (memOffers.has(offerId)) {
         memOffers.get(offerId).status = 'completed';
@@ -1095,14 +1104,6 @@ router.post('/trades/:id/complete', async (c) => {
         await updateSqliteSkillOfferStatus(offerId, 'completed');
       } catch {
         /* ignore */
-      }
-      if (!config.useLocalDb) {
-        try {
-          const supabase = createSupabaseClient();
-          await supabase.from('skill_offers').update({ status: 'completed', updated_at: now }).eq('id', offerId);
-        } catch {
-          /* ignore */
-        }
       }
     }
 
@@ -1222,22 +1223,31 @@ router.post('/trades/:id/cancel', async (c) => {
       console.warn('[skill-swap] SQLite trade update warning:', err);
     }
 
+    const offerId = trade.offerId ?? trade.offer_id;
+
     // Update Supabase
     if (!config.useLocalDb) {
       try {
         const supabase = createSupabaseClient();
-        await supabase.from('trades').update({
-          status: 'cancelled',
-          notes: trade.notes,
-          updated_at: now,
-        }).eq('id', id);
+        const promises: PromiseLike<any>[] = [
+          supabase.from('trades').update({
+            status: 'cancelled',
+            notes: trade.notes,
+            updated_at: now,
+          }).eq('id', id)
+        ];
+        if (offerId) {
+          promises.push(
+            supabase.from('skill_offers').update({ status: 'available', updated_at: now }).eq('id', offerId)
+          );
+        }
+        await Promise.all(promises);
       } catch {
         /* ignore */
       }
     }
 
-    // Restore offer status to available
-    const offerId = trade.offerId ?? trade.offer_id;
+    // Restore offer status to available in memory & SQLite
     if (offerId) {
       if (memOffers.has(offerId)) {
         memOffers.get(offerId).status = 'available';
@@ -1247,14 +1257,6 @@ router.post('/trades/:id/cancel', async (c) => {
         await updateSqliteSkillOfferStatus(offerId, 'available');
       } catch {
         /* ignore */
-      }
-      if (!config.useLocalDb) {
-        try {
-          const supabase = createSupabaseClient();
-          await supabase.from('skill_offers').update({ status: 'available', updated_at: now }).eq('id', offerId);
-        } catch {
-          /* ignore */
-        }
       }
     }
 
