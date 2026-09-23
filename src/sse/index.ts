@@ -475,13 +475,17 @@ export const processMessage = async (message: SseMessage): Promise<void> => {
   const handler = handlers.get(message.type);
   if (handler && message.agentId) {
     const agentSet = agentClients.get(message.agentId);
-    if (agentSet) {
+    if (agentSet && agentSet.size > 0) {
+      const promises: Promise<void>[] = [];
       for (const clientId of agentSet) {
         const client = clients.get(clientId);
         if (client && client.active) {
-          await handler(client, message);
-          return;
+          promises.push(handler(client, message));
         }
+      }
+      if (promises.length > 0) {
+        await Promise.all(promises);
+        return;
       }
     }
   }
