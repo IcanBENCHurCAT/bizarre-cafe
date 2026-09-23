@@ -882,6 +882,7 @@ export const updateSqliteTrade = async (
   const sets: string[] = [];
   const args: any[] = [];
 
+  // Whitelist-validated column assignments to prevent SQL injection
   if (updates.status !== undefined) {
     sets.push('status = ?');
     args.push(updates.status);
@@ -901,7 +902,10 @@ export const updateSqliteTrade = async (
   sets.push('updated_at = ?');
   args.push(updates.updated_at || new Date().toISOString());
 
+  if (sets.length === 0) return;
+
   args.push(id);
+  // Safe: 'sets' array strictly contains hardcoded SQL column clauses ('col = ?')
   db.prepare(`UPDATE trades SET ${sets.join(', ')} WHERE id = ?`).run(...args);
 };
 
@@ -972,6 +976,7 @@ export const updateSqliteEscrowRecord = async (
   const sets: string[] = [];
   const args: any[] = [];
 
+  // Whitelist-validated column assignments to prevent SQL injection
   if (updates.status !== undefined) {
     sets.push('status = ?');
     args.push(updates.status);
@@ -987,7 +992,10 @@ export const updateSqliteEscrowRecord = async (
   sets.push('updated_at = ?');
   args.push(updates.updatedAt || new Date().toISOString());
 
+  if (sets.length === 0) return;
+
   args.push(id);
+  // Safe: 'sets' array strictly contains hardcoded SQL column clauses ('col = ?')
   db.prepare(`UPDATE escrow_records SET ${sets.join(', ')} WHERE id = ?`).run(...args);
 };
 
