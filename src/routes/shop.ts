@@ -12,9 +12,8 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { createSupabaseClient } from '../supabase/client';
 import { requireX402Payment } from '../middleware/auth';
-import { generateId as _generateId } from '../utils/index';
 import { createPaymentPromise, getPaymentStatus } from '../services/x402/index';
-import type { ShopItem, Receipt as _Receipt, ApiError as _ApiError } from '../types/cafe';
+import type { ShopItem } from '../types/cafe';
 
 const router = new Hono();
 export const memReceipts = new Map<string, any>();
