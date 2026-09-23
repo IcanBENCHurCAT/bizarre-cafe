@@ -347,5 +347,80 @@ describe('Agent Verification Service', () => {
       }
     });
   });
+
+  describe('Ed25519 verifySignature unit tests', () => {
+    it('should verify valid Algorand Ed25519 base64 signature using algosdk even in production mode', async () => {
+      const { verifySignature } = await import('../src/routes/verification');
+      const { config } = await import('../src/config');
+      const algosdk = await import('algosdk');
+
+      const originalEnv = config.nodeEnv;
+      try {
+        config.nodeEnv = 'production';
+
+        const account = algosdk.generateAccount();
+        const walletAddress = `ALGO:${account.addr.toString()}`;
+        const message = 'bizarre-cafe-verification-challenge-nonce-12345';
+        const msgBytes = new TextEncoder().encode(message);
+
+        const sigBytes = algosdk.signBytes(msgBytes, account.sk);
+        const base64Sig = Buffer.from(sigBytes).toString('base64');
+
+        const isValid = verifySignature(message, base64Sig, walletAddress);
+        expect(isValid).toBe(true);
+      } finally {
+        config.nodeEnv = originalEnv;
+      }
+    });
+
+    it('should verify valid Algorand Ed25519 hex signature using algosdk', async () => {
+      const { verifySignature } = await import('../src/routes/verification');
+      const algosdk = await import('algosdk');
+
+      const account = algosdk.generateAccount();
+      const walletAddress = `ALGO:${account.addr.toString()}`;
+      const message = 'bizarre-cafe-verification-challenge-nonce-67890';
+      const msgBytes = new TextEncoder().encode(message);
+
+      const sigBytes = algosdk.signBytes(msgBytes, account.sk);
+      const hexSig = Buffer.from(sigBytes).toString('hex');
+
+      const isValid = verifySignature(message, hexSig, walletAddress);
+      expect(isValid).toBe(true);
+    });
+
+    it('should reject tampered or invalid signature', async () => {
+      const { verifySignature } = await import('../src/routes/verification');
+      const algosdk = await import('algosdk');
+
+      const account = algosdk.generateAccount();
+      const walletAddress = `ALGO:${account.addr.toString()}`;
+      const message = 'bizarre-cafe-verification-challenge-nonce-12345';
+      const msgBytes = new TextEncoder().encode(message);
+
+      const sigBytes = algosdk.signBytes(msgBytes, account.sk);
+      sigBytes[0] ^= 0xff; // Tamper signature
+      const base64Sig = Buffer.from(sigBytes).toString('base64');
+
+      const isValid = verifySignature(message, base64Sig, walletAddress);
+      expect(isValid).toBe(false);
+    });
+
+    it('should reject invalid wallet address format or missing address', async () => {
+      const { verifySignature } = await import('../src/routes/verification');
+      const algosdk = await import('algosdk');
+
+      const account = algosdk.generateAccount();
+      const message = 'test-nonce';
+      const msgBytes = new TextEncoder().encode(message);
+      const sigBytes = algosdk.signBytes(msgBytes, account.sk);
+      const base64Sig = Buffer.from(sigBytes).toString('base64');
+
+      // Missing ALGO: prefix
+      expect(verifySignature(message, base64Sig, account.addr.toString())).toBe(false);
+      // Empty address
+      expect(verifySignature(message, base64Sig, '')).toBe(false);
+    });
+  });
 });
 
