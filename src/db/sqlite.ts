@@ -5,22 +5,9 @@ import type { EscrowRecord, EscrowStatus } from '../types/cafe';
 
 let dbInstance: ReturnType<typeof Database> | null = null;
 
-function getDb() {
-  if (!dbInstance) {
-    const dbPath = config.databaseUrl.endsWith('.sqlite') || config.databaseUrl.endsWith('.db')
-      ? config.databaseUrl
-      : 'local.sqlite';
-    dbInstance = new Database(dbPath, { timeout: 10000 });
-    try {
-      dbInstance.pragma('journal_mode = WAL');
-      dbInstance.pragma('busy_timeout = 10000');
-    } catch {
-      // ignore pragma error on restricted filesystems
-    }
-
-    // Initialize schema
-    try {
-      dbInstance.exec(`
+function initSchema(db: ReturnType<typeof Database>): void {
+  try {
+    db.exec(`
       CREATE TABLE IF NOT EXISTS rooms (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -179,18 +166,35 @@ function getDb() {
       );
     `);
 
-      // Migrations / column checks for existing SQLite tables
-      try { dbInstance.exec(`ALTER TABLE skill_offers ADD COLUMN category TEXT`); } catch { /* column may exist */ }
-      try { dbInstance.exec(`ALTER TABLE skill_offers ADD COLUMN price_micro_algos INTEGER DEFAULT 0`); } catch { /* column may exist */ }
-      try { dbInstance.exec(`ALTER TABLE skill_offers ADD COLUMN currency TEXT DEFAULT 'microAlgos'`); } catch { /* column may exist */ }
-      try { dbInstance.exec(`ALTER TABLE skill_offers ADD COLUMN wanted_description TEXT`); } catch { /* column may exist */ }
-      try { dbInstance.exec(`ALTER TABLE skill_offers ADD COLUMN tags TEXT`); } catch { /* column may exist */ }
-      try { dbInstance.exec(`ALTER TABLE trades ADD COLUMN price_micro_algos INTEGER DEFAULT 0`); } catch { /* column may exist */ }
-      try { dbInstance.exec(`ALTER TABLE trades ADD COLUMN payment_status TEXT DEFAULT 'unpaid'`); } catch { /* column may exist */ }
-      try { dbInstance.exec(`ALTER TABLE trades ADD COLUMN escrow_id TEXT`); } catch { /* column may exist */ }
+    // Migrations / column checks for existing SQLite tables
+    try { db.exec(`ALTER TABLE skill_offers ADD COLUMN category TEXT`); } catch { /* column may exist */ }
+    try { db.exec(`ALTER TABLE skill_offers ADD COLUMN price_micro_algos INTEGER DEFAULT 0`); } catch { /* column may exist */ }
+    try { db.exec(`ALTER TABLE skill_offers ADD COLUMN currency TEXT DEFAULT 'microAlgos'`); } catch { /* column may exist */ }
+    try { db.exec(`ALTER TABLE skill_offers ADD COLUMN wanted_description TEXT`); } catch { /* column may exist */ }
+    try { db.exec(`ALTER TABLE skill_offers ADD COLUMN tags TEXT`); } catch { /* column may exist */ }
+    try { db.exec(`ALTER TABLE trades ADD COLUMN price_micro_algos INTEGER DEFAULT 0`); } catch { /* column may exist */ }
+    try { db.exec(`ALTER TABLE trades ADD COLUMN payment_status TEXT DEFAULT 'unpaid'`); } catch { /* column may exist */ }
+    try { db.exec(`ALTER TABLE trades ADD COLUMN escrow_id TEXT`); } catch { /* column may exist */ }
+  } catch {
+    // Ignore concurrent schema initialization from parallel test runners
+  }
+}
+
+function getDb() {
+  if (!dbInstance) {
+    const dbPath = config.databaseUrl.endsWith('.sqlite') || config.databaseUrl.endsWith('.db')
+      ? config.databaseUrl
+      : 'local.sqlite';
+    dbInstance = new Database(dbPath, { timeout: 10000 });
+    try {
+      dbInstance.pragma('journal_mode = WAL');
+      dbInstance.pragma('busy_timeout = 10000');
     } catch {
-      // Ignore concurrent schema initialization from parallel test runners
+      // ignore pragma error on restricted filesystems
     }
+
+    // Initialize schema
+    initSchema(dbInstance);
   }
   return dbInstance;
 }
