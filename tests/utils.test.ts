@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { generateId, withRetrySync, generateNonce, validateReceipt, parseX402Header, formatMessageList, FormattedMessage } from '../src/utils/index.js';
+import { generateId, withRetrySync, generateNonce, validateReceipt, parseX402Header, formatMessageList, FormattedMessage, truncate } from '../src/utils/index.js';
 
 // ============================================================
 // generateId tests (from PR #13)
@@ -87,6 +87,53 @@ describe('generateId', () => {
       }
       expect(ids.size).toBe(count);
     });
+  });
+});
+
+// ============================================================
+// truncate tests
+// ============================================================
+describe('truncate', () => {
+  it('should return empty string for empty string or falsy inputs', () => {
+    expect(truncate('')).toBe('');
+    // @ts-expect-error - testing invalid JS inputs
+    expect(truncate(null)).toBe(null);
+    // @ts-expect-error - testing invalid JS inputs
+    expect(truncate(undefined)).toBe(undefined);
+  });
+
+  it('should return the original string if its length is less than maxLength', () => {
+    const input = 'Hello World';
+    expect(truncate(input, 20)).toBe(input);
+  });
+
+  it('should return the original string if its length is exactly equal to maxLength', () => {
+    const input = 'Hello World';
+    expect(truncate(input, input.length)).toBe(input);
+  });
+
+  it('should truncate and append ... if string length exceeds maxLength', () => {
+    const input = 'Hello World';
+    expect(truncate(input, 5)).toBe('Hello...');
+  });
+
+  it('should use default maxLength of 100 when maxLength parameter is omitted', () => {
+    const shortString = 'A'.repeat(50);
+    expect(truncate(shortString)).toBe(shortString);
+
+    const longString = 'A'.repeat(105);
+    const result = truncate(longString);
+    expect(result).toBe('A'.repeat(100) + '...');
+    expect(result.length).toBe(103);
+  });
+
+  it('should handle small maxLength values (e.g., 0 or 1)', () => {
+    expect(truncate('Hello', 0)).toBe('...');
+    expect(truncate('Hello', 1)).toBe('H...');
+  });
+
+  it('should handle negative maxLength values', () => {
+    expect(truncate('Hello', -5)).toBe('...');
   });
 });
 
