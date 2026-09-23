@@ -6,6 +6,77 @@ import type { HealthDiagnosticResponse, MemoryUsageMetrics, SubsystemHealth } fr
 
 export * from './types';
 
+// In-memory cache for database health check (10s TTL)
+const DB_HEALTH_CACHE_TTL_MS = 10000;
+let cachedDatabaseHealth: SubsystemHealth | null = null;
+let lastDbCheckTime = 0;
+let activeDbCheckPromise: Promise<SubsystemHealth> | null = null;
+
+/**
+ * Clears the cached database health check result and resets pending probes.
+ * Exposed for testing and explicit cache invalidation.
+ */
+export function clearDbHealthCache(): void {
+  cachedDatabaseHealth = null;
+  lastDbCheckTime = 0;
+  activeDbCheckPromise = null;
+}
+
+/**
+ * Performs a database health check probe or returns the cached result.
+ */
+async function getDatabaseHealth(): Promise<SubsystemHealth> {
+  const now = Date.now();
+  if (cachedDatabaseHealth && now - lastDbCheckTime < DB_HEALTH_CACHE_TTL_MS) {
+    return cachedDatabaseHealth;
+  }
+
+  if (activeDbCheckPromise) {
+    return activeDbCheckPromise;
+  }
+
+  activeDbCheckPromise = (async (): Promise<SubsystemHealth> => {
+    const startDb = performance.now();
+    try {
+      if (config.useLocalDb) {
+        await db.rooms.list({ limit: 1 });
+      } else {
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Database probe timed out')), 1500),
+        );
+        await Promise.race([db.rooms.list({ limit: 1 }), timeoutPromise]);
+      }
+      const latencyMs = Math.round(performance.now() - startDb);
+      return {
+        status: 'healthy',
+        latencyMs,
+        details: {
+          type: config.useLocalDb ? 'sqlite' : 'supabase',
+        },
+      };
+    } catch (err: any) {
+      const latencyMs = Math.round(performance.now() - startDb);
+      return {
+        status: 'degraded',
+        latencyMs,
+        error: err?.message || String(err),
+        details: {
+          type: config.useLocalDb ? 'sqlite' : 'supabase',
+        },
+      };
+    }
+  })();
+
+  try {
+    const result = await activeDbCheckPromise;
+    cachedDatabaseHealth = result;
+    lastDbCheckTime = Date.now();
+    return result;
+  } finally {
+    activeDbCheckPromise = null;
+  }
+}
+
 /**
  * Health Diagnostics Service
  *
@@ -14,37 +85,7 @@ export * from './types';
  * and compiles an aggregated diagnostic report for Cloud Run liveness/readiness probes.
  */
 export async function getHealthDiagnostics(): Promise<HealthDiagnosticResponse> {
-  const startDb = performance.now();
-  let databaseHealth: SubsystemHealth;
-
-  try {
-    if (config.useLocalDb) {
-      await db.rooms.list({ limit: 1 });
-    } else {
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Database probe timed out')), 1500),
-      );
-      await Promise.race([db.rooms.list({ limit: 1 }), timeoutPromise]);
-    }
-    const latencyMs = Math.round(performance.now() - startDb);
-    databaseHealth = {
-      status: 'healthy',
-      latencyMs,
-      details: {
-        type: config.useLocalDb ? 'sqlite' : 'supabase',
-      },
-    };
-  } catch (err: any) {
-    const latencyMs = Math.round(performance.now() - startDb);
-    databaseHealth = {
-      status: 'degraded',
-      latencyMs,
-      error: err?.message || String(err),
-      details: {
-        type: config.useLocalDb ? 'sqlite' : 'supabase',
-      },
-    };
-  }
+  const databaseHealth = await getDatabaseHealth();
 
   // SSE client metrics
   const activeSseConnections = getConnectedClientCount();
