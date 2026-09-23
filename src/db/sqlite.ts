@@ -882,6 +882,7 @@ export const updateSqliteTrade = async (
   const sets: string[] = [];
   const args: any[] = [];
 
+  // Strictly map allowed column names to parameterized placeholders to prevent SQL injection
   if (updates.status !== undefined) {
     sets.push('status = ?');
     args.push(updates.status);
@@ -902,7 +903,8 @@ export const updateSqliteTrade = async (
   args.push(updates.updated_at || new Date().toISOString());
 
   args.push(id);
-  db.prepare(`UPDATE trades SET ${sets.join(', ')} WHERE id = ?`).run(...args);
+  const sql = `UPDATE trades SET ${sets.join(', ')} WHERE id = ?`;
+  db.prepare(sql).run(...args);
 };
 
 export const createSqliteEscrowRecord = async (record: EscrowRecord): Promise<EscrowRecord> => {
@@ -972,6 +974,7 @@ export const updateSqliteEscrowRecord = async (
   const sets: string[] = [];
   const args: any[] = [];
 
+  // Strictly map allowed property names to hardcoded column placeholders to prevent SQL injection
   if (updates.status !== undefined) {
     sets.push('status = ?');
     args.push(updates.status);
@@ -988,7 +991,8 @@ export const updateSqliteEscrowRecord = async (
   args.push(updates.updatedAt || new Date().toISOString());
 
   args.push(id);
-  db.prepare(`UPDATE escrow_records SET ${sets.join(', ')} WHERE id = ?`).run(...args);
+  const sql = `UPDATE escrow_records SET ${sets.join(', ')} WHERE id = ?`;
+  db.prepare(sql).run(...args);
 };
 
 export const clearSqliteSkillSwap = async (): Promise<void> => {

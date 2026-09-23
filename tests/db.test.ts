@@ -1,4 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {
+  sqliteDb,
+  createSqliteTrade,
+  getSqliteTradeById,
+  updateSqliteTrade,
+  createSqliteEscrowRecord,
+  getSqliteEscrowRecord,
+  updateSqliteEscrowRecord,
+} from '../src/db/sqlite';
 import type { PaginationData } from '../src/db';
 
 describe('DatabaseAdapter', () => {
@@ -49,6 +58,57 @@ describe('DatabaseAdapter', () => {
       expect(typeof pagination.hasMore).toBe('boolean');
       expect(pagination.offset).toBe(0);
       expect(pagination.limit).toBe(10);
+    });
+  });
+
+  describe('updateSqliteTrade security & behavior', () => {
+    it('updates trade correctly without vulnerability to SQL injection', async () => {
+      const created = await createSqliteTrade({
+        from_agent_id: 'agent_1',
+        to_user_id: 'user_1',
+        status: 'pending',
+        notes: 'Initial note',
+      });
+
+      const sqlInjectionPayload = "test' WHERE 1=1; --";
+      await updateSqliteTrade(created.id, {
+        status: 'completed',
+        notes: sqlInjectionPayload,
+      });
+
+      const updated = await getSqliteTradeById(created.id);
+      expect(updated).not.toBeNull();
+      expect(updated?.status).toBe('completed');
+      expect(updated?.notes).toBe(sqlInjectionPayload);
+    });
+  });
+
+  describe('updateSqliteEscrowRecord security & behavior', () => {
+    it('updates escrow record correctly without vulnerability to SQL injection', async () => {
+      const record = {
+        id: `escrow_${Date.now()}`,
+        tradeId: `trade_${Date.now()}`,
+        buyerAgentId: 'buyer_1',
+        sellerAgentId: 'seller_1',
+        amountMicroAlgos: 1000,
+        txId: 'tx_123',
+        status: 'locked' as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      await createSqliteEscrowRecord(record);
+
+      const sqlInjectionPayload = "released' OR '1'='1";
+      await updateSqliteEscrowRecord(record.id, {
+        status: sqlInjectionPayload as any,
+        releasedAt: new Date().toISOString(),
+      });
+
+      const updated = await getSqliteEscrowRecord(record.id);
+      expect(updated).not.toBeNull();
+      expect(updated?.status).toBe(sqlInjectionPayload);
+      expect(updated?.releasedAt).toBeDefined();
     });
   });
 });
