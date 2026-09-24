@@ -35,9 +35,6 @@ const store: NarrativeStore = {
   events: [],
 };
 
-// In-memory cache for generated narrative responses to save network I/O
-const responseCache = new Map<string, string>();
-
 /**
  * Generate a unique ID.
  */
@@ -59,18 +56,6 @@ export async function generateResponse(
   const id = generateId();
   const resolvedTone = tone ?? 'whimsical';
   let content: string;
-
-  const cacheKey = `${resolvedTone}:${context}:${prompt ?? ''}`;
-
-  const cachedContent = responseCache.get(cacheKey);
-  if (cachedContent !== undefined) {
-    return {
-      id,
-      content: cachedContent,
-      tone: resolvedTone,
-      timestamp: Date.now(),
-    };
-  }
 
   const url = `${config.openaiBaseUrl}/chat/completions`;
   console.warn(
@@ -106,7 +91,6 @@ export async function generateResponse(
 
     const data = await res.json();
     content = data.choices?.[0]?.message?.content || `[Error] Empty response from LLM`;
-    responseCache.set(cacheKey, content);
     console.warn(`[Narrative AI] Response generated successfully.`);
   } catch (err) {
     console.error('[Narrative AI] Fetch failed, using fallback:', err);
@@ -168,5 +152,4 @@ export function getEventsByType(type: string): NarrativeEvent[] {
  */
 export function resetStore(): void {
   store.events = [];
-  responseCache.clear();
 }

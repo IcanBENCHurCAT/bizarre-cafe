@@ -339,7 +339,7 @@ describe('SSE Streaming & Channel Isolation Integration Tests', () => {
     expect(hbEvent).toBeDefined();
     expect(typeof hbEvent.ts).toBe('number');
     expect(typeof hbEvent.timestamp).toBe('number');
-    expect(config.sseHeartbeatMs).toBeGreaterThan(0);
+    expect(config.sseHeartbeatMs).toBe(15000);
   });
 
   it('should immediately unregister client and clear client maps upon abort signal', async () => {

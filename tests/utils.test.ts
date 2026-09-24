@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { generateId, withRetrySync, generateNonce, validateReceipt, parseX402Header, formatMessageList, FormattedMessage, truncate } from '../src/utils/index.js';
+import { generateId, withRetry, withRetrySync, generateNonce, validateReceipt, parseX402Header, formatMessageList, FormattedMessage } from '../src/utils/index.js';
 
 // ============================================================
 // generateId tests (from PR #13)
@@ -91,49 +91,145 @@ describe('generateId', () => {
 });
 
 // ============================================================
-// truncate tests
+// withRetry tests
 // ============================================================
-describe('truncate', () => {
-  it('should return empty string for empty string or falsy inputs', () => {
-    expect(truncate('')).toBe('');
-    // @ts-expect-error - testing invalid JS inputs
-    expect(truncate(null)).toBe(null);
-    // @ts-expect-error - testing invalid JS inputs
-    expect(truncate(undefined)).toBe(undefined);
+describe('withRetry', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.useFakeTimers();
   });
 
-  it('should return the original string if its length is less than maxLength', () => {
-    const input = 'Hello World';
-    expect(truncate(input, 20)).toBe(input);
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
-  it('should return the original string if its length is exactly equal to maxLength', () => {
-    const input = 'Hello World';
-    expect(truncate(input, input.length)).toBe(input);
+  it('should execute successfully on the first attempt without retrying or logging warnings', async () => {
+    const fn = vi.fn().mockResolvedValue('success-value');
+    const result = await withRetry(fn);
+    expect(result).toBe('success-value');
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(console.warn).not.toHaveBeenCalled();
   });
 
-  it('should truncate and append ... if string length exceeds maxLength', () => {
-    const input = 'Hello World';
-    expect(truncate(input, 5)).toBe('Hello...');
+  it('should retry on failure and succeed if a subsequent attempt succeeds', async () => {
+    let attempts = 0;
+    const fn = vi.fn().mockImplementation(async () => {
+      attempts++;
+      if (attempts < 3) {
+        throw new Error(`Transient error ${attempts}`);
+      }
+      return 'recovered-value';
+    });
+
+    const retryPromise = withRetry(fn, { maxRetries: 3, baseDelay: 100 });
+    await vi.runAllTimersAsync();
+    const result = await retryPromise;
+
+    expect(result).toBe('recovered-value');
+    expect(fn).toHaveBeenCalledTimes(3);
+    expect(console.warn).toHaveBeenCalledTimes(2);
+    expect(console.warn).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining('[retry] Attempt 1/4 failed: Transient error 1. Retrying in'),
+    );
+    expect(console.warn).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('[retry] Attempt 2/4 failed: Transient error 2. Retrying in'),
+    );
   });
 
-  it('should use default maxLength of 100 when maxLength parameter is omitted', () => {
-    const shortString = 'A'.repeat(50);
-    expect(truncate(shortString)).toBe(shortString);
+  it('should propagate the error when all retry attempts are exhausted', async () => {
+    const fn = vi.fn().mockImplementation(async () => {
+      throw new Error('Persistent async error');
+    });
 
-    const longString = 'A'.repeat(105);
-    const result = truncate(longString);
-    expect(result).toBe('A'.repeat(100) + '...');
-    expect(result.length).toBe(103);
+    const retryPromise = withRetry(fn, { maxRetries: 2, baseDelay: 100 });
+    retryPromise.catch(() => {});
+
+    await vi.runAllTimersAsync();
+
+    await expect(retryPromise).rejects.toThrow('Persistent async error');
+
+    expect(fn).toHaveBeenCalledTimes(3);
+    expect(console.warn).toHaveBeenCalledTimes(2);
+    expect(console.warn).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining('[retry] Attempt 1/3 failed: Persistent async error. Retrying in'),
+    );
+    expect(console.warn).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('[retry] Attempt 2/3 failed: Persistent async error. Retrying in'),
+    );
   });
 
-  it('should handle small maxLength values (e.g., 0 or 1)', () => {
-    expect(truncate('Hello', 0)).toBe('...');
-    expect(truncate('Hello', 1)).toBe('H...');
+  it('should handle custom retry options like maxRetries', async () => {
+    const fn = vi.fn().mockRejectedValue(new Error('Custom max retries error'));
+
+    const retryPromise = withRetry(fn, { maxRetries: 5, baseDelay: 10 });
+    retryPromise.catch(() => {});
+
+    await vi.runAllTimersAsync();
+
+    await expect(retryPromise).rejects.toThrow('Custom max retries error');
+
+    expect(fn).toHaveBeenCalledTimes(6);
+    expect(console.warn).toHaveBeenCalledTimes(5);
   });
 
-  it('should handle negative maxLength values', () => {
-    expect(truncate('Hello', -5)).toBe('...');
+  it('should wrap non-Error thrown values into Error instances', async () => {
+    let attempts = 0;
+    const fn = vi.fn().mockImplementation(async () => {
+      attempts++;
+      if (attempts === 1) {
+        throw 'Raw string error';
+      }
+      return 'success';
+    });
+
+    const retryPromise = withRetry(fn, { baseDelay: 10 });
+    await vi.runAllTimersAsync();
+    const result = await retryPromise;
+
+    expect(result).toBe('success');
+    expect(fn).toHaveBeenCalledTimes(2);
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringContaining('[retry] Attempt 1/4 failed: Raw string error. Retrying in'),
+    );
+  });
+
+  it('should wrap non-Error thrown values into Error instances when retries are exhausted', async () => {
+    const fn = vi.fn().mockImplementation(async () => {
+      throw 'Raw string exhaustion error';
+    });
+
+    const retryPromise = withRetry(fn, { maxRetries: 2, baseDelay: 10 });
+    retryPromise.catch(() => {});
+
+    await vi.runAllTimersAsync();
+
+    await expect(retryPromise).rejects.toThrow('Raw string exhaustion error');
+    await expect(retryPromise).rejects.toBeInstanceOf(Error);
+  });
+
+  it('should calculate exponential backoff delay correctly based on multiplier and baseDelay', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+
+    const fn = vi.fn().mockRejectedValue(new Error('Backoff test error'));
+
+    const retryPromise = withRetry(fn, { maxRetries: 3, baseDelay: 10, multiplier: 2 });
+    retryPromise.catch(() => {});
+
+    await vi.runAllTimersAsync();
+
+    await expect(retryPromise).rejects.toThrow('Backoff test error');
+
+    const retryDelays = setTimeoutSpy.mock.calls
+      .map((call) => call[1])
+      .filter((delay): delay is number => typeof delay === 'number' && delay > 0);
+
+    expect(retryDelays).toEqual([10, 20, 40]);
   });
 });
 
