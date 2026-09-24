@@ -28,6 +28,12 @@ const ownerMessageSchema = z.object({
   sentimentHint: z.enum(['positive', 'neutral', 'negative']).optional(),
 });
 
+const interactSchema = z.object({
+  message: z.string().max(3000).optional(),
+  content: z.string().max(3000).optional(),
+  roomId: z.string().max(100).nullable().optional(),
+});
+
 const narrativeEventSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().min(1).max(5000),
@@ -175,14 +181,23 @@ router.post('/message', async (c) => {
 router.post('/interact', async (c) => {
   try {
     const body = await c.req.json();
-    const messageContent = body.message || body.content || '';
+    const validated = interactSchema.parse(body);
+    const messageContent = validated.message || validated.content || '';
+
+    if (!messageContent || messageContent.trim().length === 0) {
+      return c.json(
+        { error: { code: 'VALIDATION_ERROR', message: 'Message content cannot be empty' } },
+        400,
+      );
+    }
+
     const user = c.user || { agentId: c.req.header('x-agent-id') || 'anonymous' };
 
     const _supabase = createSupabaseClient();
     const ownerResponse = generateOwnerResponse(messageContent, 'neutral', user);
 
     broadcastToRoom({
-      roomId: body.roomId ?? null,
+      roomId: validated.roomId ?? null,
       agentId: 'The Owner',
       message: `[Owner]: ${ownerResponse}`,
       timestamp: Date.now(),
@@ -194,7 +209,10 @@ router.post('/interact', async (c) => {
       message: ownerResponse,
       timestamp: new Date().toISOString(),
     });
-  } catch (_err) {
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+    }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to interact with owner' } },
       500,

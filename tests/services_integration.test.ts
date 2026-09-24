@@ -196,12 +196,55 @@ describe('Service Integration Tests', () => {
     expect(typeof body.conversation.ownerResponse).toBe('string');
   });
 
+  it('should validate inputs on POST /api/owner/interact and reject invalid or oversized payloads', async () => {
+    // 1. Valid request
+    const validRes = await app.request('/api/owner/interact', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ message: 'Hello cafe owner!' }),
+    });
+    expect(validRes.status).toBe(200);
+    const validBody = await validRes.json();
+    expect(validBody.approved).toBe(true);
+    expect(validBody.ownerReply).toBeDefined();
+
+    // 2. Empty message content
+    const emptyRes = await app.request('/api/owner/interact', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ message: '   ' }),
+    });
+    expect(emptyRes.status).toBe(400);
+    const emptyBody = await emptyRes.json();
+    expect(emptyBody.error.code).toBe('VALIDATION_ERROR');
+
+    // 3. Oversized message content (>3000 chars)
+    const oversizedRes = await app.request('/api/owner/interact', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ message: 'a'.repeat(3001) }),
+    });
+    expect(oversizedRes.status).toBe(400);
+    const oversizedBody = await oversizedRes.json();
+    expect(oversizedBody.error.code).toBe('VALIDATION_ERROR');
+
+    // 4. Invalid data type
+    const invalidTypeRes = await app.request('/api/owner/interact', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ message: 12345 }),
+    });
+    expect(invalidTypeRes.status).toBe(400);
+    const invalidTypeBody = await invalidTypeRes.json();
+    expect(invalidTypeBody.error.code).toBe('VALIDATION_ERROR');
+  });
+
   it('should initiate shop checkout with x402 payment promise', async () => {
     const res = await app.request('/api/shop/checkout', {
       method: 'POST',
       headers: {
         ...authHeaders,
-        'x-payment-receipt': 'receipt_test_initial_token',
+        'x-payment-receipt': 'receipt_service_integration_token',
       },
       body: JSON.stringify({
         itemId: '11111111-1111-1111-1111-111111111111',
