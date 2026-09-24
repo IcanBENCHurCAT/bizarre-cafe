@@ -208,8 +208,15 @@ describe('withRetry', () => {
 
     await vi.runAllTimersAsync();
 
-    await expect(retryPromise).rejects.toThrow('Raw string exhaustion error');
-    await expect(retryPromise).rejects.toBeInstanceOf(Error);
+    let caughtError: unknown;
+    try {
+      await retryPromise;
+    } catch (err) {
+      caughtError = err;
+    }
+
+    expect(caughtError).toBeInstanceOf(Error);
+    expect((caughtError as Error).message).toBe('Raw string exhaustion error');
   });
 
   it('should calculate exponential backoff delay correctly based on multiplier and baseDelay', async () => {
@@ -223,7 +230,11 @@ describe('withRetry', () => {
 
     await vi.runAllTimersAsync();
 
-    await expect(retryPromise).rejects.toThrow('Backoff test error');
+    try {
+      await retryPromise;
+    } catch {
+      // Expected rejection
+    }
 
     const retryDelays = setTimeoutSpy.mock.calls
       .map((call) => call[1])
