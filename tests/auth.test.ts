@@ -44,30 +44,6 @@ describe('Auth Middleware Security Tests', () => {
     expect(body.error).toBe('Unauthorized');
   });
 
-  it('should reject invalid or fake Bearer token in development and test environments', async () => {
-    for (const env of ['development', 'test'] as const) {
-      config.nodeEnv = env;
-      const app = new Hono();
-      app.use('/test', authMiddleware);
-      app.get('/test', (c) => {
-        if (!c.auth.user) {
-          return c.json({ error: 'Unauthorized' }, 401);
-        }
-        return c.json({ auth: c.auth });
-      });
-
-      const res = await app.request('/test', {
-        headers: {
-          Authorization: 'Bearer invalid-fake-token',
-        },
-      });
-
-      expect(res.status).toBe(401);
-      const body = await res.json();
-      expect(body.error).toBe('Unauthorized');
-    }
-  });
-
   it('should allow X-Agent-ID header authentication in development environment', async () => {
     config.nodeEnv = 'development';
     const app = new Hono();

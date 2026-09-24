@@ -167,123 +167,6 @@ router.get('/upcoming', async (c) => {
 });
 
 /**
- * GET /past — List past events
- *
- * Returns events that have concluded (status: past or cancelled),
- * sorted by most recent.
- */
-router.get('/past', async (c) => {
-  try {
-    const query = z.object({ limit: z.string().transform(Number).optional() }).parse(c.req.query());
-    const limit = query.limit ?? 20;
-    const user = c.user;
-
-    const supabase = createSupabaseClient();
-
-    let data: any[] = [];
-
-    // Filter to events user joined or created (if authenticated)
-    if (user) {
-      // Parameterized query to fetch attended event IDs
-      const { data: attendanceData } = await supabase
-        .from('event_attendance')
-        .select('event_id')
-        .eq('user_id', user.agentId);
-
-      const attendedEventIds = (attendanceData ?? [])
-        .map((a: any) => a.event_id)
-        .filter((id: any): id is string => typeof id === 'string' && id.length > 0);
-
-      // Parameterized query for events hosted by user
-      const hostPromise = supabase
-        .from('cafe_events')
-        .select('*')
-        .in('status', ['past', 'cancelled'])
-        .eq('host_id', user.agentId)
-        .order('start_time', { ascending: false })
-        .limit(limit);
-
-      // Parameterized query for events attended by user
-      const attendedPromise = attendedEventIds.length > 0
-        ? supabase
-            .from('cafe_events')
-            .select('*')
-            .in('status', ['past', 'cancelled'])
-            .in('id', attendedEventIds)
-            .order('start_time', { ascending: false })
-            .limit(limit)
-        : Promise.resolve({ data: [], error: null });
-
-      const [{ data: hostEvents, error: hostErr }, { data: attendedEvents, error: attErr }] =
-        await Promise.all([hostPromise, attendedPromise]);
-
-      if (hostErr || attErr) {
-        console.error('Supabase query error:', hostErr || attErr);
-        return c.json(
-          { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch past events' } },
-          500,
-        );
-      }
-
-      // Combine and deduplicate
-      const eventMap = new Map<string, any>();
-      for (const e of hostEvents ?? []) {
-        eventMap.set(e.id, e);
-      }
-      for (const e of attendedEvents ?? []) {
-        eventMap.set(e.id, e);
-      }
-      data = Array.from(eventMap.values());
-      data.sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
-      if (data.length > limit) {
-        data = data.slice(0, limit);
-      }
-    } else {
-      const { data: pastData, error } = await supabase
-        .from('cafe_events')
-        .select('*')
-        .in('status', ['past', 'cancelled'])
-        .order('start_time', { ascending: false })
-        .limit(limit);
-
-      if (error) {
-        console.error('Supabase query error:', error);
-        return c.json(
-          { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch past events' } },
-          500,
-        );
-      }
-      data = pastData ?? [];
-    }
-
-    const events = (data ?? []).map((e: any) => ({
-      id: e.id,
-      name: e.name,
-      description: e.description,
-      type: e.type as EventType,
-
-      max_attendees: undefined,
-      status: e.status as EventStatus,
-      location: e.location,
-      hostAgentId: e.host_id,
-      scheduledAt: e.start_time,
-      createdAt: e.created_at,
-      updatedAt: e.updated_at,
-    })) satisfies any[];
-
-    return c.json({ events, total: events.length });
-  } catch (err) {
-    if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
-    }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch past events' } },
-      500,
-    );
-  }
-});
-
-/**
  * GET /:id — Get event details
  *
  * Returns full details for a specific event, including attendance
@@ -534,5 +417,68 @@ router.post('/:id/leave', async (c) => {
   }
 });
 
+/**
+ * GET /past — List past events
+ *
+ * Returns events that have concluded (status: past or cancelled),
+ * sorted by most recent.
+ */
+router.get('/past', async (c) => {
+  try {
+    const query = z.object({ limit: z.string().transform(Number).optional() }).parse(c.req.query());
+    const limit = query.limit ?? 20;
+    const user = c.user;
+
+    const supabase = createSupabaseClient();
+
+    let queryBuilder = supabase.from('cafe_events')
+      .select('*')
+      .in('status', ['past', 'cancelled'])
+      .order('start_time', { ascending: false })
+      .limit(limit);
+
+    // Filter to events user joined or created (if authenticated)
+    if (user) {
+      queryBuilder = queryBuilder.or(
+        `host_agent_id.eq.${user.agentId},id.in.(select event_id from event_attendance where agent_id.eq.${user.agentId})`,
+      );
+    }
+
+    const { data, error } = await queryBuilder;
+
+    if (error) {
+      console.error('Supabase query error:', error);
+      return c.json(
+        { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch past events' } },
+        500,
+      );
+    }
+
+    const events = (data ?? []).map((e: any) => ({
+      id: e.id,
+      name: e.name,
+      description: e.description,
+      type: e.type as EventType,
+
+      max_attendees: undefined,
+      status: e.status as EventStatus,
+      location: e.location,
+      hostAgentId: e.host_id,
+      scheduledAt: e.start_time,
+      createdAt: e.created_at,
+      updatedAt: e.updated_at,
+    })) satisfies any[];
+
+    return c.json({ events, total: events.length });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+    }
+    return c.json(
+      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch past events' } },
+      500,
+    );
+  }
+});
 
 export default router;

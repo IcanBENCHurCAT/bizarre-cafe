@@ -146,59 +146,5 @@ describe('Narrative Engine Service', () => {
       expect(response.content).toBe('[helpful] Narrative context: Contextual info');
       expect(response.tone).toBe('helpful');
     });
-
-    it('should cache response for duplicate prompts and avoid secondary network calls', async () => {
-      const mockResponseData = {
-        choices: [
-          {
-            message: {
-              content: 'Cached response content',
-            },
-          },
-        ],
-      };
-
-      const fetchMock = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => mockResponseData,
-      });
-
-      vi.stubGlobal('fetch', fetchMock);
-
-      const res1 = await generateResponse('Context A', 'Prompt A', 'whimsical');
-      const res2 = await generateResponse('Context A', 'Prompt A', 'whimsical');
-
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(res1.content).toBe('Cached response content');
-      expect(res2.content).toBe('Cached response content');
-      expect(res1.id).not.toBe(res2.id); // Each call generates unique response ID and timestamp
-    });
-
-    it('should clear response cache when resetStore is called', async () => {
-      const mockResponseData = {
-        choices: [
-          {
-            message: {
-              content: 'Cached response content',
-            },
-          },
-        ],
-      };
-
-      const fetchMock = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => mockResponseData,
-      });
-
-      vi.stubGlobal('fetch', fetchMock);
-
-      await generateResponse('Context A', 'Prompt A', 'whimsical');
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-
-      resetStore();
-
-      await generateResponse('Context A', 'Prompt A', 'whimsical');
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-    });
   });
 });

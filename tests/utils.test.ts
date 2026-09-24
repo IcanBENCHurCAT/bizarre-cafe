@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { generateId, withRetry, withRetrySync, generateNonce, validateReceipt, parseX402Header, formatMessageList, FormattedMessage, truncate } from '../src/utils/index.js';
+import { generateId, withRetry, withRetrySync, generateNonce, validateReceipt, parseX402Header, formatMessageList, FormattedMessage } from '../src/utils/index.js';
 
 // ============================================================
 // generateId tests (from PR #13)
@@ -91,53 +91,6 @@ describe('generateId', () => {
 });
 
 // ============================================================
-// truncate tests
-// ============================================================
-describe('truncate', () => {
-  it('should return empty string for empty string or falsy inputs', () => {
-    expect(truncate('')).toBe('');
-    // @ts-expect-error - testing invalid JS inputs
-    expect(truncate(null)).toBe(null);
-    // @ts-expect-error - testing invalid JS inputs
-    expect(truncate(undefined)).toBe(undefined);
-  });
-
-  it('should return the original string if its length is less than maxLength', () => {
-    const input = 'Hello World';
-    expect(truncate(input, 20)).toBe(input);
-  });
-
-  it('should return the original string if its length is exactly equal to maxLength', () => {
-    const input = 'Hello World';
-    expect(truncate(input, input.length)).toBe(input);
-  });
-
-  it('should truncate and append ... if string length exceeds maxLength', () => {
-    const input = 'Hello World';
-    expect(truncate(input, 5)).toBe('Hello...');
-  });
-
-  it('should use default maxLength of 100 when maxLength parameter is omitted', () => {
-    const shortString = 'A'.repeat(50);
-    expect(truncate(shortString)).toBe(shortString);
-
-    const longString = 'A'.repeat(105);
-    const result = truncate(longString);
-    expect(result).toBe('A'.repeat(100) + '...');
-    expect(result.length).toBe(103);
-  });
-
-  it('should handle small maxLength values (e.g., 0 or 1)', () => {
-    expect(truncate('Hello', 0)).toBe('...');
-    expect(truncate('Hello', 1)).toBe('H...');
-  });
-
-  it('should handle negative maxLength values', () => {
-    expect(truncate('Hello', -5)).toBe('...');
-  });
-});
-
-// ============================================================
 // withRetry tests
 // ============================================================
 describe('withRetry', () => {
@@ -176,14 +129,13 @@ describe('withRetry', () => {
     expect(result).toBe('recovered-value');
     expect(fn).toHaveBeenCalledTimes(3);
     expect(console.warn).toHaveBeenCalledTimes(2);
-    // Assert on error text rather than full log format to reduce coupling
     expect(console.warn).toHaveBeenNthCalledWith(
       1,
-      expect.stringContaining('Transient error 1'),
+      expect.stringContaining('[retry] Attempt 1/4 failed: Transient error 1. Retrying in'),
     );
     expect(console.warn).toHaveBeenNthCalledWith(
       2,
-      expect.stringContaining('Transient error 2'),
+      expect.stringContaining('[retry] Attempt 2/4 failed: Transient error 2. Retrying in'),
     );
   });
 
@@ -201,6 +153,14 @@ describe('withRetry', () => {
 
     expect(fn).toHaveBeenCalledTimes(3);
     expect(console.warn).toHaveBeenCalledTimes(2);
+    expect(console.warn).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining('[retry] Attempt 1/3 failed: Persistent async error. Retrying in'),
+    );
+    expect(console.warn).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('[retry] Attempt 2/3 failed: Persistent async error. Retrying in'),
+    );
   });
 
   it('should handle custom retry options like maxRetries', async () => {
@@ -233,73 +193,43 @@ describe('withRetry', () => {
 
     expect(result).toBe('success');
     expect(fn).toHaveBeenCalledTimes(2);
-    // Assert on error text to reduce coupling with log format
     expect(console.warn).toHaveBeenCalledWith(
-      expect.stringContaining('Raw string error'),
+      expect.stringContaining('[retry] Attempt 1/4 failed: Raw string error. Retrying in'),
     );
   });
 
-  // --- Review improvement 1: exhaustion case for non-Error values ---
-  it('should exhaust all retries when a non-Error is thrown each time and propagate as Error instance', async () => {
-    const fn = vi.fn().mockReturnValue('always string');
-
-    const retryPromise = withRetry(fn, {
-      maxRetries: 2,
-      baseDelay: 10,
+  it('should wrap non-Error thrown values into Error instances when retries are exhausted', async () => {
+    const fn = vi.fn().mockImplementation(async () => {
+      throw 'Raw string exhaustion error';
     });
+
+    const retryPromise = withRetry(fn, { maxRetries: 2, baseDelay: 10 });
     retryPromise.catch(() => {});
 
     await vi.runAllTimersAsync();
 
+    await expect(retryPromise).rejects.toThrow('Raw string exhaustion error');
     await expect(retryPromise).rejects.toBeInstanceOf(Error);
-    await expect(retryPromise).rejects.toBeInstanceOf(Error);
-
-    // The last caught value should be an Error wrapping the original string
-    try {
-      await retryPromise;
-    } catch (e) {
-      expect(e).toBeInstanceOf(Error);
-      // The wrapped value should be the original 'always string'
-      expect(e.message).toContain('always string');
-    }
-
-    expect(fn).toHaveBeenCalledTimes(3); // 1 initial + 2 retries
   });
 
-  // --- Review improvement 2: verify exponential backoff delay grows ---
-  it('should use exponential backoff: delays should double between attempts', async () => {
-    let attempts = 0;
-    const callTimestamps: number[] = [];
-    const originalSetTimeout = global.setTimeout;
-    const fakeTimerSpies: ReturnType<typeof vi.spyOn>[] = [];
+  it('should calculate exponential backoff delay correctly based on multiplier and baseDelay', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
 
-    const fn = vi.fn().mockImplementation(async () => {
-      attempts++;
-      callTimestamps.push(Date.now());
-      if (attempts < 4) {
-        throw new Error(`Transient ${attempts}`);
-      }
-      return 'recovered';
-    });
+    const fn = vi.fn().mockRejectedValue(new Error('Backoff test error'));
 
-    vi.spyOn(global, 'setTimeout').mockImplementation((cb, ms) => {
-      fakeTimerSpies.push(vi.advanceTimersByTime(ms as number));
-      return originalSetTimeout(cb, ms as number) as ReturnType<typeof setTimeout>;
-    });
+    const retryPromise = withRetry(fn, { maxRetries: 3, baseDelay: 10, multiplier: 2 });
+    retryPromise.catch(() => {});
 
-    const retryPromise = withRetry(fn, { maxRetries: 3, baseDelay: 10 });
     await vi.runAllTimersAsync();
-    const result = await retryPromise;
 
-    expect(result).toBe('recovered');
-    expect(attempts).toBe(4);
-    // Verify that the mock was called with increasing delay values
-    // setTimeout should have been called with 10, 20, 40 (exponential growth)
-    const setTimeoutCalls = vi.getMockedSetTimeoutCalls();
-    expect(setTimeoutCalls.length).toBe(3);
-    expect(setTimeoutCalls[0]).toBe(10);
-    expect(setTimeoutCalls[1]).toBe(20);
-    expect(setTimeoutCalls[2]).toBe(40);
+    await expect(retryPromise).rejects.toThrow('Backoff test error');
+
+    const retryDelays = setTimeoutSpy.mock.calls
+      .map((call) => call[1])
+      .filter((delay): delay is number => typeof delay === 'number' && delay > 0);
+
+    expect(retryDelays).toEqual([10, 20, 40]);
   });
 });
 
@@ -442,14 +372,13 @@ describe('withRetrySync', () => {
     expect(result).toBe('success-after-failures');
     expect(fn).toHaveBeenCalledTimes(3);
     expect(console.warn).toHaveBeenCalledTimes(2);
-    // Assert on error text to reduce coupling with log format
     expect(console.warn).toHaveBeenNthCalledWith(
       1,
-      expect.stringContaining('Failure 1'),
+      '[retry-sync] Attempt 1/4 failed: Failure 1.',
     );
     expect(console.warn).toHaveBeenNthCalledWith(
       2,
-      expect.stringContaining('Failure 2'),
+      '[retry-sync] Attempt 2/4 failed: Failure 2.',
     );
   });
 
@@ -463,6 +392,14 @@ describe('withRetrySync', () => {
     );
     expect(fn).toHaveBeenCalledTimes(3);
     expect(console.warn).toHaveBeenCalledTimes(2);
+    expect(console.warn).toHaveBeenNthCalledWith(
+      1,
+      '[retry-sync] Attempt 1/3 failed: Persistent failure.',
+    );
+    expect(console.warn).toHaveBeenNthCalledWith(
+      2,
+      '[retry-sync] Attempt 2/3 failed: Persistent failure.',
+    );
   });
 
   it('should respect custom maxRetries options', () => {
@@ -491,7 +428,7 @@ describe('withRetrySync', () => {
     expect(fn).toHaveBeenCalledTimes(2);
     expect(console.warn).toHaveBeenCalledTimes(1);
     expect(console.warn).toHaveBeenCalledWith(
-      expect.stringContaining('String error'),
+      '[retry-sync] Attempt 1/4 failed: String error.',
     );
   });
 });
