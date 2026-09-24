@@ -48,6 +48,80 @@ export const clearMemSkillSwap = (): void => {
   memRequests.clear();
 };
 
+/**
+ * Sync offer status update + trade insert to Supabase concurrently with compensating error handling.
+ * If one operation succeeds and the other fails, compensates the successful one so the DB stays consistent.
+ */
+async function syncOfferAndTradeToSupabase(
+  supabase: any,
+  offerId: string,
+  tradeData: any,
+  offerUpdateAt: string,
+  tradeStatus: string,
+  tradeFromAgentId: string,
+  tradeToAgentId: string,
+  tradePriceMicroAlgos: number,
+  tradePaymentStatus: string | null,
+  tradeEscrowId: string | null,
+  tradeNotes: string | null,
+  tradeCreatedAt: string,
+  tradeUpdatedAt: string,
+): Promise<void> {
+  if (config.useLocalDb) return;
+
+  const offerUpdate = supabase
+    .from('skill_offers')
+    .update({ status: 'claimed', updated_at: offerUpdateAt })
+    .eq('id', offerId);
+
+  const tradeInsert = supabase.from('trades').insert({
+    id: tradeData.id,
+    offer_id: tradeData.offerId,
+    from_agent_id: tradeFromAgentId,
+    to_agent_id: tradeToAgentId,
+    status: tradeStatus,
+    price_micro_algos: tradePriceMicroAlgos,
+    payment_status: tradePaymentStatus,
+    escrow_id: tradeEscrowId,
+    notes: tradeNotes,
+    created_at: tradeCreatedAt,
+    updated_at: tradeUpdatedAt,
+  });
+
+  const [offerResult, tradeResult] = await Promise.allSettled([offerUpdate, tradeInsert]);
+
+  // If both succeeded — done.
+  if (offerResult.status === 'fulfilled' && tradeResult.status === 'fulfilled') return;
+
+  // Compensating rollback: if offer update succeeded but trade insert failed,
+  // revert offer status back to 'available' so the system doesn't have a claimed offer with no trade.
+  if (offerResult.status === 'fulfilled' && tradeResult.status === 'rejected') {
+    console.warn('[skill-swap] Trade insert failed after offer status update; compensating rollback');
+    try {
+      await supabase
+        .from('skill_offers')
+        .update({ status: 'available', updated_at: offerUpdateAt })
+        .eq('id', offerId);
+    } catch (rollbackErr) {
+      console.error('[skill-swap] CRITICAL: Failed to compensate offer rollback:', rollbackErr);
+    }
+  }
+
+  // If trade insert succeeded but offer update failed,
+  // the system has an orphan trade — log it for manual remediation.
+  if (tradeResult.status === 'fulfilled' && offerResult.status === 'rejected') {
+    console.warn('[skill-swap] Offer status update failed after trade insert; orphan trade may need manual cleanup');
+  }
+
+  // Rethrow if both failed
+  if (offerResult.status === 'rejected' && tradeResult.status === 'rejected') {
+    const errors: string[] = [];
+    if (offerResult.status === 'rejected') errors.push(`offer: ${String(offerResult.reason)}`);
+    if (tradeResult.status === 'rejected') errors.push(`trade: ${String(tradeResult.reason)}`);
+    throw new Error(`Supabase sync failed: ${errors.join(' | ')}`);
+  }
+}
+
 // Zod schemas
 const offerSchema = z.object({
   skillName: z.string().min(1).max(100),
@@ -642,26 +716,24 @@ router.post('/offers/:id/accept', async (c) => {
 
         memTrades.set(trade.id, trade);
 
-        // Supabase sync (optional)
+        // Supabase sync (optional) with compensating error handling
         if (!config.useLocalDb) {
           const supabase = createSupabaseClient();
-          // ⚡ Bolt Optimization: Batch independent database sync operations concurrently
-          await Promise.all([
-            supabase.from('skill_offers').update({ status: 'claimed', updated_at: now }).eq('id', offer.id),
-            supabase.from('trades').insert({
-              id: trade.id,
-              offer_id: trade.offerId,
-              from_agent_id: trade.fromAgentId,
-              to_user_id: trade.toAgentId,
-              status: trade.status,
-              price_micro_algos: trade.priceMicroAlgos,
-              payment_status: trade.paymentStatus,
-              escrow_id: trade.escrowId,
-              notes: trade.notes,
-              created_at: now,
-              updated_at: now,
-            }),
-          ]);
+          await syncOfferAndTradeToSupabase(
+            supabase,
+            offer.id,
+            trade,
+            now,
+            trade.status,
+            trade.fromAgentId,
+            trade.toAgentId,
+            trade.priceMicroAlgos,
+            trade.paymentStatus,
+            trade.escrowId,
+            trade.notes,
+            trade.createdAt,
+            trade.updatedAt,
+          );
         }
 
         return c.json({ message: 'Offer accepted with escrow', trade, escrow }, 201);
@@ -744,25 +816,24 @@ router.post('/offers/:id/accept', async (c) => {
 
         memTrades.set(trade.id, trade);
 
-        // Supabase sync (optional)
+        // Supabase sync (optional) with compensating error handling
         if (!config.useLocalDb) {
           const supabase = createSupabaseClient();
-          // ⚡ Bolt Optimization: Batch independent database sync operations concurrently
-          await Promise.all([
-            supabase.from('skill_offers').update({ status: 'claimed', updated_at: now }).eq('id', offer.id),
-            supabase.from('trades').insert({
-              id: trade.id,
-              offer_id: trade.offerId,
-              from_agent_id: trade.fromAgentId,
-              to_user_id: trade.toAgentId,
-              status: trade.status,
-              price_micro_algos: 0,
-              payment_status: 'unpaid',
-              notes: trade.notes,
-              created_at: now,
-              updated_at: now,
-            }),
-          ]);
+          await syncOfferAndTradeToSupabase(
+            supabase,
+            offer.id,
+            trade,
+            now,
+            trade.status,
+            trade.fromAgentId,
+            trade.toAgentId,
+            trade.priceMicroAlgos,
+            trade.paymentStatus,
+            trade.escrowId,
+            trade.notes,
+            trade.createdAt,
+            trade.updatedAt,
+          );
         }
 
         return c.json({ message: 'Offer accepted', trade }, 201);
