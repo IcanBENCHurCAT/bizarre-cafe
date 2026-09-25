@@ -35,7 +35,8 @@ router.get('/:roomId', async (c) => {
 router.post('/:roomId/join', async (c) => {
   const { roomId } = roomParamsSchema.parse({ roomId: c.req.param('roomId') });
   const body = await c.req.json().catch(() => ({}));
-  const agentId = body.agentId || c.user?.agentId || 'anonymous';
+  // SECURITY FIX: Enforce authenticated user identity (c.user.agentId) over body.agentId to prevent impersonation
+  const agentId = c.user?.agentId || body.agentId || 'anonymous';
 
   await db.agents.updateStatus(agentId, { current_room_id: roomId });
   updateClientRoom(agentId, roomId);
@@ -51,7 +52,8 @@ router.post('/:roomId/join', async (c) => {
 router.post('/:roomId/leave', async (c) => {
   const { roomId } = roomParamsSchema.parse({ roomId: c.req.param('roomId') });
   const body = await c.req.json().catch(() => ({}));
-  const agentId = body.agentId || c.user?.agentId || 'anonymous';
+  // SECURITY FIX: Enforce authenticated user identity (c.user.agentId) over body.agentId to prevent impersonation
+  const agentId = c.user?.agentId || body.agentId || 'anonymous';
 
   await db.agents.updateStatus(agentId, { current_room_id: null });
   updateClientRoom(agentId, null);
