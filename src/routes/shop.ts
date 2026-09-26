@@ -10,6 +10,7 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { config } from '../config';
 import { createSupabaseClient } from '../supabase/client';
 import { requireX402Payment } from '../middleware/auth';
 import { createPaymentPromise, getPaymentStatus } from '../services/x402/index';
@@ -305,16 +306,43 @@ router.post('/checkout', requireX402Payment(), async (c) => {
  */
 router.get('/checkout/:promiseId', async (c) => {
   const promiseId = c.req.param('promiseId');
+  const user = c.user;
+
+  if (!user) {
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
+  }
+
   const paymentStatus = getPaymentStatus(promiseId);
   const supabase = createSupabaseClient();
 
-  const { data: receipt } = await supabase.from('receipts')
-    .select('*')
-    .eq('id', promiseId)
-    .single();
+  let receipt: any = null;
+  if (config.useLocalDb) {
+    if (memReceipts.has(promiseId)) {
+      receipt = memReceipts.get(promiseId);
+    }
+  } else {
+    try {
+      const { data } = await supabase.from('receipts')
+        .select('*')
+        .eq('id', promiseId)
+        .single();
+      if (data) receipt = data;
+    } catch {
+      /* ignore */
+    }
+
+    if (!receipt && memReceipts.has(promiseId)) {
+      receipt = memReceipts.get(promiseId);
+    }
+  }
 
   if (!paymentStatus && !receipt) {
     return c.json({ error: { code: 'NOT_FOUND', message: 'Payment promise not found' } }, 404);
+  }
+
+  const receiptUserId = receipt?.user_id;
+  if (receiptUserId && receiptUserId !== user.agentId) {
+    return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);
   }
 
   return c.json({
