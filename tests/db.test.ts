@@ -63,7 +63,7 @@ describe('DatabaseAdapter', () => {
 
   describe('updateSqliteEscrowRecord & updateSqliteTrade security and functionality', () => {
     it('updates escrow record safely with parameterized fields', async () => {
-      const id = 'escrow-test-id-1';
+      const id = `escrow-test-id-1-${Date.now()}-${Math.random()}`;
       await createSqliteEscrowRecord({
         id,
         tradeId: 'trade-1',
@@ -89,7 +89,7 @@ describe('DatabaseAdapter', () => {
     });
 
     it('ignores untrusted or non-whitelisted keys on updateSqliteEscrowRecord', async () => {
-      const id = 'escrow-test-id-2';
+      const id = `escrow-test-id-2-${Date.now()}-${Math.random()}`;
       await createSqliteEscrowRecord({
         id,
         tradeId: 'trade-2',
@@ -116,7 +116,7 @@ describe('DatabaseAdapter', () => {
     });
 
     it('updates trade safely with parameterized fields', async () => {
-      const id = 'trade-test-id-1';
+      const id = `trade-test-id-1-${Date.now()}-${Math.random()}`;
       await createSqliteTrade({
         id,
         from_agent_id: 'agent-a',
@@ -139,7 +139,7 @@ describe('DatabaseAdapter', () => {
     });
 
     it('ignores untrusted or non-whitelisted keys on updateSqliteTrade', async () => {
-      const id = 'trade-test-id-2';
+      const id = `trade-test-id-2-${Date.now()}-${Math.random()}`;
       await createSqliteTrade({
         id,
         from_agent_id: 'agent-a',
