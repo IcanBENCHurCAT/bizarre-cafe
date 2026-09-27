@@ -454,6 +454,19 @@ router.get('/log', async (c) => {
     const { agentId } = statusQuerySchema.parse(query);
     const limit =
       z.object({ limit: z.string().transform(Number).optional() }).parse(query).limit ?? 50;
+    const user = c.user;
+
+    if (!user) {
+      return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
+    }
+
+    // SECURITY FIX: Prevent IDOR vulnerability by enforcing that authenticated agents can only inspect their own verification log
+    if (user.agentId !== agentId) {
+      return c.json(
+        { error: { code: 'FORBIDDEN', message: "Cannot access another agent's verification log" } },
+        403,
+      );
+    }
 
     const supabase = createSupabaseClient();
 
