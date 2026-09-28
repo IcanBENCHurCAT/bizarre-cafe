@@ -41,16 +41,21 @@ router.get('/rooms', async (c) => {
 // POST /api/lobby/rooms — Create a new room
 router.post('/rooms', async (c) => {
   try {
+    const user = c.user;
+
+    if (!user) {
+      return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
+    }
+
     const body = await c.req.json();
     const validated = createRoomSchema.parse(body);
-    const user = c.user;
 
     const room = await db.rooms.create({
       name: validated.name,
       description: validated.description,
       visibility: validated.isPrivate ? 'private' : 'public',
       max_agents: validated.maxAgents,
-      owner_id: user?.agentId,
+      owner_id: user.agentId,
     });
 
     return c.json(

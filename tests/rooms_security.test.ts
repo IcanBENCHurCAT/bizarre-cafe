@@ -83,4 +83,36 @@ describe('Room Security & Access Control Tests', () => {
     // target-agent should still be in room-secure
     expect(getRoomAgents('room-secure')).toContain('target-agent');
   });
+
+  it('should reject unauthenticated request to POST /api/lobby/rooms with 401 Unauthorized', async () => {
+    const res = await app.request('/api/lobby/rooms', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: 'Unauthenticated Room' }),
+    });
+
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error).toBeDefined();
+    expect(body.error.code).toBe('UNAUTHORIZED');
+  });
+
+  it('should allow authenticated agent to create room in POST /api/lobby/rooms with owner_id set to agentId', async () => {
+    const res = await app.request('/api/lobby/rooms', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': 'room-creator-agent',
+      },
+      body: JSON.stringify({ name: 'Authenticated Room', description: 'Room created by creator agent' }),
+    });
+
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.message).toBe('Room created');
+    expect(body.room).toBeDefined();
+    expect(body.room.owner_id).toBe('room-creator-agent');
+  });
 });
