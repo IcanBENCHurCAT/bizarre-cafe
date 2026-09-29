@@ -429,7 +429,8 @@ router.get('/offers', async (c) => {
 
 
     // Sort by createdAt descending
-    offers.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    // ⚡ Bolt Optimization: Compare ISO strings directly instead of parsing Date objects
+    offers.sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
 
     if (offers.length > limit) {
       offers = offers.slice(0, limit);
@@ -523,7 +524,8 @@ router.get('/requests', async (c) => {
     }
 
 
-    requests.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    // ⚡ Bolt Optimization: Compare ISO strings directly instead of parsing Date objects
+    requests.sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
     if (requests.length > limit) {
       requests = requests.slice(0, limit);
     }
@@ -947,7 +949,8 @@ router.get('/trades', async (c) => {
     }
 
     const trades = Array.from(tradeMap.values());
-    trades.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    // ⚡ Bolt Optimization: Compare ISO strings directly instead of parsing Date objects
+    trades.sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
     const limitedTrades = trades.slice(0, limit);
 
     return c.json({ trades: limitedTrades, total: limitedTrades.length });

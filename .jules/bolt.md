@@ -28,3 +28,6 @@
 ## 2024-11-20 - [Promise.all Batching of Independent Supabase Operations]
 **Learning:** In routes that perform sequential updates to multiple independent tables (e.g., updating a `trade` and its related `skill_offer`), sequential `await` calls double the database latency.
 **Action:** When updating or querying multiple completely independent tables, gather the Supabase query promises into an array and `await Promise.all(promises)` to execute them concurrently, halving the round-trip latency.
+## 2024-11-20 - [O(N log N) Date Parsing in Sort Callbacks]
+**Learning:** Sorting arrays of objects by an ISO 8601 date string by parsing `new Date()` inside the `.sort()` callback creates an enormous performance bottleneck because `new Date()` is expensive and is called $O(N \log N)$ times during the sort.
+**Action:** Since ISO 8601 strings are lexicographically sortable, always use direct string comparison (e.g., `(a.date < b.date ? 1 : a.date > b.date ? -1 : 0)`) when sorting standard date strings descending, avoiding Date parsing entirely.
