@@ -458,7 +458,8 @@ router.get('/receipts', async (c) => {
     }
 
     const receipts = Array.from(receiptMap.values());
-    receipts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    // ⚡ Bolt Optimization: Compare ISO strings directly instead of parsing Date objects
+    receipts.sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
     const limitedReceipts = receipts.slice(0, limit);
 
     return c.json({ receipts: limitedReceipts, total: limitedReceipts.length });
