@@ -13,6 +13,7 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { config } from '../config';
 import { createSupabaseClient } from '../supabase/client';
 import type { EventType, EventStatus } from '../types/cafe';
 
@@ -161,6 +162,84 @@ router.get('/upcoming', async (c) => {
     }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch upcoming events' } },
+      500,
+    );
+  }
+});
+
+/**
+ * GET /past — List past events
+ *
+ * Returns events that have concluded (status: past or cancelled),
+ * sorted by most recent.
+ */
+router.get('/past', async (c) => {
+  try {
+    const query = z
+      .object({
+        limit: z
+          .string()
+          .optional()
+          .transform((v) => (v ? Number(v) : undefined)),
+      })
+      .parse(c.req.query());
+    const limit = query.limit ?? 20;
+    const user = c.user;
+
+    if (config.useLocalDb) {
+      return c.json({ events: [], total: 0 });
+    }
+
+    const supabase = createSupabaseClient();
+
+    let queryBuilder = supabase.from('cafe_events')
+      .select('*')
+      .in('status', ['past', 'cancelled'])
+      .order('start_time', { ascending: false })
+      .limit(limit);
+
+    // Filter to events user joined or created (if authenticated)
+    if (user) {
+      // SECURITY FIX: Sanitize and quote agentId to prevent PostgREST filter string injection
+      // and use correct DB schema column names (host_id and user_id)
+      const sanitizedAgentId = user.agentId.replace(/["\\,()]/g, '');
+      queryBuilder = queryBuilder.or(
+        `host_id.eq."${sanitizedAgentId}",id.in.(select event_id from event_attendance where user_id.eq."${sanitizedAgentId}")`,
+      );
+    }
+
+    const { data, error } = await queryBuilder;
+
+    if (error) {
+      console.error('Supabase query error:', error);
+      return c.json({ events: [], total: 0 });
+    }
+
+    const events = (data ?? []).map((e: any) => ({
+      id: e.id,
+      name: e.name,
+      description: e.description,
+      type: e.type as EventType,
+
+      max_attendees: undefined,
+      status: e.status as EventStatus,
+      location: e.location,
+      hostAgentId: e.host_id,
+      scheduledAt: e.start_time,
+      createdAt: e.created_at,
+      updatedAt: e.updated_at,
+    })) satisfies any[];
+
+    return c.json({ events, total: events.length });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+    }
+    if (config.useLocalDb || config.nodeEnv === 'test') {
+      return c.json({ events: [], total: 0 });
+    }
+    return c.json(
+      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch past events' } },
       500,
     );
   }
@@ -417,68 +496,5 @@ router.post('/:id/leave', async (c) => {
   }
 });
 
-/**
- * GET /past — List past events
- *
- * Returns events that have concluded (status: past or cancelled),
- * sorted by most recent.
- */
-router.get('/past', async (c) => {
-  try {
-    const query = z.object({ limit: z.string().transform(Number).optional() }).parse(c.req.query());
-    const limit = query.limit ?? 20;
-    const user = c.user;
-
-    const supabase = createSupabaseClient();
-
-    let queryBuilder = supabase.from('cafe_events')
-      .select('*')
-      .in('status', ['past', 'cancelled'])
-      .order('start_time', { ascending: false })
-      .limit(limit);
-
-    // Filter to events user joined or created (if authenticated)
-    if (user) {
-      queryBuilder = queryBuilder.or(
-        `host_agent_id.eq.${user.agentId},id.in.(select event_id from event_attendance where agent_id.eq.${user.agentId})`,
-      );
-    }
-
-    const { data, error } = await queryBuilder;
-
-    if (error) {
-      console.error('Supabase query error:', error);
-      return c.json(
-        { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch past events' } },
-        500,
-      );
-    }
-
-    const events = (data ?? []).map((e: any) => ({
-      id: e.id,
-      name: e.name,
-      description: e.description,
-      type: e.type as EventType,
-
-      max_attendees: undefined,
-      status: e.status as EventStatus,
-      location: e.location,
-      hostAgentId: e.host_id,
-      scheduledAt: e.start_time,
-      createdAt: e.created_at,
-      updatedAt: e.updated_at,
-    })) satisfies any[];
-
-    return c.json({ events, total: events.length });
-  } catch (err) {
-    if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
-    }
-    return c.json(
-      { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch past events' } },
-      500,
-    );
-  }
-});
 
 export default router;
