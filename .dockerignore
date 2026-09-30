@@ -41,8 +41,6 @@ Dockerfile*
 .dockerignore
 
 # Build configs (already copied in Dockerfile)
-tsconfig.json
-tsconfig.*.json
 .eslintrc*
 .prettierrc*
 babel.config.*
@@ -59,3 +57,4 @@ logs/
 # Temporary files
 tmp/
 temp/
+
