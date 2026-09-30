@@ -898,9 +898,11 @@ router.get('/trades', async (c) => {
     if (!config.useLocalDb) {
       try {
         const supabase = createSupabaseClient();
+        // SECURITY FIX: Sanitize and quote agentId to prevent PostgREST filter string injection
+        const sanitizedAgentId = user.agentId.replace(/["\\,()]/g, '');
         const { data } = await supabase.from('trades')
           .select('*')
-          .or(`from_agent_id.eq.${user.agentId},to_user_id.eq.${user.agentId}`)
+          .or(`from_agent_id.eq."${sanitizedAgentId}",to_user_id.eq."${sanitizedAgentId}"`)
           .order('created_at', { ascending: false })
           .limit(limit);
 
