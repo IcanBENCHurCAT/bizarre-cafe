@@ -11,7 +11,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { config } from '../config';
-import { createSupabaseClient } from '../supabase/client';
+import { createServerSupabaseClient } from '../supabase/client';
 import { requireX402Payment } from '../middleware/auth';
 import { createPaymentPromise, getPaymentStatus } from '../services/x402/index';
 import type { ShopItem } from '../types/cafe';
@@ -55,7 +55,7 @@ router.get('/items', async (c) => {
     const validated = itemsQuerySchema.parse(query);
     const limit = validated.limit ?? 20;
 
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
 
     let queryBuilder = supabase.from('shop_items')
       .select('*')
@@ -133,7 +133,7 @@ router.get('/items/:id', async (c) => {
   try {
     const { id } = z.object({ id: z.string().uuid() }).parse({ id: c.req.param('id') });
 
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
 
     const { data, error } = await supabase.from('shop_items')
       .select('*')
@@ -193,7 +193,7 @@ router.post('/checkout', requireX402Payment(), async (c) => {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
     }
 
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
 
     // Get item details
     let item: any = null;
@@ -313,7 +313,7 @@ router.get('/checkout/:promiseId', async (c) => {
   }
 
   const paymentStatus = getPaymentStatus(promiseId);
-  const supabase = createSupabaseClient();
+  const supabase = createServerSupabaseClient();
 
   let receipt: any = null;
   if (config.useLocalDb) {
@@ -412,7 +412,7 @@ router.get('/receipts', async (c) => {
 
     // 1. Attempt Supabase query
     try {
-      const supabase = createSupabaseClient();
+      const supabase = createServerSupabaseClient();
       const { data, error } = await supabase.from('receipts')
         .select('*')
         .eq('user_id', user.agentId)
@@ -487,7 +487,7 @@ router.get('/receipts/:id', async (c) => {
 
     // 1. Try Supabase
     try {
-      const supabase = createSupabaseClient();
+      const supabase = createServerSupabaseClient();
       const { data, error } = await supabase.from('receipts')
         .select('*')
         .eq('id', id)

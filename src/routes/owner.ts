@@ -13,7 +13,7 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { createSupabaseClient } from '../supabase/client';
+import { createServerSupabaseClient } from '../supabase/client';
 import { requireX402Payment } from '../middleware/auth';
 import { broadcastToRoom } from '../sse';
 import { generateResponse, trackEvent } from '../services/narrative/index';
@@ -71,7 +71,7 @@ router.post('/message', async (c) => {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
     }
 
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
 
     // Analyze sentiment if not provided
     let sentiment: 'positive' | 'neutral' | 'negative' = 'neutral';
@@ -197,7 +197,7 @@ router.post('/interact', async (c) => {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
     }
 
-    const _supabase = createSupabaseClient();
+    const _supabase = createServerSupabaseClient();
     const ownerResponse = generateOwnerResponse(messageContent, 'neutral', user);
 
     broadcastToRoom({
@@ -233,7 +233,7 @@ router.post('/interact', async (c) => {
  */
 router.get('/mood', async (c) => {
   try {
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
 
     // Fetch or create owner mood record
     const { data: mood, error: moodError } = await supabase
@@ -292,7 +292,7 @@ router.post('/events', async (c) => {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
     }
 
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
 
     const { data, error } = await supabase
       .from('narrative_events')
@@ -356,7 +356,7 @@ router.get('/lore', async (c) => {
     const limit = validated.limit ?? 20;
     const _user = c.user;
 
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
 
     let queryBuilder = supabase
       .from('lore_entries')
@@ -412,7 +412,7 @@ router.get('/mood/history', async (c) => {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
     }
 
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
 
     const { data, error } = await supabase
       .from('owner_messages')
@@ -456,7 +456,7 @@ router.get('/mood/history', async (c) => {
  */
 router.get('/visual-state', async (c) => {
   try {
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
 
     // Fetch from canned_responses table
     const { data, error } = await supabase
@@ -540,7 +540,7 @@ router.post('/action', requireX402Payment(), async (c) => {
     }
 
     if (approved) {
-      const supabase = createSupabaseClient();
+      const supabase = createServerSupabaseClient();
 
       const { error: insertError } = await supabase.from('cafe_visual_state').insert({
         entity_id: `obj_${Date.now()}`,
@@ -643,7 +643,7 @@ function generateOwnerResponse(
  * Moods shift based on sentiment distribution over time.
  */
 async function updateOwnerMood(
-  supabase: ReturnType<typeof createSupabaseClient>,
+  supabase: ReturnType<typeof createServerSupabaseClient>,
   sentiment: 'positive' | 'neutral' | 'negative',
   agentId: string,
 ): Promise<void> {

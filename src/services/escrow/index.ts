@@ -19,7 +19,7 @@ import {
   getSqliteEscrowByTradeId,
   updateSqliteEscrowRecord,
 } from '../../db/sqlite';
-import { createSupabaseClient } from '../../supabase/client';
+import { createServerSupabaseClient } from '../../supabase/client';
 
 export type { EscrowRecord, EscrowStatus, EscrowLockParams, EscrowReleaseResult, EscrowRefundResult };
 
@@ -86,7 +86,7 @@ export async function lockFundsInEscrow(params: EscrowLockParams): Promise<Escro
   // 5. Attempt Supabase persistence (optional / if table exists)
   if (!config.useLocalDb) {
     try {
-      const supabase = createSupabaseClient();
+      const supabase = createServerSupabaseClient();
       await supabase.from('escrow_records').insert({
         id: escrow.id,
         trade_id: escrow.tradeId,
@@ -194,7 +194,7 @@ export async function releaseEscrow(escrowId: string, callerAgentId: string): Pr
   // Update Supabase if available
   if (!config.useLocalDb) {
     try {
-      const supabase = createSupabaseClient();
+      const supabase = createServerSupabaseClient();
       await supabase
         .from('escrow_records')
         .update({
@@ -260,7 +260,7 @@ export async function refundEscrow(
   // Update Supabase if available
   if (!config.useLocalDb) {
     try {
-      const supabase = createSupabaseClient();
+      const supabase = createServerSupabaseClient();
       await supabase
         .from('escrow_records')
         .update({

@@ -14,7 +14,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { config } from '../config';
-import { createSupabaseClient } from '../supabase/client';
+import { createServerSupabaseClient } from '../supabase/client';
 import type { EventType, EventStatus } from '../types/cafe';
 
 const router = new Hono();
@@ -49,7 +49,7 @@ router.post('/create', async (c) => {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
     }
 
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
     const now = new Date().toISOString();
 
     const scheduledAt = validated.scheduledAt || now;
@@ -117,7 +117,7 @@ router.get('/upcoming', async (c) => {
       .object({ type: z.enum(['meetup', 'workshop', 'game', 'social']).optional() })
       .parse(query).type;
 
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
 
     let queryBuilder = supabase.from('cafe_events')
       .select('*')
@@ -190,7 +190,7 @@ router.get('/past', async (c) => {
       return c.json({ events: [], total: 0 });
     }
 
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
 
     let queryBuilder = supabase.from('cafe_events')
       .select('*')
@@ -256,7 +256,7 @@ router.get('/:id', async (c) => {
     const { id } = z.object({ id: z.string().uuid() }).parse({ id: c.req.param('id') });
     const user = c.user;
 
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
 
     const eventPromise = supabase.from('cafe_events')
       .select('*')
@@ -336,7 +336,7 @@ router.post('/:id/join', async (c) => {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
     }
 
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
     const now = new Date().toISOString();
 
     const eventPromise = supabase.from('cafe_events')
@@ -445,7 +445,7 @@ router.post('/:id/leave', async (c) => {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
     }
 
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
     const now = new Date().toISOString();
 
     // Check if user is joined

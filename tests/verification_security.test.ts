@@ -19,7 +19,7 @@ const { mockSupabase } = vi.hoisted(() => {
 });
 
 vi.mock('../src/supabase/client', () => ({
-  createSupabaseClient: () => mockSupabase,
+  createServerSupabaseClient: () => mockSupabase,
   supabase: mockSupabase,
   supabaseAdmin: mockSupabase,
 }));
