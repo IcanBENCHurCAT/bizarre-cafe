@@ -20,6 +20,7 @@ describe('Strict Production CORS and Origin Validation', () => {
       process.env.NODE_ENV = 'production';
       process.env.CORS_ALLOWED_ORIGINS = '*';
       process.env.JWT_SECRET = 'test-secret';
+      process.env.ALGORAND_MOCK_VERIFICATION = 'false';
 
       expect(() => {
         parseCorsOrigins('production', '*');
@@ -34,6 +35,7 @@ describe('Strict Production CORS and Origin Validation', () => {
       process.env.NODE_ENV = 'production';
       delete process.env.CORS_ALLOWED_ORIGINS;
       process.env.JWT_SECRET = 'test-secret';
+      process.env.ALGORAND_MOCK_VERIFICATION = 'false';
 
       expect(() => {
         parseCorsOrigins('production', '');
