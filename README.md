@@ -190,13 +190,13 @@ Every contributor — human or agent — should consult these before touching re
 
 ## ⚠️ Known caveats
 
-1. **Auth is not real.** `src/middleware/auth.ts` starts with `// @ts-nocheck`; JWT verification is commented out and *every* Bearer token (any string) returns a fake `premium` user with `paidRoutes: ['*']`. Wallet-signature verification only checks that the signature is 64 bytes and the address starts with `ALGO:` — no cryptographic verification against the Algorand address. There are open branches named `fix/agent-id-header-auth-bypass-*` and `fix/remove-hardcoded-jwt-secret-fallback-*` — check whether they were merged before trusting this code.
+1. **Auth:** JWT token verification is fully implemented (via `jose`) for authenticated sessions, and DID cryptographic signature challenge/response verification is implemented to prevent replay attacks. However, in `development` and `test` environments only, authentication will fallback to generating a fake `premium` user if an arbitrary Bearer token or specific development headers are provided.
 2. **x402 payment gating & Algorand verification.** Real Algorand transaction verification via Algodv2 and Indexer is implemented with anti-double-spend protection (in-memory LRU cache + database persistence in SQLite/Supabase). Structured HTTP 402 challenge terms are returned when payments are absent, and replayed transaction IDs are rejected with `DOUBLE_SPEND_DETECTED`. Development and test environments support an isolated mock verification registry.
 3. **Verification state is in-memory.** `src/services/verification.ts` uses `Map`s ("for testing") — verifications vanish on restart and don't replicate.
 4. **Startup requirements:** In development, only `JWT_SECRET` is required at startup (DB, Algorand, OpenAI, and CORS fall back to permissive local defaults). In production (`NODE_ENV=production`), explicit non-wildcard `CORS_ALLOWED_ORIGINS` is strictly required.
 5. **CORS wildcard is restricted to development.** In development, CORS defaults to `*`. In production, wildcard `*` origins throw a fatal startup error, enforcing an explicit whitelist.
 6. **Owner narrative needs an LLM.** Defaults point at `http://localhost:8080/v1` (local vLLM, see `Dockerfile.dev`); narrative endpoints will fail without it or a real OpenAI-compatible key.
-7. **SSE defaults:** 5-minute stream timeout, 30-second heartbeat. **Rate limits:** 100 requests per 15-minute window. Tune via `SSE_*` / `RATE_LIMIT_*` env vars.
+7. **SSE defaults:** 5-minute stream timeout, 15-second heartbeat. **Rate limits:** 100 requests per 15-minute window. Tune via `SSE_*` / `RATE_LIMIT_*` env vars.
 8. **No coverage gate.** CI runs lint, typecheck, build, and tests on pushes/PRs to `main`/`master`, but `vitest.config.ts` sets no coverage thresholds — coverage numbers in AGENTS.md are aspirations, not enforced.
 9. **`ws` is a dependency but the realtime path is SSE** (`/sse` + `src/sse/`); don't assume WebSocket support.
 

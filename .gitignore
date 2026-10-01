@@ -5,6 +5,8 @@ node_modules/
 
 # Build outputs
 /dist
+dist/
+packages/sdk/dist/
 /build
 .next/
 *.tsbuildinfo
@@ -71,3 +73,13 @@ local.sqlite*
 # GCP
 gcp-service-account.json
 *.gcloudignore
+
+# Junk patterns
+*.log.txt
+ts-errors.txt
+test-supabase*.ts
+fix-*.js
+fix-*.cjs
+agent-logs.txt
+cafe_simulation_logs.txt
+diff.txt
