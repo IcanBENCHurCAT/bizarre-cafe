@@ -17,6 +17,13 @@ export interface Config {
   openaiApiKey: string;
   openaiBaseUrl: string;
   aiModel: string;
+  geminiApiKey: string;
+  geminiModel: string;
+  groqApiKey: string;
+  groqModel: string;
+  openrouterApiKey: string;
+  openrouterModel: string;
+  providerCascade: string;
   algorandNetwork: string;
   algorandRpcUrl: string;
   algorandAlgodToken: string;
@@ -90,6 +97,13 @@ export const config: Config = {
   openaiApiKey: getOptional('OPENAI_API_KEY', 'dummy-key'),
   openaiBaseUrl: getOptional('OPENAI_BASE_URL', 'http://localhost:8080/v1'),
   aiModel: getOptional('AI_MODEL', 'qwen3.6-35b-a3b-nvfp4'),
+  geminiApiKey: getOptional('GEMINI_API_KEY', ''),
+  geminiModel: getOptional('GEMINI_MODEL', 'gemini-3.5-flash-lite'),
+  groqApiKey: getOptional('GROQ_API_KEY', ''),
+  groqModel: getOptional('GROQ_MODEL', 'openai/gpt-oss-120b'),
+  openrouterApiKey: getOptional('OPENROUTER_API_KEY', ''),
+  openrouterModel: getOptional('OPENROUTER_MODEL', 'nvidia/nemotron-3.5-lightning:free'),
+  providerCascade: getOptional('BIZARRE_CAFE_PROVIDER_CASCADE', 'gemini,groq,openrouter'),
   algorandNetwork: getOptional('ALGORAND_NETWORK', 'localnet'),
   algorandRpcUrl: getOptional('ALGORAND_RPC_URL', 'http://localhost:4001'),
   algorandAlgodToken: getOptional(
