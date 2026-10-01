@@ -9,7 +9,8 @@ const healthRouter = new Hono();
  */
 healthRouter.get('/', async (c) => {
   const diagnostics = await getHealthDiagnostics();
-  return c.json(diagnostics, 200);
+  const statusCode = diagnostics.status === 'healthy' ? 200 : 503;
+  return c.json(diagnostics, statusCode);
 });
 
 export default healthRouter;

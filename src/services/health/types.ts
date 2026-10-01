@@ -21,7 +21,7 @@ export interface MemoryUsageMetrics {
 }
 
 export interface HealthDiagnosticResponse {
-  status: 'ok' | 'degraded' | 'error';
+  status: 'healthy' | 'degraded' | 'error';
   version: string;
   uptimeSeconds: number;
   timestamp: string;

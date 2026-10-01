@@ -171,7 +171,7 @@ export async function checkServerHealth(
       });
       if (res.ok) {
         const body = (await res.json().catch(() => ({}))) as { status?: string };
-        if (body?.status === 'ok') {
+        if (body?.status === 'ok' || body?.status === 'healthy') {
           return true;
         }
       }
