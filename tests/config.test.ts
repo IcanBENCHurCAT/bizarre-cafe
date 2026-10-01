@@ -44,4 +44,18 @@ describe('Config environment variable validation', () => {
     expect(config.algorandIndexerUrl).toBe('https://custom-indexer.algo');
     expect(config.algorandMockVerification).toBe(false);
   });
+
+  it('should throw a fatal error when ALGORAND_MOCK_VERIFICATION is true in production', async () => {
+    vi.doMock('dotenv/config', () => ({}));
+    process.env.JWT_SECRET = 'my-secure-test-jwt-secret';
+    process.env.NODE_ENV = 'production';
+    process.env.ALGORAND_MOCK_VERIFICATION = 'true';
+    process.env.CORS_ALLOWED_ORIGINS = 'https://example.com';
+
+    await expect(async () => {
+      await import('../src/config.ts');
+    }).rejects.toThrow(
+      "FATAL: ALGORAND_MOCK_VERIFICATION is explicitly set to 'true' in a production environment. This is a severe real-money risk as it would allow fake payments."
+    );
+  });
 });
