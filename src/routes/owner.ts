@@ -191,7 +191,11 @@ router.post('/interact', async (c) => {
       );
     }
 
-    const user = c.user || { agentId: c.req.header('x-agent-id') || 'anonymous' };
+    const user = c.user;
+
+    if (!user) {
+      return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
+    }
 
     const _supabase = createSupabaseClient();
     const ownerResponse = generateOwnerResponse(messageContent, 'neutral', user);
