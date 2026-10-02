@@ -17,12 +17,12 @@ describe('Health Diagnostics and Graceful Shutdown', () => {
   });
 
   describe('GET /health endpoint diagnostics', () => {
-    it('should return 200 with full health diagnostic schema and status "ok" when healthy', async () => {
+    it('should return 200 with full health diagnostic schema and status "healthy" when healthy', async () => {
       const res = await app.request('/health');
       expect(res.status).toBe(200);
 
       const data = await res.json();
-      expect(data.status).toBe('ok');
+      expect(data.status).toBe('healthy');
       expect(data.version).toBe('0.1.0');
       expect(typeof data.uptimeSeconds).toBe('number');
       expect(typeof data.timestamp).toBe('string');
@@ -54,7 +54,7 @@ describe('Health Diagnostics and Graceful Shutdown', () => {
       vi.spyOn(db.rooms, 'list').mockRejectedValueOnce(new Error('Connection terminated unexpectedly'));
 
       const res = await app.request('/health');
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(503);
 
       const data = await res.json();
       expect(data.status).toBe('degraded');

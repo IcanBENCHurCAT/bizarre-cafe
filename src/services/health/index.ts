@@ -116,9 +116,11 @@ export async function getHealthDiagnostics(): Promise<HealthDiagnosticResponse> 
 
   const uptimeSeconds = Math.floor(process.uptime());
 
-  // Determine overall status: 'ok' if database is healthy, 'degraded' if database fails
+  // Determine overall status: 'healthy' if database is healthy, 'degraded' if database fails
+  // Only the database is considered a critical subsystem for container liveness.
+  // SSE and cron are non-critical; their failure does not warrant a container restart via a 503 response.
   const isHealthy = databaseHealth.status === 'healthy';
-  const overallStatus: HealthDiagnosticResponse['status'] = isHealthy ? 'ok' : 'degraded';
+  const overallStatus: HealthDiagnosticResponse['status'] = isHealthy ? 'healthy' : 'degraded';
 
   return {
     status: overallStatus,
