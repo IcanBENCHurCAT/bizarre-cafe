@@ -31,7 +31,7 @@ const _joinRoomSchema = z.object({
 // GET /api/lobby/rooms — List public rooms
 router.get('/rooms', async (c) => {
   try {
-    const { data: rooms, pagination } = await db.rooms.list({ limit: 50 });
+    const { data: rooms, pagination } = await db.rooms.list({ limit: 50, visibility: 'public' });
     return c.json({ rooms, pagination });
   } catch (_err) {
     return c.json({ error: { code: 'DB_ERROR', message: 'Failed to fetch rooms' } }, 500);
