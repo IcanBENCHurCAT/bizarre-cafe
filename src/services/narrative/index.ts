@@ -11,6 +11,7 @@
 
 import crypto from 'node:crypto';
 import { config } from '../../config';
+import { generateCompletion } from '../llm/cascade';
 
 export interface NarrativeEvent {
   id: string;
@@ -57,41 +58,25 @@ export async function generateResponse(
   const resolvedTone = tone ?? 'whimsical';
   let content: string;
 
-  const url = `${config.openaiBaseUrl}/chat/completions`;
-  console.warn(
-    `[Narrative AI] Generating response via ${url} (Model: ${config.aiModel}, Tone: ${resolvedTone})`,
-  );
+  const messages = [
+    {
+      role: 'system',
+      content: `You are the owner of the Bizarre Cafe. Maintain a ${resolvedTone} tone.`,
+    },
+    {
+      role: 'user',
+      content: prompt ? `Context: ${context}\n\nPrompt: ${prompt}` : `Context: ${context}`,
+    },
+  ];
 
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${config.openaiApiKey}`,
-      },
-      body: JSON.stringify({
-        model: config.aiModel,
-        messages: [
-          {
-            role: 'system',
-            content: `You are the owner of the Bizarre Cafe. Maintain a ${resolvedTone} tone.`,
-          },
-          {
-            role: 'user',
-            content: prompt ? `Context: ${context}\n\nPrompt: ${prompt}` : `Context: ${context}`,
-          },
-        ],
-      }),
+    content = await generateCompletion(messages, {
+      id: 'fallback',
+      baseUrl: config.openaiBaseUrl,
+      apiKey: config.openaiApiKey,
+      authHeader: `Bearer ${config.openaiApiKey}`,
+      model: config.aiModel,
     });
-
-    if (!res.ok) {
-      console.error(`[Narrative AI] API Error: ${res.status} ${res.statusText}`);
-      throw new Error('API Error');
-    }
-
-    const data = await res.json();
-    content = data.choices?.[0]?.message?.content || `[Error] Empty response from LLM`;
-    console.warn(`[Narrative AI] Response generated successfully.`);
   } catch (err) {
     console.error('[Narrative AI] Fetch failed, using fallback:', err);
     if (prompt) {
