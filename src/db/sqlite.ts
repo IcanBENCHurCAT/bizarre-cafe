@@ -207,10 +207,23 @@ export const sqliteDb: DatabaseAdapter = {
       const db = getDb();
       const limit = params.limit || 20;
       const offset = params.offset || 0;
-      const rows = db
-        .prepare('SELECT * FROM rooms ORDER BY created_at DESC LIMIT ? OFFSET ?')
-        .all(limit, offset);
-      const count: any = db.prepare('SELECT COUNT(*) as c FROM rooms').get();
+      let query = 'SELECT * FROM rooms';
+      let countQuery = 'SELECT COUNT(*) as c FROM rooms';
+      const args: any[] = [];
+      const countArgs: any[] = [];
+
+      if (params.visibility) {
+        query += ' WHERE visibility = ?';
+        countQuery += ' WHERE visibility = ?';
+        args.push(params.visibility);
+        countArgs.push(params.visibility);
+      }
+
+      query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+      args.push(limit, offset);
+
+      const rows = db.prepare(query).all(...args);
+      const count: any = db.prepare(countQuery).get(...countArgs);
       return {
         data: rows as RoomData[],
         pagination: {

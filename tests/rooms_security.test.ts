@@ -115,4 +115,41 @@ describe('Room Security & Access Control Tests', () => {
     expect(body.room).toBeDefined();
     expect(body.room.owner_id).toBe('room-creator-agent');
   });
+
+  it('should exclude private rooms from GET /api/lobby/rooms listing', async () => {
+    // Create a public room
+    const pubRes = await app.request('/api/lobby/rooms', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': 'public-creator',
+      },
+      body: JSON.stringify({ name: 'Public Lounge', isPrivate: false }),
+    });
+    expect(pubRes.status).toBe(201);
+    const pubData = await pubRes.json();
+
+    // Create a private room
+    const privRes = await app.request('/api/lobby/rooms', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': 'private-creator',
+      },
+      body: JSON.stringify({ name: 'Secret Vault', isPrivate: true }),
+    });
+    expect(privRes.status).toBe(201);
+    const privData = await privRes.json();
+
+    // Fetch public rooms
+    const listRes = await app.request('/api/lobby/rooms', {
+      method: 'GET',
+    });
+    expect(listRes.status).toBe(200);
+    const listData = await listRes.json();
+
+    const roomIds = listData.rooms.map((r: any) => r.id);
+    expect(roomIds).toContain(pubData.room.id);
+    expect(roomIds).not.toContain(privData.room.id);
+  });
 });
