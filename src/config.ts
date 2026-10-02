@@ -106,10 +106,15 @@ export const config: Config = {
   ),
   algorandMockVerification: (() => {
     const raw = process.env.ALGORAND_MOCK_VERIFICATION;
+    const env = process.env.NODE_ENV ?? 'development';
+    if (env === 'production' && raw === 'true') {
+      throw new Error(
+        "FATAL: ALGORAND_MOCK_VERIFICATION is explicitly set to 'true' in a production environment. This is a severe real-money risk as it would allow fake payments."
+      );
+    }
     if (raw !== undefined) {
       return raw === 'true';
     }
-    const env = process.env.NODE_ENV ?? 'development';
     return env !== 'production';
   })(),
   x402Config: getOptional('X402_CONFIG', '{}'),
