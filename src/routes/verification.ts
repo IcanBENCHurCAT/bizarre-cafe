@@ -11,7 +11,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import algosdk from 'algosdk';
-import { createSupabaseClient } from '../supabase/client';
+import { createServerSupabaseClient } from '../supabase/client';
 import { config } from '../config';
 import { createToken } from '../middleware/auth';
 import {
@@ -60,7 +60,7 @@ router.post('/challenge', async (c) => {
     const body = await c.req.json();
     const { agentId } = z.object({ agentId: z.string() }).parse(body);
 
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
 
     // Revoke any existing active challenge for this agent
     await supabase.from('verification_challenges')
@@ -158,7 +158,7 @@ router.post('/verify', async (c) => {
     // Allow verification even without full auth (initial step)
     const agentId = validated.agentId;
 
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
 
     // Get active challenge
     let challenge: any = null;
@@ -290,7 +290,7 @@ router.get('/status', async (c) => {
     const query = c.req.query();
     const { agentId } = statusQuerySchema.parse(query);
 
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
 
     // Get verification record
     const { data: verification, error: verError } = await supabase.from('agent_verification')
@@ -369,7 +369,7 @@ router.post('/revoke', async (c) => {
       );
     }
 
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
     const now = new Date().toISOString();
 
     // Check if agent has verification in Supabase
@@ -468,7 +468,7 @@ router.get('/log', async (c) => {
       );
     }
 
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
 
     const { data, error } = await supabase
       .from('verification_challenges')
@@ -523,7 +523,7 @@ router.post('/upgrade', async (c) => {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
     }
 
-    const supabase = createSupabaseClient();
+    const supabase = createServerSupabaseClient();
 
     // Get current verification
     const { data: verification, error: verError } = await supabase.from('agent_verification')

@@ -13,11 +13,23 @@ import type { Database } from './types/database.types';
 import { config } from '../config';
 
 /**
- * Factory to create a Supabase client instance.
- * Returns the anon client (RLS enforced) by default.
+ * Factory to create a Supabase client instance with the anon key.
+ * This client is subject to Row Level Security (RLS) policies.
+ * Use this only for client-side/edge operations where RLS enforcement is desired.
  */
 export function createSupabaseClient(): SupabaseClient<Database> {
   return supabase;
+}
+
+/**
+ * Factory to create a Supabase client instance with the service role key.
+ * This client BYPASSES Row Level Security (RLS) policies.
+ * It is REQUIRED for all server-side data access in this application,
+ * since the server authenticates requests via JWT/DID (auth middleware)
+ * but does not establish an authenticated session in Supabase Auth.
+ */
+export function createServerSupabaseClient(): SupabaseClient<Database> {
+  return supabaseAdmin;
 }
 
 // ─── Anon Client ──────────────────────────────────────────────────────

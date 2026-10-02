@@ -17,7 +17,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import { config } from '../config';
-import { createSupabaseClient } from '../supabase/client';
+import { createServerSupabaseClient } from '../supabase/client';
 import type { Database } from '../supabase/types/database.types';
 import {
   createSqliteSkillOffer,
@@ -171,7 +171,7 @@ router.post('/offer', async (c) => {
     let dbData: any = null;
     if (!config.useLocalDb) {
       try {
-        const supabase = createSupabaseClient();
+        const supabase = createServerSupabaseClient();
         const { data } = await supabase.from('skill_offers')
           .insert({
             user_id: user.agentId,
@@ -261,7 +261,7 @@ router.post('/request', async (c) => {
     let dbData: any = null;
     if (!config.useLocalDb) {
       try {
-        const supabase = createSupabaseClient();
+        const supabase = createServerSupabaseClient();
         const { data } = await supabase.from('skill_requests')
           .insert({
             user_id: user.agentId,
@@ -336,7 +336,7 @@ router.get('/offers', async (c) => {
     // 1. Query Supabase if available and not using local db
     if (!config.useLocalDb) {
       try {
-        const supabase = createSupabaseClient();
+        const supabase = createServerSupabaseClient();
         let queryBuilder = supabase.from('skill_offers')
           .select('*')
           .eq('status', 'available')
@@ -460,7 +460,7 @@ router.get('/requests', async (c) => {
     // 1. Query Supabase if not using local db
     if (!config.useLocalDb) {
       try {
-        const supabase = createSupabaseClient();
+        const supabase = createServerSupabaseClient();
         let queryBuilder = supabase.from('skill_requests')
           .select('*')
           .eq('status', 'open')
@@ -566,7 +566,7 @@ router.post('/offers/:id/accept', async (c) => {
     }
     if (!offer && !config.useLocalDb) {
       try {
-        const supabase = createSupabaseClient();
+        const supabase = createServerSupabaseClient();
         const { data: dbOffer } = await supabase.from('skill_offers').select('*').eq('id', id).single();
         if (dbOffer) {
           const row = dbOffer as any;
@@ -720,7 +720,7 @@ router.post('/offers/:id/accept', async (c) => {
 
         // Supabase sync (optional) with compensating error handling
         if (!config.useLocalDb) {
-          const supabase = createSupabaseClient();
+          const supabase = createServerSupabaseClient();
           await syncOfferAndTradeToSupabase(
             supabase,
             offer.id,
@@ -760,7 +760,7 @@ router.post('/offers/:id/accept', async (c) => {
         }
         if (!config.useLocalDb) {
           try {
-            const supabase = createSupabaseClient();
+            const supabase = createServerSupabaseClient();
             await supabase.from('skill_offers').update({ status: 'available', updated_at: offer.updatedAt }).eq('id', offer.id);
           } catch {
             /* ignore */
@@ -820,7 +820,7 @@ router.post('/offers/:id/accept', async (c) => {
 
         // Supabase sync (optional) with compensating error handling
         if (!config.useLocalDb) {
-          const supabase = createSupabaseClient();
+          const supabase = createServerSupabaseClient();
           await syncOfferAndTradeToSupabase(
             supabase,
             offer.id,
@@ -853,7 +853,7 @@ router.post('/offers/:id/accept', async (c) => {
         }
         if (!config.useLocalDb) {
           try {
-            const supabase = createSupabaseClient();
+            const supabase = createServerSupabaseClient();
             await supabase.from('skill_offers').update({ status: 'available', updated_at: offer.updatedAt }).eq('id', offer.id);
           } catch {
             /* ignore */
@@ -897,7 +897,7 @@ router.get('/trades', async (c) => {
     // 1. Query Supabase if not local db
     if (!config.useLocalDb) {
       try {
-        const supabase = createSupabaseClient();
+        const supabase = createServerSupabaseClient();
         // SECURITY FIX: Sanitize and quote agentId to prevent PostgREST filter string injection
         const sanitizedAgentId = user.agentId.replace(/["\\,()]/g, '');
         const { data } = await supabase.from('trades')
@@ -995,7 +995,7 @@ router.get('/trades/:id', async (c) => {
     // 3. Check Supabase
     if (!trade && !config.useLocalDb) {
       try {
-        const supabase = createSupabaseClient();
+        const supabase = createServerSupabaseClient();
         const { data: dbTrade } = await supabase.from('trades').select('*').eq('id', id).single();
         if (dbTrade) {
           trade = {
@@ -1064,7 +1064,7 @@ router.post('/trades/:id/complete', async (c) => {
     }
     if (!trade && !config.useLocalDb) {
       try {
-        const supabase = createSupabaseClient();
+        const supabase = createServerSupabaseClient();
         const { data: dbTrade } = await supabase.from('trades').select('*').eq('id', id).single();
         if (dbTrade) {
           trade = {
@@ -1151,7 +1151,7 @@ router.post('/trades/:id/complete', async (c) => {
     // Update Supabase
     if (!config.useLocalDb) {
       try {
-        const supabase = createSupabaseClient();
+        const supabase = createServerSupabaseClient();
         const promises: PromiseLike<any>[] = [
           supabase.from('trades').update({
             status: 'completed',
@@ -1223,7 +1223,7 @@ router.post('/trades/:id/cancel', async (c) => {
     }
     if (!trade && !config.useLocalDb) {
       try {
-        const supabase = createSupabaseClient();
+        const supabase = createServerSupabaseClient();
         const { data: dbTrade } = await supabase.from('trades').select('*').eq('id', id).single();
         if (dbTrade) {
           trade = {
@@ -1304,7 +1304,7 @@ router.post('/trades/:id/cancel', async (c) => {
     // Update Supabase
     if (!config.useLocalDb) {
       try {
-        const supabase = createSupabaseClient();
+        const supabase = createServerSupabaseClient();
         const promises: PromiseLike<any>[] = [
           supabase.from('trades').update({
             status: 'cancelled',
