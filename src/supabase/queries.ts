@@ -184,11 +184,13 @@ export const rooms = {
     query: string,
     { offset = 0, limit = 20 }: { offset?: number; limit?: number } = {},
   ) {
+    // SECURITY FIX: Sanitize and quote query input to prevent PostgREST filter string injection
+    const sanitizedQuery = query.replace(/["\\,()]/g, '');
     const { data, error } = await supabase
       .from('rooms')
       .select('*')
       .is('deleted_at', null)
-      .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
+      .or(`name.ilike."%${sanitizedQuery}%",description.ilike."%${sanitizedQuery}%"`)
       .order('member_count', { ascending: false })
       .range(offset, offset + limit - 1);
 

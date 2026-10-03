@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import app from '../src/index';
 import { clearAllClients, getRoomAgents } from '../src/sse/index';
 
@@ -151,5 +151,32 @@ describe('Room Security & Access Control Tests', () => {
     const roomIds = listData.rooms.map((r: any) => r.id);
     expect(roomIds).toContain(pubData.room.id);
     expect(roomIds).not.toContain(privData.room.id);
+  });
+
+  it('should safely handle PostgREST injection characters in rooms.search', async () => {
+    const { supabase } = await import('../src/supabase/client');
+    const { rooms } = await import('../src/supabase/queries');
+
+    let capturedOrFilter = '';
+    const mockFrom = {
+      select: () => mockFrom,
+      is: () => mockFrom,
+      or: (filterString: string) => {
+        capturedOrFilter = filterString;
+        return mockFrom;
+      },
+      order: () => mockFrom,
+      range: () => Promise.resolve({ data: [], error: null }),
+    };
+
+    const spy = vi.spyOn(supabase, 'from').mockReturnValue(mockFrom as any);
+
+    const injectionQuery = 'test",status.eq.private';
+    await rooms.search(injectionQuery);
+
+    expect(capturedOrFilter).toBe('name.ilike."%teststatus.eq.private%",description.ilike."%teststatus.eq.private%"');
+    expect(capturedOrFilter).not.toContain('",status.eq.private');
+
+    spy.mockRestore();
   });
 });
