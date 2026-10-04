@@ -28,6 +28,17 @@ router.get('/:roomId', async (c) => {
 
   if (!room) return c.json({ error: 'Room not found' }, 404);
 
+  // SECURITY FIX: Enforce authorization for private rooms (IDOR protection)
+  if (room.visibility === 'private') {
+    const user = c.user;
+    if (!user) {
+      return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
+    }
+    if (room.owner_id && room.owner_id !== user.agentId) {
+      return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);
+    }
+  }
+
   return c.json(room);
 });
 
