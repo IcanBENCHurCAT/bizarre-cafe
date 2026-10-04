@@ -153,6 +153,52 @@ describe('Room Security & Access Control Tests', () => {
     expect(roomIds).not.toContain(privData.room.id);
   });
 
+  it('should enforce IDOR protection on private room details in GET /api/rooms/:roomId', async () => {
+    // 1. Create a private room owned by 'owner-agent'
+    const createRes = await app.request('/api/lobby/rooms', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': 'owner-agent',
+      },
+      body: JSON.stringify({ name: 'Secret Lounge', isPrivate: true }),
+    });
+    expect(createRes.status).toBe(201);
+    const { room } = await createRes.json();
+
+    // 2. Unauthenticated request should fail with 401 Unauthorized
+    const unauthRes = await app.request(`/api/rooms/${room.id}`, {
+      method: 'GET',
+    });
+    expect(unauthRes.status).toBe(401);
+    const unauthBody = await unauthRes.json();
+    expect(unauthBody.error.code).toBe('UNAUTHORIZED');
+
+    // 3. Non-owner authenticated request should fail with 403 Forbidden
+    const forbiddenRes = await app.request(`/api/rooms/${room.id}`, {
+      method: 'GET',
+      headers: {
+        'X-Agent-ID': 'unauthorized-agent',
+      },
+    });
+    expect(forbiddenRes.status).toBe(403);
+    const forbiddenBody = await forbiddenRes.json();
+    expect(forbiddenBody.error.code).toBe('FORBIDDEN');
+
+    // 4. Owner authenticated request should succeed with 200 OK
+    const ownerRes = await app.request(`/api/rooms/${room.id}`, {
+      method: 'GET',
+      headers: {
+        'X-Agent-ID': 'owner-agent',
+      },
+    });
+    expect(ownerRes.status).toBe(200);
+    const ownerData = await ownerRes.json();
+    expect(ownerData.id).toBe(room.id);
+    expect(ownerData.visibility).toBe('private');
+    expect(ownerData.owner_id).toBe('owner-agent');
+  });
+
   it('should safely handle PostgREST injection characters in rooms.search', async () => {
     const { supabase } = await import('../src/supabase/client');
     const { rooms } = await import('../src/supabase/queries');
