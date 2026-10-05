@@ -39,6 +39,22 @@ const historyQuerySchema = z.object({
 });
 
 /**
+ * SECURITY FIX: Enforce authorization for private rooms (IDOR protection).
+ */
+async function verifyRoomAccess(roomId: string, user?: { agentId: string } | null) {
+  const room = await db.rooms.get(roomId);
+  if (room && room.visibility === 'private') {
+    if (!user) {
+      return { allowed: false, status: 401 as const, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } };
+    }
+    if (room.owner_id && room.owner_id !== user.agentId) {
+      return { allowed: false, status: 403 as const, error: { code: 'FORBIDDEN', message: 'Access denied' } };
+    }
+  }
+  return { allowed: true, status: 200 as const, error: null };
+}
+
+/**
  * POST /messages — Send a chat message to a room
  *
  * Accepts text, system, or rich message types. System messages can
@@ -53,6 +69,11 @@ router.post('/messages', async (c) => {
 
     if (!user) {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
+    }
+
+    const roomCheck = await verifyRoomAccess(validated.roomId, user);
+    if (!roomCheck.allowed) {
+      return c.json({ error: roomCheck.error }, roomCheck.status);
     }
 
     // Insert message into DB
@@ -107,6 +128,11 @@ router.get('/messages', async (c) => {
     const validated = messagesQuerySchema.parse(query);
     const limit = validated.limit ?? 50;
 
+    const roomCheck = await verifyRoomAccess(validated.roomId, c.user);
+    if (!roomCheck.allowed) {
+      return c.json({ error: roomCheck.error }, roomCheck.status);
+    }
+
     const data = await db.chat.getMessages(validated.roomId, {
       limit,
       after: validated.before ? new Date(validated.before).toISOString() : undefined,
@@ -140,6 +166,11 @@ router.get('/history', async (c) => {
     const query = c.req.query();
     const validated = historyQuerySchema.parse(query);
     const limit = validated.limit ?? 100;
+
+    const roomCheck = await verifyRoomAccess(validated.roomId, c.user);
+    if (!roomCheck.allowed) {
+      return c.json({ error: roomCheck.error }, roomCheck.status);
+    }
 
     const data = await db.chat.getMessages(validated.roomId, {
       limit,
@@ -177,6 +208,11 @@ router.get('/presence', async (c) => {
     const query = c.req.query();
     const { roomId } = z.object({ roomId: z.string().min(1) }).parse(query);
 
+    const roomCheck = await verifyRoomAccess(roomId, c.user);
+    if (!roomCheck.allowed) {
+      return c.json({ error: roomCheck.error }, roomCheck.status);
+    }
+
     return c.json({
       roomId,
       presence: getRoomPresence(roomId),
@@ -203,6 +239,11 @@ router.get('/unread', async (c) => {
 
     if (!user) {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
+    }
+
+    const roomCheck = await verifyRoomAccess(roomId, user);
+    if (!roomCheck.allowed) {
+      return c.json({ error: roomCheck.error }, roomCheck.status);
     }
 
     const count = await db.chat.getUnreadCount(roomId, user.agentId);
