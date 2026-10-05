@@ -7,3 +7,8 @@
 **Vulnerability:** In `GET /api/events/past`, user agent ID was string-interpolated into a Supabase PostgREST `.or()` query (`host_agent_id.eq.${user.agentId}...`) without quoting or sanitization, allowing PostgREST filter injection via special characters. Additionally, route registration placed `GET /:id` above static routes like `GET /past`, causing path requests to `/past` to be caught by `/:id` and fail with UUID validation error.
 **Learning:** String interpolation into Supabase/PostgREST filter strings must always sanitize and double-quote variables (`host_id.eq."${sanitized}"`). Furthermore, in Hono route modules, static routes (`/past`) must always be declared before wildcard routes (`/:id`).
 **Prevention:** Sanitize query variables before embedding in PostgREST expressions and strictly order static endpoints before parameterized path wildcards.
+
+## 2026-09-28 - IDOR in Chat Endpoints for Private Rooms
+**Vulnerability:** Chat endpoints (`POST /messages`, `GET /messages`, `GET /history`, `GET /presence`, `GET /unread`) allowed agents to send messages or read message history/presence in private rooms without verifying if the room was private or if the caller was authorized (`room.owner_id === user.agentId`).
+**Learning:** Any endpoint accepting a `roomId` parameter must inspect the room metadata (`db.rooms.get(roomId)`) to ensure private room access control rules are enforced before fetching or broadcasting messages.
+**Prevention:** Always check room visibility and owner authorization (`room.visibility === 'private'` and `room.owner_id === user.agentId`) across all chat and SSE endpoints.
