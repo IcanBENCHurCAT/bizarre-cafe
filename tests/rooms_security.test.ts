@@ -199,6 +199,70 @@ describe('Room Security & Access Control Tests', () => {
     expect(ownerData.owner_id).toBe('owner-agent');
   });
 
+  it('should enforce private room authorization in POST /api/rooms/:roomId/join and GET /api/rooms/:roomId/agents', async () => {
+    // 1. Create a private room owned by 'owner-agent'
+    const createRes = await app.request('/api/lobby/rooms', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': 'owner-agent',
+      },
+      body: JSON.stringify({ name: 'VIP Chamber', isPrivate: true }),
+    });
+    expect(createRes.status).toBe(201);
+    const { room } = await createRes.json();
+
+    // 2. Test POST /api/rooms/:roomId/join authorization
+    // Unauthenticated request -> 401
+    const unauthJoin = await app.request(`/api/rooms/${room.id}/join`, {
+      method: 'POST',
+    });
+    expect(unauthJoin.status).toBe(401);
+
+    // Non-owner authenticated request -> 403
+    const forbiddenJoin = await app.request(`/api/rooms/${room.id}/join`, {
+      method: 'POST',
+      headers: {
+        'X-Agent-ID': 'unauthorized-agent',
+      },
+    });
+    expect(forbiddenJoin.status).toBe(403);
+
+    // Owner authenticated request -> 200
+    const ownerJoin = await app.request(`/api/rooms/${room.id}/join`, {
+      method: 'POST',
+      headers: {
+        'X-Agent-ID': 'owner-agent',
+      },
+    });
+    expect(ownerJoin.status).toBe(200);
+
+    // 3. Test GET /api/rooms/:roomId/agents authorization
+    // Unauthenticated request -> 401
+    const unauthAgents = await app.request(`/api/rooms/${room.id}/agents`, {
+      method: 'GET',
+    });
+    expect(unauthAgents.status).toBe(401);
+
+    // Non-owner authenticated request -> 403
+    const forbiddenAgents = await app.request(`/api/rooms/${room.id}/agents`, {
+      method: 'GET',
+      headers: {
+        'X-Agent-ID': 'unauthorized-agent',
+      },
+    });
+    expect(forbiddenAgents.status).toBe(403);
+
+    // Owner authenticated request -> 200
+    const ownerAgents = await app.request(`/api/rooms/${room.id}/agents`, {
+      method: 'GET',
+      headers: {
+        'X-Agent-ID': 'owner-agent',
+      },
+    });
+    expect(ownerAgents.status).toBe(200);
+  });
+
   it('should safely handle PostgREST injection characters in rooms.search', async () => {
     const { supabase } = await import('../src/supabase/client');
     const { rooms } = await import('../src/supabase/queries');
