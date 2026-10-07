@@ -17,7 +17,7 @@ import { createServerSupabaseClient } from '../supabase/client';
 import { requireX402Payment } from '../middleware/auth';
 import { broadcastToRoom } from '../sse';
 import { generateResponse, trackEvent } from '../services/narrative/index';
-import type { OwnerMessage as _OwnerMessage, OwnerMood, NarrativeEvent as _NarrativeEvent, LoreEntry, ApiError as _ApiError } from '../types/cafe';
+import type { OwnerMood, LoreEntry } from '../types/cafe';
 
 const router = new Hono();
 
