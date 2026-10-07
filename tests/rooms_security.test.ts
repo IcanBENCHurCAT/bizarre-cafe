@@ -79,6 +79,10 @@ describe('Room Security & Access Control Tests', () => {
     });
 
     expect(res.status).toBe(200);
+    const body = await res.json();
+
+    // Response should be for attacker-agent, NOT target-agent
+    expect(body.agentId).toBe('attacker-agent');
 
     // target-agent should still be in room-secure
     expect(getRoomAgents('room-secure')).toContain('target-agent');

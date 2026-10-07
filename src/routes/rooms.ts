@@ -82,7 +82,7 @@ router.post('/:roomId/leave', async (c) => {
   await db.agents.updateStatus(agentId, { current_room_id: null });
   updateClientRoom(agentId, null);
 
-  return c.json({ message: 'Left room', roomId });
+  return c.json({ message: 'Left room', roomId, agentId });
 });
 
 // GET /api/rooms/:roomId/agents — List room participants
