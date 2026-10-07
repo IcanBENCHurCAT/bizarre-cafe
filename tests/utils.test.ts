@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { generateId, withRetry, withRetrySync, generateNonce, validateReceipt, parseX402Header, formatMessageList, FormattedMessage } from '../src/utils/index.js';
+import { generateId, withRetry, withRetrySync, generateNonce, validateReceipt, parseX402Header, formatMessageList, sleep, FormattedMessage } from '../src/utils/index.js';
 
 // ============================================================
 // generateId tests (from PR #13)
@@ -87,6 +87,58 @@ describe('generateId', () => {
       }
       expect(ids.size).toBe(count);
     });
+  });
+});
+
+// ============================================================
+// sleep tests
+// ============================================================
+describe('sleep', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('should resolve after the specified delay in milliseconds', async () => {
+    let resolved = false;
+    const promise = sleep(1000).then(() => {
+      resolved = true;
+    });
+
+    expect(resolved).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(999);
+    expect(resolved).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await promise;
+    expect(resolved).toBe(true);
+  });
+
+  it('should resolve immediately for 0 ms delay', async () => {
+    let resolved = false;
+    const promise = sleep(0).then(() => {
+      resolved = true;
+    });
+
+    await vi.advanceTimersByTimeAsync(0);
+    await promise;
+    expect(resolved).toBe(true);
+  });
+
+  it('should handle negative delays gracefully (resolving immediately)', async () => {
+    let resolved = false;
+    const promise = sleep(-100).then(() => {
+      resolved = true;
+    });
+
+    await vi.advanceTimersByTimeAsync(0);
+    await promise;
+    expect(resolved).toBe(true);
   });
 });
 
