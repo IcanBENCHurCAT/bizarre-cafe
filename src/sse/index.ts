@@ -1,6 +1,7 @@
 import { Context } from 'hono';
 import { streamSSE, SSEStreamingApi } from 'hono/streaming';
 import { config } from '../config';
+import { db } from '../db';
 
 export interface SseClient {
   id: string;
@@ -227,6 +228,19 @@ export const sseHandler = async (c: Context) => {
   const headerRoomId = c.req.header('x-room-id') ?? c.req.header('X-Room-ID');
   const rawRoomId = queryRoomId || headerRoomId;
   const roomId = rawRoomId && rawRoomId !== 'global' ? rawRoomId : null;
+
+  // SECURITY FIX: Enforce authorization for private rooms (IDOR protection)
+  if (roomId) {
+    const room = await db.rooms.get(roomId);
+    if (room && room.visibility === 'private') {
+      if (!agentId || agentId === 'anonymous') {
+        return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
+      }
+      if (room.owner_id && room.owner_id !== agentId) {
+        return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);
+      }
+    }
+  }
 
   const clientId = generateId();
 
