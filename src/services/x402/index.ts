@@ -282,14 +282,6 @@ export const settlePayment = (paymentId: string): SettlementResult => {
     };
   }
 
-  // In production, execute the Algorand transaction here:
-  // const tx = await algorandClient.sendPayment({
-  //   from: payment.payerWallet,
-  //   to: payment.receiverWallet,
-  //   amount: payment.total,
-  // });
-  // payment.txId = tx.transactionID;
-
   // Simulation: mark as settled
   payment.status = 'verified'; // Already verified, but mark settled conceptually
 
