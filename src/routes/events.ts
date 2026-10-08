@@ -448,36 +448,42 @@ router.post('/:id/leave', async (c) => {
     const supabase = createServerSupabaseClient();
     const now = new Date().toISOString();
 
-    // Check if user is joined
-    const { data: attendance, error: attError } = await supabase.from('event_attendance')
-      .select('*')
-      .eq('event_id', id)
-      .eq('user_id', user.agentId)
-      .single();
-
-    if (attError || !attendance) {
-      return c.json(
-        { error: { code: 'NOT_FOUND', message: 'You are not attending this event' } },
-        404,
-      );
-    }
-
-    if (attendance.status === 'left' || attendance.status === 'no-show') {
-      return c.json(
-        { error: { code: 'BAD_REQUEST', message: 'You have already left this event' } },
-        400,
-      );
-    }
-
-    // Update attendance status
-    const { error: updateError } = await supabase.from('event_attendance')
+    // ⚡ Bolt Optimization: Replace select-then-update with a single atomic update
+    // Reduces latency by halving database round-trips and fixes concurrency race conditions
+    const { data: updatedAttendance, error: updateError } = await supabase.from('event_attendance')
       .update({
         status: 'left',
         updated_at: now,
       })
-      .eq('id', attendance.id);
+      .eq('event_id', id)
+      .eq('user_id', user.agentId)
+      .neq('status', 'left')
+      .neq('status', 'no-show')
+      .select()
+      .single();
 
-    if (updateError) {
+    if (updateError || !updatedAttendance) {
+      // If update failed, check if it's because the record doesn't exist or is already left
+      const { data: existing } = await supabase.from('event_attendance')
+        .select('status')
+        .eq('event_id', id)
+        .eq('user_id', user.agentId)
+        .single();
+
+      if (!existing) {
+        return c.json(
+          { error: { code: 'NOT_FOUND', message: 'You are not attending this event' } },
+          404,
+        );
+      }
+
+      if (existing.status === 'left' || existing.status === 'no-show') {
+        return c.json(
+          { error: { code: 'BAD_REQUEST', message: 'You have already left this event' } },
+          400,
+        );
+      }
+
       console.error('Supabase update error:', updateError);
       return c.json({ error: { code: 'DATABASE_ERROR', message: 'Failed to leave event' } }, 500);
     }
