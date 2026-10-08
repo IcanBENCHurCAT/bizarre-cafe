@@ -753,19 +753,24 @@ router.post('/offers/:id/accept', async (c) => {
         offer.status = 'available';
         offer.updatedAt = new Date().toISOString();
         memOffers.set(offer.id, offer);
-        try {
-          await sqliteDb.updateSqliteSkillOfferStatus(offer.id, 'available');
-        } catch (revertErr) {
-          console.warn('[skill-swap] Failed to revert SQLite offer status:', revertErr);
-        }
+        // ⚡ Bolt Optimization: Parallelize compensation updates
+        const compensationPromises = [];
+        compensationPromises.push(
+          sqliteDb.updateSqliteSkillOfferStatus(offer.id, 'available').catch((revertErr) => {
+            console.warn('[skill-swap] Failed to revert SQLite offer status:', revertErr);
+          })
+        );
         if (!config.useLocalDb) {
           try {
             const supabase = createServerSupabaseClient();
-            await supabase.from('skill_offers').update({ status: 'available', updated_at: offer.updatedAt }).eq('id', offer.id);
+            compensationPromises.push(
+              Promise.resolve(supabase.from('skill_offers').update({ status: 'available', updated_at: offer.updatedAt }).eq('id', offer.id)).catch(() => {})
+            );
           } catch {
             /* ignore */
           }
         }
+        await Promise.allSettled(compensationPromises);
 
         return c.json(
           {
@@ -846,19 +851,24 @@ router.post('/offers/:id/accept', async (c) => {
         offer.status = 'available';
         offer.updatedAt = new Date().toISOString();
         memOffers.set(offer.id, offer);
-        try {
-          await sqliteDb.updateSqliteSkillOfferStatus(offer.id, 'available');
-        } catch (revertErr) {
-          console.warn('[skill-swap] Failed to revert SQLite offer status:', revertErr);
-        }
+        // ⚡ Bolt Optimization: Parallelize compensation updates
+        const compensationPromises = [];
+        compensationPromises.push(
+          sqliteDb.updateSqliteSkillOfferStatus(offer.id, 'available').catch((revertErr) => {
+            console.warn('[skill-swap] Failed to revert SQLite offer status:', revertErr);
+          })
+        );
         if (!config.useLocalDb) {
           try {
             const supabase = createServerSupabaseClient();
-            await supabase.from('skill_offers').update({ status: 'available', updated_at: offer.updatedAt }).eq('id', offer.id);
+            compensationPromises.push(
+              Promise.resolve(supabase.from('skill_offers').update({ status: 'available', updated_at: offer.updatedAt }).eq('id', offer.id)).catch(() => {})
+            );
           } catch {
             /* ignore */
           }
         }
+        await Promise.allSettled(compensationPromises);
 
         return c.json(
           {
@@ -1134,54 +1144,55 @@ router.post('/trades/:id/complete', async (c) => {
     trade.updatedAt = now;
     memTrades.set(trade.id, trade);
 
-    // Update SQLite
-    try {
-      await updateSqliteTrade(id, {
+    const offerId = trade.offerId ?? trade.offer_id;
+
+    if (offerId && memOffers.has(offerId)) {
+      memOffers.get(offerId).status = 'completed';
+      memOffers.get(offerId).updatedAt = now;
+    }
+
+    // ⚡ Bolt Optimization: Parallelize SQLite and Supabase updates
+    const updatePromises = [];
+
+    // SQLite promises
+    updatePromises.push(
+      updateSqliteTrade(id, {
         status: 'completed',
         payment_status: trade.paymentStatus || 'settled',
         notes: trade.notes,
         updated_at: now,
-      });
-    } catch (err) {
-      console.warn('[skill-swap] SQLite trade update warning:', err);
+      }).catch(err => console.warn('[skill-swap] SQLite trade update warning:', err))
+    );
+
+    if (offerId) {
+      updatePromises.push(
+        updateSqliteSkillOfferStatus(offerId, 'completed').catch(() => {})
+      );
     }
 
-    const offerId = trade.offerId ?? trade.offer_id;
-
-    // Update Supabase
+    // Supabase promises
     if (!config.useLocalDb) {
       try {
         const supabase = createServerSupabaseClient();
-        const promises: PromiseLike<any>[] = [
-          supabase.from('trades').update({
+        updatePromises.push(
+          Promise.resolve(supabase.from('trades').update({
             status: 'completed',
             notes: trade.notes,
             updated_at: now,
-          }).eq('id', id)
-        ];
+          }).eq('id', id)).catch(() => {})
+        );
+
         if (offerId) {
-          promises.push(
-            supabase.from('skill_offers').update({ status: 'completed', updated_at: now }).eq('id', offerId)
+          updatePromises.push(
+            Promise.resolve(supabase.from('skill_offers').update({ status: 'completed', updated_at: now }).eq('id', offerId)).catch(() => {})
           );
         }
-        await Promise.all(promises);
       } catch {
         /* ignore */
       }
     }
 
-    // Update related offer status in memory & SQLite
-    if (offerId) {
-      if (memOffers.has(offerId)) {
-        memOffers.get(offerId).status = 'completed';
-        memOffers.get(offerId).updatedAt = now;
-      }
-      try {
-        await updateSqliteSkillOfferStatus(offerId, 'completed');
-      } catch {
-        /* ignore */
-      }
-    }
+    await Promise.allSettled(updatePromises);
 
     return c.json({
       message: 'Trade completed successfully',
@@ -1287,54 +1298,55 @@ router.post('/trades/:id/cancel', async (c) => {
     trade.updatedAt = now;
     memTrades.set(trade.id, trade);
 
-    // Update SQLite
-    try {
-      await updateSqliteTrade(id, {
+    const offerId = trade.offerId ?? trade.offer_id;
+
+    if (offerId && memOffers.has(offerId)) {
+      memOffers.get(offerId).status = 'available';
+      memOffers.get(offerId).updatedAt = now;
+    }
+
+    // ⚡ Bolt Optimization: Parallelize SQLite and Supabase updates
+    const updatePromises = [];
+
+    // SQLite promises
+    updatePromises.push(
+      updateSqliteTrade(id, {
         status: 'cancelled',
         payment_status: trade.paymentStatus || 'refunded',
         notes: trade.notes,
         updated_at: now,
-      });
-    } catch (err) {
-      console.warn('[skill-swap] SQLite trade update warning:', err);
+      }).catch(err => console.warn('[skill-swap] SQLite trade update warning:', err))
+    );
+
+    if (offerId) {
+      updatePromises.push(
+        updateSqliteSkillOfferStatus(offerId, 'available').catch(() => {})
+      );
     }
 
-    const offerId = trade.offerId ?? trade.offer_id;
-
-    // Update Supabase
+    // Supabase promises
     if (!config.useLocalDb) {
       try {
         const supabase = createServerSupabaseClient();
-        const promises: PromiseLike<any>[] = [
-          supabase.from('trades').update({
+        updatePromises.push(
+          Promise.resolve(supabase.from('trades').update({
             status: 'cancelled',
             notes: trade.notes,
             updated_at: now,
-          }).eq('id', id)
-        ];
+          }).eq('id', id)).catch(() => {})
+        );
+
         if (offerId) {
-          promises.push(
-            supabase.from('skill_offers').update({ status: 'available', updated_at: now }).eq('id', offerId)
+          updatePromises.push(
+            Promise.resolve(supabase.from('skill_offers').update({ status: 'available', updated_at: now }).eq('id', offerId)).catch(() => {})
           );
         }
-        await Promise.all(promises);
       } catch {
         /* ignore */
       }
     }
 
-    // Restore offer status to available in memory & SQLite
-    if (offerId) {
-      if (memOffers.has(offerId)) {
-        memOffers.get(offerId).status = 'available';
-        memOffers.get(offerId).updatedAt = now;
-      }
-      try {
-        await updateSqliteSkillOfferStatus(offerId, 'available');
-      } catch {
-        /* ignore */
-      }
-    }
+    await Promise.allSettled(updatePromises);
 
     return c.json({ message: 'Trade cancelled', tradeId: id, status: 'cancelled' });
   } catch (err) {
