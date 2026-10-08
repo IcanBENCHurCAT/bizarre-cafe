@@ -140,17 +140,16 @@ router.post('/message', async (c) => {
       roomId: validated.roomId ?? null,
     });
 
-    // Save owner's response and update mood concurrently to reduce latency
-    await Promise.all([
-      supabase.from('owner_messages').insert({
-        agent_id: user.agentId,
-        content: ownerResponse,
-        sentiment: 'neutral', // Owner responses are neutral by default
-        is_owner_response: true,
-        created_at: new Date().toISOString(),
-      }),
-      updateOwnerMood(supabase, sentiment, user.agentId)
-    ]);
+    // ⚡ Bolt Optimization: Run dependent mutations sequentially to avoid race condition
+    // where updateOwnerMood implicitly queries the owner_messages count concurrently with this insert.
+    await supabase.from('owner_messages').insert({
+      agent_id: user.agentId,
+      content: ownerResponse,
+      sentiment: 'neutral', // Owner responses are neutral by default
+      is_owner_response: true,
+      created_at: new Date().toISOString(),
+    });
+    await updateOwnerMood(supabase, sentiment, user.agentId);
 
     // Broadcast Owner's reply to the room SSE
     broadcastToRoom({
