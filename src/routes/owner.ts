@@ -13,6 +13,7 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { db } from '../db';
 import { createServerSupabaseClient } from '../supabase/client';
 import { requireX402Payment } from '../middleware/auth';
 import { broadcastToRoom } from '../sse';
@@ -69,6 +70,13 @@ router.post('/message', async (c) => {
 
     if (!user) {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
+    }
+
+    if (validated.roomId) {
+      const room = await db.rooms.get(validated.roomId);
+      if (room && room.visibility === 'private' && room.owner_id && room.owner_id !== user.agentId) {
+        return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);
+      }
     }
 
     const supabase = createServerSupabaseClient();
@@ -195,6 +203,13 @@ router.post('/interact', async (c) => {
 
     if (!user) {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
+    }
+
+    if (validated.roomId) {
+      const room = await db.rooms.get(validated.roomId);
+      if (room && room.visibility === 'private' && room.owner_id && room.owner_id !== user.agentId) {
+        return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);
+      }
     }
 
     const _supabase = createServerSupabaseClient();
