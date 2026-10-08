@@ -31,3 +31,7 @@
 ## 2024-11-20 - [O(N log N) Date Parsing in Sort Callbacks]
 **Learning:** Sorting arrays of objects by an ISO 8601 date string by parsing `new Date()` inside the `.sort()` callback creates an enormous performance bottleneck because `new Date()` is expensive and is called $O(N \log N)$ times during the sort.
 **Action:** Since ISO 8601 strings are lexicographically sortable, always use direct string comparison (e.g., `(a.date < b.date ? 1 : a.date > b.date ? -1 : 0)`) when sorting standard date strings descending, avoiding Date parsing entirely.
+
+## 2024-11-20 - [Optimize Sequential Database Queries with Atomic Updates]
+**Learning:** Found sequential select-then-update patterns (e.g., checking if a user is attending an event before updating their status to 'left') which require two database round trips and create race conditions.
+**Action:** Replace `select()` + conditional `update()` patterns with a single atomic update query using conditions (like `.neq('status', 'left')`) and `.select().single()`. This halves database latency and natively prevents concurrency bugs.
