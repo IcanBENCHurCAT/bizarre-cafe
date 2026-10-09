@@ -76,6 +76,19 @@ router.post('/:roomId/join', async (c) => {
 router.post('/:roomId/leave', async (c) => {
   const { roomId } = roomParamsSchema.parse({ roomId: c.req.param('roomId') });
   const body = await c.req.json().catch(() => ({}));
+
+  // SECURITY FIX: Enforce private room authorization check
+  const room = await db.rooms.get(roomId);
+  if (room && room.visibility === 'private') {
+    const user = c.user;
+    if (!user) {
+      return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
+    }
+    if (room.owner_id && room.owner_id !== user.agentId) {
+      return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);
+    }
+  }
+
   // SECURITY FIX: Enforce authenticated user identity (c.user.agentId) over body.agentId to prevent impersonation
   const agentId = c.user?.agentId || body.agentId || 'anonymous';
 

@@ -241,6 +241,31 @@ describe('Room Security & Access Control Tests', () => {
     });
     expect(ownerJoin.status).toBe(200);
 
+    // Test POST /api/rooms/:roomId/leave authorization
+    // Unauthenticated request -> 401
+    const unauthLeave = await app.request(`/api/rooms/${room.id}/leave`, {
+      method: 'POST',
+    });
+    expect(unauthLeave.status).toBe(401);
+
+    // Non-owner authenticated request -> 403
+    const forbiddenLeave = await app.request(`/api/rooms/${room.id}/leave`, {
+      method: 'POST',
+      headers: {
+        'X-Agent-ID': 'unauthorized-agent',
+      },
+    });
+    expect(forbiddenLeave.status).toBe(403);
+
+    // Owner authenticated request -> 200
+    const ownerLeave = await app.request(`/api/rooms/${room.id}/leave`, {
+      method: 'POST',
+      headers: {
+        'X-Agent-ID': 'owner-agent',
+      },
+    });
+    expect(ownerLeave.status).toBe(200);
+
     // 3. Test GET /api/rooms/:roomId/agents authorization
     // Unauthenticated request -> 401
     const unauthAgents = await app.request(`/api/rooms/${room.id}/agents`, {
