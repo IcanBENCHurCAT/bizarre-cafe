@@ -485,47 +485,65 @@ router.get('/receipts/:id', async (c) => {
 
     let receipt: any = null;
 
-    // 1. Try Supabase
-    try {
-      const supabase = createServerSupabaseClient();
-      const { data, error } = await supabase.from('receipts')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (!error && data) {
+    if (config.useLocalDb) {
+      if (memReceipts.has(id)) {
+        const r = memReceipts.get(id);
         receipt = {
-          id: data.id,
-          agentId: data.user_id,
-          itemId: data.item_id,
-          quantity: data.quantity,
-          totalAmount: data.total_amount,
-          currency: data.currency,
-          paymentMethod: data.payment_method,
-          status: data.status,
-          x402PromiseId: data.x402_promise_id,
-          createdAt: data.created_at,
+          id: r.id,
+          agentId: r.user_id,
+          itemId: r.item_id,
+          quantity: r.quantity,
+          totalAmount: r.total_amount,
+          currency: r.currency,
+          paymentMethod: r.payment_method,
+          status: r.status,
+          x402PromiseId: r.x402_promise_id,
+          createdAt: r.created_at,
         };
       }
-    } catch {
-      /* ignore Supabase error */
-    }
+    } else {
+      // 1. Try Supabase
+      try {
+        const supabase = createServerSupabaseClient();
+        const { data, error } = await supabase.from('receipts')
+          .select('*')
+          .eq('id', id)
+          .single();
 
-    // 2. Fall back to memReceipts
-    if (!receipt && memReceipts.has(id)) {
-      const r = memReceipts.get(id);
-      receipt = {
-        id: r.id,
-        agentId: r.user_id,
-        itemId: r.item_id,
-        quantity: r.quantity,
-        totalAmount: r.total_amount,
-        currency: r.currency,
-        paymentMethod: r.payment_method,
-        status: r.status,
-        x402PromiseId: r.x402_promise_id,
-        createdAt: r.created_at,
-      };
+        if (!error && data) {
+          receipt = {
+            id: data.id,
+            agentId: data.user_id,
+            itemId: data.item_id,
+            quantity: data.quantity,
+            totalAmount: data.total_amount,
+            currency: data.currency,
+            paymentMethod: data.payment_method,
+            status: data.status,
+            x402PromiseId: data.x402_promise_id,
+            createdAt: data.created_at,
+          };
+        }
+      } catch {
+        /* ignore Supabase error */
+      }
+
+      // 2. Fall back to memReceipts
+      if (!receipt && memReceipts.has(id)) {
+        const r = memReceipts.get(id);
+        receipt = {
+          id: r.id,
+          agentId: r.user_id,
+          itemId: r.item_id,
+          quantity: r.quantity,
+          totalAmount: r.total_amount,
+          currency: r.currency,
+          paymentMethod: r.payment_method,
+          status: r.status,
+          x402PromiseId: r.x402_promise_id,
+          createdAt: r.created_at,
+        };
+      }
     }
 
     if (!receipt) {
