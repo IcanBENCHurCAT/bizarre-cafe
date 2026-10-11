@@ -345,6 +345,16 @@ router.get('/checkout/:promiseId', async (c) => {
     return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);
   }
 
+  // SECURITY FIX: Enforce authorization on paymentStatus payerWallet to prevent IDOR when receipt is missing
+  if (
+    paymentStatus &&
+    paymentStatus.payerWallet &&
+    paymentStatus.payerWallet !== user.agentId &&
+    paymentStatus.payerWallet !== user.walletAddress
+  ) {
+    return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);
+  }
+
   return c.json({
     promiseId,
     status: paymentStatus?.status ?? receipt?.status ?? 'pending',

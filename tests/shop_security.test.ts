@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import app from '../src/index';
 import { memReceipts, clearMemReceipts } from '../src/routes/shop';
+import { createPaymentPromise } from '../src/services/x402/index';
 
 describe('Shop Security - IDOR Protection', () => {
   beforeEach(() => {
@@ -67,6 +68,47 @@ describe('Shop Security - IDOR Protection', () => {
       const promiseId = 'promise-agent-a-123';
       const res = await app.request(`/api/shop/checkout/${promiseId}`);
       expect(res.status).toBe(401);
+    });
+
+    it('should prevent an authenticated agent from accessing another agent checkout status when receipt is missing (403 Forbidden)', async () => {
+      const promise = createPaymentPromise(
+        [{ service: 'Quantum Espresso Beans', price: 50, quantity: 1 }],
+        'ALGO:agent-a',
+      );
+      const promiseId = promise.paymentId;
+      memReceipts.delete(promiseId);
+
+      // Request as agent-b
+      const res = await app.request(`/api/shop/checkout/${promiseId}`, {
+        headers: {
+          'X-Agent-ID': 'agent-b',
+        },
+      });
+
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body.error.code).toBe('FORBIDDEN');
+    });
+
+    it('should allow the payer agent to access checkout status when receipt is missing (200 OK)', async () => {
+      const promise = createPaymentPromise(
+        [{ service: 'Quantum Espresso Beans', price: 50, quantity: 1 }],
+        'ALGO:agent-a',
+      );
+      const promiseId = promise.paymentId;
+      memReceipts.delete(promiseId);
+
+      // Request as agent-a (whose walletAddress matches ALGO:agent-a)
+      const res = await app.request(`/api/shop/checkout/${promiseId}`, {
+        headers: {
+          'X-Agent-ID': 'agent-a',
+        },
+      });
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.promiseId).toBe(promiseId);
+      expect(body.status).toBe('pending');
     });
   });
 
