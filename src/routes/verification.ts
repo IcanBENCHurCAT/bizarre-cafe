@@ -289,6 +289,19 @@ router.get('/status', async (c) => {
   try {
     const query = c.req.query();
     const { agentId } = statusQuerySchema.parse(query);
+    const user = c.user;
+
+    if (!user) {
+      return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
+    }
+
+    // SECURITY FIX: Prevent IDOR vulnerability by enforcing that authenticated agents can only inspect their own verification status
+    if (user.agentId !== agentId) {
+      return c.json(
+        { error: { code: 'FORBIDDEN', message: "Cannot access another agent's verification status" } },
+        403,
+      );
+    }
 
     const supabase = createServerSupabaseClient();
 
