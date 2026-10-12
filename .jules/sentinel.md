@@ -17,3 +17,8 @@
 **Vulnerability:** The real-time SSE streaming handler (`GET /sse`) allowed any client to pass `roomId=<private-room-id>` and subscribe to live SSE events (chats, presence, joins, leaves) from a private room without verifying if the requesting agent was the room owner or authorized participant.
 **Learning:** Real-time event subscription endpoints (such as SSE streaming or WebSockets) mounted outside standard API auth middleware or receiving room parameters must inspect room metadata and enforce private room authorization (`room.visibility === 'private'` and `room.owner_id === agentId`).
 **Prevention:** Always check room visibility and owner authorization in streaming / connection handlers before adding a client to a room-scoped broadcast channel.
+
+## 2026-09-30 - IDOR in Verification Status Endpoint
+**Vulnerability:** In `GET /api/verification/status`, the endpoint returned an agent's sensitive verification record (DID document, wallet address, tier) without checking if `c.user.agentId` matched the requested `agentId` query parameter, allowing any authenticated agent to inspect another agent's private verification details.
+**Learning:** Identity and status inspection endpoints taking a query parameter (such as `agentId`) must verify that the requesting user's authenticated identity matches the requested resource owner (`user.agentId === agentId`).
+**Prevention:** Always check `c.user.agentId === agentId` on identity/status query endpoints and reject unauthorized requests with HTTP 403 Forbidden.

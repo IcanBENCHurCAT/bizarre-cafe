@@ -2,11 +2,19 @@ import { describe, it, expect, vi } from 'vitest';
 
 const { mockSupabase } = vi.hoisted(() => {
   class MockQueryBuilder {
+    private isSingle = false;
     select() { return this; }
     eq() { return this; }
     order() { return this; }
     limit() { return this; }
+    single() {
+      this.isSingle = true;
+      return this;
+    }
     then(resolve: (val: any) => any) {
+      if (this.isSingle) {
+        return Promise.resolve({ data: null, error: { code: 'PGRST116' } }).then(resolve);
+      }
       return Promise.resolve({ data: [], error: null }).then(resolve);
     }
   }
@@ -57,6 +65,36 @@ describe('Verification Security - IDOR Protection', () => {
 
   it('should return 401 Unauthorized when unauthenticated request is made', async () => {
     const res = await app.request('/api/verification/log?agentId=target-agent');
+    expect(res.status).toBe(401);
+  });
+
+  it('should prevent an authenticated agent from accessing another agent verification status (403 Forbidden)', async () => {
+    const res = await app.request('/api/verification/status?agentId=target-agent', {
+      headers: {
+        'X-Agent-ID': 'attacker-agent',
+      },
+    });
+
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error.code).toBe('FORBIDDEN');
+    expect(body.error.message).toContain("Cannot access another agent's verification status");
+  });
+
+  it('should allow an authenticated agent to access their own verification status (200 OK)', async () => {
+    const res = await app.request('/api/verification/status?agentId=owner-agent', {
+      headers: {
+        'X-Agent-ID': 'owner-agent',
+      },
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.agentId).toBe('owner-agent');
+  });
+
+  it('should return 401 Unauthorized when unauthenticated request is made to /status', async () => {
+    const res = await app.request('/api/verification/status?agentId=target-agent');
     expect(res.status).toBe(401);
   });
 });
