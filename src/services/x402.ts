@@ -49,7 +49,10 @@ export function createPayment(
   };
 }
 
-export function verifyPayment(paymentId: string, _receipt?: string): { paymentId: string; verified: boolean; receipt?: string } {
+export function verifyPayment(
+  paymentId: string,
+  _receipt?: string,
+): { paymentId: string; verified: boolean; receipt?: string } {
   const res: PaymentResult = verifyPromise(paymentId);
   return {
     paymentId,
@@ -64,4 +67,3 @@ export function settlePayment(paymentId: string): SettlementResult {
 export function resetStore(): void {
   clearPayments();
 }
-

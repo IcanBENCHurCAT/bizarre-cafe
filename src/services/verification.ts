@@ -36,4 +36,3 @@ export function isActive(agentId: string): boolean {
 export function resetStore(): void {
   clearState();
 }
-

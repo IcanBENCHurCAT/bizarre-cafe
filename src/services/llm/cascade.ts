@@ -12,7 +12,7 @@ import { ProviderConfig, getCascadeOrder } from './providers';
  */
 export async function generateCompletion(
   messages: any[],
-  fallbackConfig: ProviderConfig
+  fallbackConfig: ProviderConfig,
 ): Promise<string> {
   const cascade = getCascadeOrder();
 
@@ -26,37 +26,52 @@ export async function generateCompletion(
   for (const provider of cascade) {
     try {
       console.warn(
-        `[Narrative AI] Generating response via ${provider.baseUrl}/chat/completions (Model: ${provider.model})`
+        `[Narrative AI] Generating response via ${provider.baseUrl}/chat/completions (Model: ${provider.model})`,
       );
 
       const content = await attemptProvider(provider, messages);
       console.warn(`[Narrative AI] Response generated successfully via ${provider.id}.`);
       return content;
     } catch (error: any) {
-      if (error?.name === 'AbortError' || error?.message?.includes('fetch failed') || error?.message?.includes('network') || error?.message?.includes('timeout')) {
-        console.error(`[Narrative AI] Provider ${provider.id} encountered network error, failing over. Error: ${error?.message}`);
+      if (
+        error?.name === 'AbortError' ||
+        error?.message?.includes('fetch failed') ||
+        error?.message?.includes('network') ||
+        error?.message?.includes('timeout')
+      ) {
+        console.error(
+          `[Narrative AI] Provider ${provider.id} encountered network error, failing over. Error: ${error?.message}`,
+        );
         lastError = error;
         continue;
       }
 
       if (error instanceof ProviderError) {
         if (error.status === 401 || error.status === 403) {
-          console.error(`[Narrative AI] Provider ${provider.id} returned auth error ${error.status}, failing fast.`);
+          console.error(
+            `[Narrative AI] Provider ${provider.id} returned auth error ${error.status}, failing fast.`,
+          );
           throw error;
         }
 
         const retryableStatuses = [408, 429, 500, 502, 503, 504];
         if (retryableStatuses.includes(error.status)) {
-          console.error(`[Narrative AI] Provider ${provider.id} returned retryable error ${error.status}, failing over.`);
+          console.error(
+            `[Narrative AI] Provider ${provider.id} returned retryable error ${error.status}, failing over.`,
+          );
           lastError = error;
           continue;
         }
 
-        console.error(`[Narrative AI] Provider ${provider.id} returned non-retryable error ${error.status}, failing fast.`);
+        console.error(
+          `[Narrative AI] Provider ${provider.id} returned non-retryable error ${error.status}, failing fast.`,
+        );
         throw error;
       }
 
-      console.error(`[Narrative AI] Provider ${provider.id} encountered unexpected error, failing over. Error: ${error?.message}`);
+      console.error(
+        `[Narrative AI] Provider ${provider.id} encountered unexpected error, failing over. Error: ${error?.message}`,
+      );
       lastError = error;
     }
   }
@@ -90,7 +105,9 @@ async function attemptProvider(provider: ProviderConfig, messages: any[]): Promi
   });
 
   if (!res.ok) {
-    console.error(`[Narrative AI] API Error: ${res.status} ${res.statusText} from ${provider.id || 'fallback'}`);
+    console.error(
+      `[Narrative AI] API Error: ${res.status} ${res.statusText} from ${provider.id || 'fallback'}`,
+    );
     throw new ProviderError(res.status, `API Error: ${res.status}`);
   }
 

@@ -96,7 +96,9 @@ async function syncOfferAndTradeToSupabase(
   // Compensating rollback: if offer update succeeded but trade insert failed,
   // revert offer status back to 'available' so the system doesn't have a claimed offer with no trade.
   if (offerResult.status === 'fulfilled' && tradeResult.status === 'rejected') {
-    console.warn('[skill-swap] Trade insert failed after offer status update; compensating rollback');
+    console.warn(
+      '[skill-swap] Trade insert failed after offer status update; compensating rollback',
+    );
     try {
       await supabase
         .from('skill_offers')
@@ -110,7 +112,9 @@ async function syncOfferAndTradeToSupabase(
   // If trade insert succeeded but offer update failed,
   // the system has an orphan trade — log it for manual remediation.
   if (tradeResult.status === 'fulfilled' && offerResult.status === 'rejected') {
-    console.warn('[skill-swap] Offer status update failed after trade insert; orphan trade may need manual cleanup');
+    console.warn(
+      '[skill-swap] Offer status update failed after trade insert; orphan trade may need manual cleanup',
+    );
   }
 
   // Rethrow if both failed
@@ -172,7 +176,8 @@ router.post('/offer', async (c) => {
     if (!config.useLocalDb) {
       try {
         const supabase = createServerSupabaseClient();
-        const { data } = await supabase.from('skill_offers')
+        const { data } = await supabase
+          .from('skill_offers')
           .insert({
             user_id: user.agentId,
             skill_name: validated.skillName,
@@ -262,7 +267,8 @@ router.post('/request', async (c) => {
     if (!config.useLocalDb) {
       try {
         const supabase = createServerSupabaseClient();
-        const { data } = await supabase.from('skill_requests')
+        const { data } = await supabase
+          .from('skill_requests')
           .insert({
             user_id: user.agentId,
             requested_skill: validated.requestedSkill,
@@ -329,7 +335,9 @@ router.get('/offers', async (c) => {
       z.object({ limit: z.string().transform(Number).optional() }).parse(query).limit ?? 20;
     const search = z.object({ search: z.string().optional() }).parse(query).search;
     const category = z.object({ category: z.string().optional() }).parse(query).category;
-    const maxPrice = z.object({ maxPrice: z.string().transform(Number).optional() }).parse(query).maxPrice;
+    const maxPrice = z
+      .object({ maxPrice: z.string().transform(Number).optional() })
+      .parse(query).maxPrice;
 
     const offerMap = new Map<string, any>();
 
@@ -337,7 +345,8 @@ router.get('/offers', async (c) => {
     if (!config.useLocalDb) {
       try {
         const supabase = createServerSupabaseClient();
-        let queryBuilder = supabase.from('skill_offers')
+        let queryBuilder = supabase
+          .from('skill_offers')
           .select('*')
           .eq('status', 'available')
           .order('created_at', { ascending: false })
@@ -418,7 +427,9 @@ router.get('/offers', async (c) => {
         const matchesSkill = o.skillName?.toLowerCase().includes(searchLower);
         const matchesDesc = o.description?.toLowerCase().includes(searchLower);
         const matchesWanted = o.wantedSkill?.toLowerCase().includes(searchLower);
-        const matchesTags = Array.isArray(o.tags) && o.tags.some((t: string) => t.toLowerCase().includes(searchLower));
+        const matchesTags =
+          Array.isArray(o.tags) &&
+          o.tags.some((t: string) => t.toLowerCase().includes(searchLower));
         if (!matchesSkill && !matchesDesc && !matchesWanted && !matchesTags) {
           continue;
         }
@@ -426,7 +437,6 @@ router.get('/offers', async (c) => {
 
       offers.push(o);
     }
-
 
     // Sort by createdAt descending
     // ⚡ Bolt Optimization: Compare ISO strings directly instead of parsing Date objects
@@ -461,7 +471,8 @@ router.get('/requests', async (c) => {
     if (!config.useLocalDb) {
       try {
         const supabase = createServerSupabaseClient();
-        let queryBuilder = supabase.from('skill_requests')
+        let queryBuilder = supabase
+          .from('skill_requests')
           .select('*')
           .eq('status', 'open')
           .order('created_at', { ascending: false })
@@ -523,7 +534,6 @@ router.get('/requests', async (c) => {
       requests.push(r);
     }
 
-
     // ⚡ Bolt Optimization: Compare ISO strings directly instead of parsing Date objects
     requests.sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
     if (requests.length > limit) {
@@ -567,7 +577,11 @@ router.post('/offers/:id/accept', async (c) => {
     if (!offer && !config.useLocalDb) {
       try {
         const supabase = createServerSupabaseClient();
-        const { data: dbOffer } = await supabase.from('skill_offers').select('*').eq('id', id).single();
+        const { data: dbOffer } = await supabase
+          .from('skill_offers')
+          .select('*')
+          .eq('id', id)
+          .single();
         if (dbOffer) {
           const row = dbOffer as any;
           offer = {
@@ -605,10 +619,7 @@ router.post('/offers/:id/accept', async (c) => {
 
     // Cannot accept already claimed/completed offer
     if (offer.status !== 'available') {
-      return c.json(
-        { error: { code: 'CONFLICT', message: 'Offer is no longer available' } },
-        409,
-      );
+      return c.json({ error: { code: 'CONFLICT', message: 'Offer is no longer available' } }, 409);
     }
 
     const isPriced = (offer.priceMicroAlgos ?? 0) > 0;
@@ -672,10 +683,7 @@ router.post('/offers/:id/accept', async (c) => {
             402,
           );
         }
-        return c.json(
-          { error: { code: 'PAYMENT_FAILED', message: errorMsg } },
-          402,
-        );
+        return c.json({ error: { code: 'PAYMENT_FAILED', message: errorMsg } }, 402);
       }
 
       // Lock succeeded: create trade in_progress and escrowed
@@ -740,13 +748,19 @@ router.post('/offers/:id/accept', async (c) => {
 
         return c.json({ message: 'Offer accepted with escrow', trade, escrow }, 201);
       } catch (tradeError) {
-        console.error('[skill-swap] Trade creation failed after escrow lock, compensation executed:', tradeError);
+        console.error(
+          '[skill-swap] Trade creation failed after escrow lock, compensation executed:',
+          tradeError,
+        );
 
         // 1. Call refundEscrow(escrow.id, 'system', 'Trade creation failed after escrow lock')
         try {
           await refundEscrow(escrow.id, 'system', 'Trade creation failed after escrow lock');
         } catch (refundErr) {
-          console.error('[skill-swap] CRITICAL: Escrow refund failed during compensation:', refundErr);
+          console.error(
+            '[skill-swap] CRITICAL: Escrow refund failed during compensation:',
+            refundErr,
+          );
         }
 
         // 2. Revert offer status back to 'available'
@@ -758,13 +772,18 @@ router.post('/offers/:id/accept', async (c) => {
         compensationPromises.push(
           sqliteDb.updateSqliteSkillOfferStatus(offer.id, 'available').catch((revertErr) => {
             console.warn('[skill-swap] Failed to revert SQLite offer status:', revertErr);
-          })
+          }),
         );
         if (!config.useLocalDb) {
           try {
             const supabase = createServerSupabaseClient();
             compensationPromises.push(
-              Promise.resolve(supabase.from('skill_offers').update({ status: 'available', updated_at: offer.updatedAt }).eq('id', offer.id)).catch(() => {})
+              Promise.resolve(
+                supabase
+                  .from('skill_offers')
+                  .update({ status: 'available', updated_at: offer.updatedAt })
+                  .eq('id', offer.id),
+              ).catch(() => {}),
             );
           } catch {
             /* ignore */
@@ -856,13 +875,18 @@ router.post('/offers/:id/accept', async (c) => {
         compensationPromises.push(
           sqliteDb.updateSqliteSkillOfferStatus(offer.id, 'available').catch((revertErr) => {
             console.warn('[skill-swap] Failed to revert SQLite offer status:', revertErr);
-          })
+          }),
         );
         if (!config.useLocalDb) {
           try {
             const supabase = createServerSupabaseClient();
             compensationPromises.push(
-              Promise.resolve(supabase.from('skill_offers').update({ status: 'available', updated_at: offer.updatedAt }).eq('id', offer.id)).catch(() => {})
+              Promise.resolve(
+                supabase
+                  .from('skill_offers')
+                  .update({ status: 'available', updated_at: offer.updatedAt })
+                  .eq('id', offer.id),
+              ).catch(() => {}),
             );
           } catch {
             /* ignore */
@@ -910,7 +934,8 @@ router.get('/trades', async (c) => {
         const supabase = createServerSupabaseClient();
         // SECURITY FIX: Sanitize and quote agentId to prevent PostgREST filter string injection
         const sanitizedAgentId = user.agentId.replace(/["\\,()]/g, '');
-        const { data } = await supabase.from('trades')
+        const { data } = await supabase
+          .from('trades')
           .select('*')
           .or(`from_agent_id.eq."${sanitizedAgentId}",to_user_id.eq."${sanitizedAgentId}"`)
           .order('created_at', { ascending: false })
@@ -1130,7 +1155,12 @@ router.post('/trades/:id/complete', async (c) => {
         trade.paymentStatus = 'settled';
       } catch (escrowErr: any) {
         return c.json(
-          { error: { code: 'ESCROW_RELEASE_FAILED', message: escrowErr.message || 'Failed to release escrow' } },
+          {
+            error: {
+              code: 'ESCROW_RELEASE_FAILED',
+              message: escrowErr.message || 'Failed to release escrow',
+            },
+          },
           400,
         );
       }
@@ -1161,13 +1191,11 @@ router.post('/trades/:id/complete', async (c) => {
         payment_status: trade.paymentStatus || 'settled',
         notes: trade.notes,
         updated_at: now,
-      }).catch(err => console.warn('[skill-swap] SQLite trade update warning:', err))
+      }).catch((err) => console.warn('[skill-swap] SQLite trade update warning:', err)),
     );
 
     if (offerId) {
-      updatePromises.push(
-        updateSqliteSkillOfferStatus(offerId, 'completed').catch(() => {})
-      );
+      updatePromises.push(updateSqliteSkillOfferStatus(offerId, 'completed').catch(() => {}));
     }
 
     // Supabase promises
@@ -1175,16 +1203,26 @@ router.post('/trades/:id/complete', async (c) => {
       try {
         const supabase = createServerSupabaseClient();
         updatePromises.push(
-          Promise.resolve(supabase.from('trades').update({
-            status: 'completed',
-            notes: trade.notes,
-            updated_at: now,
-          }).eq('id', id)).catch(() => {})
+          Promise.resolve(
+            supabase
+              .from('trades')
+              .update({
+                status: 'completed',
+                notes: trade.notes,
+                updated_at: now,
+              })
+              .eq('id', id),
+          ).catch(() => {}),
         );
 
         if (offerId) {
           updatePromises.push(
-            Promise.resolve(supabase.from('skill_offers').update({ status: 'completed', updated_at: now }).eq('id', offerId)).catch(() => {})
+            Promise.resolve(
+              supabase
+                .from('skill_offers')
+                .update({ status: 'completed', updated_at: now })
+                .eq('id', offerId),
+            ).catch(() => {}),
           );
         }
       } catch {
@@ -1284,14 +1322,21 @@ router.post('/trades/:id/cancel', async (c) => {
         trade.paymentStatus = 'refunded';
       } catch (escrowErr: any) {
         return c.json(
-          { error: { code: 'ESCROW_REFUND_FAILED', message: escrowErr.message || 'Failed to refund escrow' } },
+          {
+            error: {
+              code: 'ESCROW_REFUND_FAILED',
+              message: escrowErr.message || 'Failed to refund escrow',
+            },
+          },
           400,
         );
       }
     }
 
     if (body?.reason) {
-      trade.notes = trade.notes ? `${trade.notes} | Cancelled: ${body.reason}` : `Cancelled: ${body.reason}`;
+      trade.notes = trade.notes
+        ? `${trade.notes} | Cancelled: ${body.reason}`
+        : `Cancelled: ${body.reason}`;
     }
 
     trade.status = 'cancelled';
@@ -1315,13 +1360,11 @@ router.post('/trades/:id/cancel', async (c) => {
         payment_status: trade.paymentStatus || 'refunded',
         notes: trade.notes,
         updated_at: now,
-      }).catch(err => console.warn('[skill-swap] SQLite trade update warning:', err))
+      }).catch((err) => console.warn('[skill-swap] SQLite trade update warning:', err)),
     );
 
     if (offerId) {
-      updatePromises.push(
-        updateSqliteSkillOfferStatus(offerId, 'available').catch(() => {})
-      );
+      updatePromises.push(updateSqliteSkillOfferStatus(offerId, 'available').catch(() => {}));
     }
 
     // Supabase promises
@@ -1329,16 +1372,26 @@ router.post('/trades/:id/cancel', async (c) => {
       try {
         const supabase = createServerSupabaseClient();
         updatePromises.push(
-          Promise.resolve(supabase.from('trades').update({
-            status: 'cancelled',
-            notes: trade.notes,
-            updated_at: now,
-          }).eq('id', id)).catch(() => {})
+          Promise.resolve(
+            supabase
+              .from('trades')
+              .update({
+                status: 'cancelled',
+                notes: trade.notes,
+                updated_at: now,
+              })
+              .eq('id', id),
+          ).catch(() => {}),
         );
 
         if (offerId) {
           updatePromises.push(
-            Promise.resolve(supabase.from('skill_offers').update({ status: 'available', updated_at: now }).eq('id', offerId)).catch(() => {})
+            Promise.resolve(
+              supabase
+                .from('skill_offers')
+                .update({ status: 'available', updated_at: now })
+                .eq('id', offerId),
+            ).catch(() => {}),
           );
         }
       } catch {

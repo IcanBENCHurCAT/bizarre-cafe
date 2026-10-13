@@ -1,4 +1,3 @@
- 
 /**
  * Owner Routes — Narrative Cafe Owner Interactions
  *
@@ -74,7 +73,12 @@ router.post('/message', async (c) => {
 
     if (validated.roomId) {
       const room = await db.rooms.get(validated.roomId);
-      if (room && room.visibility === 'private' && room.owner_id && room.owner_id !== user.agentId) {
+      if (
+        room &&
+        room.visibility === 'private' &&
+        room.owner_id &&
+        room.owner_id !== user.agentId
+      ) {
         return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);
       }
     }
@@ -206,7 +210,12 @@ router.post('/interact', async (c) => {
 
     if (validated.roomId) {
       const room = await db.rooms.get(validated.roomId);
-      if (room && room.visibility === 'private' && room.owner_id && room.owner_id !== user.agentId) {
+      if (
+        room &&
+        room.visibility === 'private' &&
+        room.owner_id &&
+        room.owner_id !== user.agentId
+      ) {
         return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);
       }
     }

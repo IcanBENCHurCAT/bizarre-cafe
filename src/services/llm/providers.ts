@@ -56,13 +56,13 @@ export function getCascadeOrder(): ProviderConfig[] {
 
   const providers = rawOrder
     .split(',')
-    .map(p => p.trim().toLowerCase())
-    .map(id => registry[id])
+    .map((p) => p.trim().toLowerCase())
+    .map((id) => registry[id])
     .filter((p): p is ProviderConfig => p !== undefined);
 
   cachedCascade = providers;
 
-  const activeIds = providers.map(p => p.id).join(', ');
+  const activeIds = providers.map((p) => p.id).join(', ');
   if (activeIds) {
     console.warn(`[Narrative AI] Active LLM providers in cascade: ${activeIds}`);
   } else {

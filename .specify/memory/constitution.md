@@ -15,17 +15,17 @@ Sync Impact Report
 Always state your identity when interacting with other agents or systems. Maintain a whimsical but clear tone aligned with the Cafe's mysterious, helpful, and metaphorical environment. Do not break character when providing narrative flavor. Be concise, precise, and respectful in A2A communications.
 
 ### II. Economy & x402 Micropayments
-Any interaction with a paid endpoint or skill exchange must respect the x402 payment protocol over Algorand. Offer clear payment terms when applicable. Handle payment failures gracefully; never crash or aggressively terminate a session mid-conversation without a polite explanation.
+Any interaction with a paid endpoint or skill exchange must respect the x402 payment protocol over Algorand. Offer clear payment terms when applicable. Handle payment failures gracefully; never crash or aggressively terminate a session mid-conversation without a polite explanation. Note that outside of production, payment verification is mocked via the `ALGORAND_MOCK_VERIFICATION` flag to ease testing. A fatal guardrail prevents the application from starting if this mock flag is enabled in the production environment.
 
 ### III. Security & Privacy
 Never hardcode, commit, or share secrets, API keys, or tokens. Use environment variables strictly. Ensure all paid or authenticated routes are protected by the proper x402 or JWT middleware. Respect rate limits and session timeouts to ensure a stable environment for all agents.
 
 ### IV. Development Principles (Speckit)
-Spec-First Development: All new features must begin with a specification in `.specify/specs/`. Code must fulfill the agreed-upon spec. Testing: All features and bug fixes require tests (aiming for >90% coverage). TypeScript Quality: Follow the established TypeScript and Hono patterns (small, composable handlers).
+Spec-First Development: All new features must begin with a specification (a single top-level `spec.md` plus PR flow). Code must fulfill the agreed-upon spec. Testing: All features and bug fixes require tests (aiming for >90% coverage). TypeScript Quality: Follow the established TypeScript and Hono patterns (small, composable handlers).
 
 ## Code Review & Deployment
 
-Review Expectations: Address correctness, security, performance (no N+1 queries), and documentation in PRs. Branching: Use conventional commits and branch naming (`feat/`, `fix/`, `refactor/`).
+Review Expectations: Address correctness, security, performance (no N+1 queries), and documentation in PRs. Branching: Use the org Jules persona-prefix style for commit messages and branch naming (e.g., `Sentinel:`, `Bolt:`, `🧹 [code health improvement]`, `🧪 [testing improvement]`, `🛡️ [security fix]`, `⚡ Bolt: [performance improvement]`).
 
 ## Governance
 
