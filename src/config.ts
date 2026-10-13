@@ -64,24 +64,27 @@ const getNumber = (key: string, fallback: number): number => {
   return parsed;
 };
 
-export const parseCorsOrigins = (
-  nodeEnv: string,
-  rawOrigins?: string,
-): string | string[] => {
+export const parseCorsOrigins = (nodeEnv: string, rawOrigins?: string): string | string[] => {
   if (nodeEnv === 'production') {
     if (!rawOrigins || rawOrigins.trim() === '' || rawOrigins.trim() === '*') {
       throw new Error(
-        "In production environment, CORS_ALLOWED_ORIGINS must be explicitly specified and cannot be wildcard '*'"
+        "In production environment, CORS_ALLOWED_ORIGINS must be explicitly specified and cannot be wildcard '*'",
       );
     }
     const trimmed = rawOrigins.trim();
     return trimmed.includes(',')
-      ? trimmed.split(',').map((o) => o.trim()).filter(Boolean)
+      ? trimmed
+          .split(',')
+          .map((o) => o.trim())
+          .filter(Boolean)
       : [trimmed];
   }
   const fallback = rawOrigins ?? '*';
   return fallback.includes(',')
-    ? fallback.split(',').map((o) => o.trim()).filter(Boolean)
+    ? fallback
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean)
     : fallback;
 };
 
@@ -114,16 +117,13 @@ export const config: Config = {
     'ALGORAND_RECEIVER_WALLET',
     'ALGO_BIZARRE_CAFE_WALLET_ADDRESS',
   ),
-  algorandIndexerUrl: getOptional(
-    'ALGORAND_INDEXER_URL',
-    'http://localhost:8980',
-  ),
+  algorandIndexerUrl: getOptional('ALGORAND_INDEXER_URL', 'http://localhost:8980'),
   algorandMockVerification: (() => {
     const raw = process.env.ALGORAND_MOCK_VERIFICATION;
     const env = process.env.NODE_ENV ?? 'development';
     if (env === 'production' && raw === 'true') {
       throw new Error(
-        "FATAL: ALGORAND_MOCK_VERIFICATION is explicitly set to 'true' in a production environment. This is a severe real-money risk as it would allow fake payments."
+        "FATAL: ALGORAND_MOCK_VERIFICATION is explicitly set to 'true' in a production environment. This is a severe real-money risk as it would allow fake payments.",
       );
     }
     if (raw !== undefined) {

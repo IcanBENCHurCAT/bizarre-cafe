@@ -1,6 +1,12 @@
 import Database from 'better-sqlite3';
 import { config } from '../config';
-import type { DatabaseAdapter, RoomData, MessageData, AgentStatusData, X402PaymentData } from './index';
+import type {
+  DatabaseAdapter,
+  RoomData,
+  MessageData,
+  AgentStatusData,
+  X402PaymentData,
+} from './index';
 import type { EscrowRecord, EscrowStatus } from '../types/cafe';
 
 let dbInstance: ReturnType<typeof Database> | null = null;
@@ -167,14 +173,46 @@ function initSchema(db: ReturnType<typeof Database>): void {
     `);
 
     // Migrations / column checks for existing SQLite tables
-    try { db.exec(`ALTER TABLE skill_offers ADD COLUMN category TEXT`); } catch { /* column may exist */ }
-    try { db.exec(`ALTER TABLE skill_offers ADD COLUMN price_micro_algos INTEGER DEFAULT 0`); } catch { /* column may exist */ }
-    try { db.exec(`ALTER TABLE skill_offers ADD COLUMN currency TEXT DEFAULT 'microAlgos'`); } catch { /* column may exist */ }
-    try { db.exec(`ALTER TABLE skill_offers ADD COLUMN wanted_description TEXT`); } catch { /* column may exist */ }
-    try { db.exec(`ALTER TABLE skill_offers ADD COLUMN tags TEXT`); } catch { /* column may exist */ }
-    try { db.exec(`ALTER TABLE trades ADD COLUMN price_micro_algos INTEGER DEFAULT 0`); } catch { /* column may exist */ }
-    try { db.exec(`ALTER TABLE trades ADD COLUMN payment_status TEXT DEFAULT 'unpaid'`); } catch { /* column may exist */ }
-    try { db.exec(`ALTER TABLE trades ADD COLUMN escrow_id TEXT`); } catch { /* column may exist */ }
+    try {
+      db.exec(`ALTER TABLE skill_offers ADD COLUMN category TEXT`);
+    } catch {
+      /* column may exist */
+    }
+    try {
+      db.exec(`ALTER TABLE skill_offers ADD COLUMN price_micro_algos INTEGER DEFAULT 0`);
+    } catch {
+      /* column may exist */
+    }
+    try {
+      db.exec(`ALTER TABLE skill_offers ADD COLUMN currency TEXT DEFAULT 'microAlgos'`);
+    } catch {
+      /* column may exist */
+    }
+    try {
+      db.exec(`ALTER TABLE skill_offers ADD COLUMN wanted_description TEXT`);
+    } catch {
+      /* column may exist */
+    }
+    try {
+      db.exec(`ALTER TABLE skill_offers ADD COLUMN tags TEXT`);
+    } catch {
+      /* column may exist */
+    }
+    try {
+      db.exec(`ALTER TABLE trades ADD COLUMN price_micro_algos INTEGER DEFAULT 0`);
+    } catch {
+      /* column may exist */
+    }
+    try {
+      db.exec(`ALTER TABLE trades ADD COLUMN payment_status TEXT DEFAULT 'unpaid'`);
+    } catch {
+      /* column may exist */
+    }
+    try {
+      db.exec(`ALTER TABLE trades ADD COLUMN escrow_id TEXT`);
+    } catch {
+      /* column may exist */
+    }
   } catch {
     // Ignore concurrent schema initialization from parallel test runners
   }
@@ -182,9 +220,10 @@ function initSchema(db: ReturnType<typeof Database>): void {
 
 function getDb() {
   if (!dbInstance) {
-    const dbPath = config.databaseUrl.endsWith('.sqlite') || config.databaseUrl.endsWith('.db')
-      ? config.databaseUrl
-      : 'local.sqlite';
+    const dbPath =
+      config.databaseUrl.endsWith('.sqlite') || config.databaseUrl.endsWith('.db')
+        ? config.databaseUrl
+        : 'local.sqlite';
     dbInstance = new Database(dbPath, { timeout: 10000 });
     try {
       dbInstance.pragma('journal_mode = WAL');
@@ -404,7 +443,9 @@ export interface SqliteAgentVerification {
   updated_at: string;
 }
 
-export const getSqliteVerification = async (userId: string): Promise<SqliteAgentVerification | null> => {
+export const getSqliteVerification = async (
+  userId: string,
+): Promise<SqliteAgentVerification | null> => {
   const db = getDb();
   const row: any = db.prepare('SELECT * FROM agent_verification WHERE user_id = ?').get(userId);
   if (!row) return null;
@@ -432,12 +473,16 @@ export const upsertSqliteVerification = async (data: {
   const status = data.status ?? existing?.status ?? 'unverified';
   const tier = data.tier ?? existing?.tier ?? 'unverified';
   const method = data.method !== undefined ? data.method : (existing?.method ?? null);
-  const didDoc = data.did_document !== undefined ? data.did_document : (existing?.did_document ?? null);
-  const wallet = data.wallet_address !== undefined ? data.wallet_address : (existing?.wallet_address ?? null);
-  const verifiedAt = data.verified_at !== undefined ? data.verified_at : (existing?.verified_at ?? null);
+  const didDoc =
+    data.did_document !== undefined ? data.did_document : (existing?.did_document ?? null);
+  const wallet =
+    data.wallet_address !== undefined ? data.wallet_address : (existing?.wallet_address ?? null);
+  const verifiedAt =
+    data.verified_at !== undefined ? data.verified_at : (existing?.verified_at ?? null);
   const createdAt = existing?.created_at || now;
 
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO agent_verification (id, user_id, is_verified, status, tier, method, did_document, wallet_address, verified_at, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(user_id) DO UPDATE SET
@@ -449,7 +494,20 @@ export const upsertSqliteVerification = async (data: {
       wallet_address = excluded.wallet_address,
       verified_at = excluded.verified_at,
       updated_at = excluded.updated_at
-  `).run(id, data.user_id, isVerifiedNum, status, tier, method, didDoc, wallet, verifiedAt, createdAt, now);
+  `,
+  ).run(
+    id,
+    data.user_id,
+    isVerifiedNum,
+    status,
+    tier,
+    method,
+    didDoc,
+    wallet,
+    verifiedAt,
+    createdAt,
+    now,
+  );
 
   const result = await getSqliteVerification(data.user_id);
   if (!result) {
@@ -470,10 +528,12 @@ export const createSqliteChallenge = async (data: {
 }): Promise<void> => {
   const db = getDb();
   const now = data.created_at || new Date().toISOString();
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO verification_challenges (id, user_id, challenge, proof, expires_at, method, status, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `,
+  ).run(
     data.id,
     data.user_id,
     data.challenge,
@@ -499,9 +559,7 @@ export const getSqliteChallenge = async (
     );
   }
   return (
-    db
-      .prepare('SELECT * FROM verification_challenges WHERE challenge = ?')
-      .get(challenge) || null
+    db.prepare('SELECT * FROM verification_challenges WHERE challenge = ?').get(challenge) || null
   );
 };
 
@@ -547,10 +605,12 @@ export const createSqliteSkillOffer = async (offer: {
   const currency = offer.currency || 'microAlgos';
   const status = offer.status || 'available';
 
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO skill_offers (id, agent_id, skill_name, description, category, price_micro_algos, currency, tags, wanted_skill, wanted_description, status, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `,
+  ).run(
     id,
     offer.agent_id,
     offer.skill_name,
@@ -583,14 +643,16 @@ export const createSqliteSkillOffer = async (offer: {
   };
 };
 
-export const getSqliteSkillOffers = async (params: {
-  category?: string;
-  maxPrice?: number;
-  search?: string;
-  status?: string;
-  limit?: number;
-  offset?: number;
-} = {}): Promise<SqliteSkillOffer[]> => {
+export const getSqliteSkillOffers = async (
+  params: {
+    category?: string;
+    maxPrice?: number;
+    search?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+  } = {},
+): Promise<SqliteSkillOffer[]> => {
   const db = getDb();
   const status = params.status || 'available';
   let query = 'SELECT * FROM skill_offers WHERE status = ?';
@@ -682,7 +744,11 @@ export const getSqliteSkillOfferById = async (id: string): Promise<SqliteSkillOf
 export const updateSqliteSkillOfferStatus = async (id: string, status: string): Promise<void> => {
   const db = getDb();
   const now = new Date().toISOString();
-  db.prepare('UPDATE skill_offers SET status = ?, updated_at = ? WHERE id = ?').run(status, now, id);
+  db.prepare('UPDATE skill_offers SET status = ?, updated_at = ? WHERE id = ?').run(
+    status,
+    now,
+    id,
+  );
 };
 
 export interface SqliteSkillRequest {
@@ -711,10 +777,12 @@ export const createSqliteSkillRequest = async (request: {
   const now = request.created_at || new Date().toISOString();
   const status = request.status || 'open';
 
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO skill_requests (id, user_id, requested_skill, description, offered_value, status, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `,
+  ).run(
     id,
     request.user_id,
     request.requested_skill,
@@ -737,12 +805,14 @@ export const createSqliteSkillRequest = async (request: {
   };
 };
 
-export const getSqliteSkillRequests = async (params: {
-  search?: string;
-  status?: string;
-  limit?: number;
-  offset?: number;
-} = {}): Promise<SqliteSkillRequest[]> => {
+export const getSqliteSkillRequests = async (
+  params: {
+    search?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+  } = {},
+): Promise<SqliteSkillRequest[]> => {
   const db = getDb();
   const status = params.status || 'open';
   let query = 'SELECT * FROM skill_requests WHERE status = ?';
@@ -812,10 +882,12 @@ export const createSqliteTrade = async (trade: {
   const price = trade.price_micro_algos ?? 0;
   const paymentStatus = trade.payment_status || 'unpaid';
 
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO trades (id, offer_id, request_id, from_agent_id, to_user_id, status, price_micro_algos, payment_status, escrow_id, notes, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `,
+  ).run(
     id,
     trade.offer_id || null,
     trade.request_id || null,
@@ -866,10 +938,15 @@ export const getSqliteTradeById = async (id: string): Promise<SqliteTrade | null
   };
 };
 
-export const getSqliteTradesForAgent = async (agentId: string, limit: number = 20): Promise<SqliteTrade[]> => {
+export const getSqliteTradesForAgent = async (
+  agentId: string,
+  limit: number = 20,
+): Promise<SqliteTrade[]> => {
   const db = getDb();
   const rows: any[] = db
-    .prepare('SELECT * FROM trades WHERE from_agent_id = ? OR to_user_id = ? ORDER BY created_at DESC LIMIT ?')
+    .prepare(
+      'SELECT * FROM trades WHERE from_agent_id = ? OR to_user_id = ? ORDER BY created_at DESC LIMIT ?',
+    )
     .all(agentId, agentId, limit);
   return rows.map((row) => ({
     id: row.id,
@@ -889,7 +966,13 @@ export const getSqliteTradesForAgent = async (agentId: string, limit: number = 2
 
 export const updateSqliteTrade = async (
   id: string,
-  updates: Partial<{ status: string; payment_status: string; escrow_id: string | null; notes: string | null; updated_at: string }>,
+  updates: Partial<{
+    status: string;
+    payment_status: string;
+    escrow_id: string | null;
+    notes: string | null;
+    updated_at: string;
+  }>,
 ): Promise<void> => {
   const db = getDb();
   const sets: string[] = [];
@@ -924,10 +1007,12 @@ export const updateSqliteTrade = async (
 
 export const createSqliteEscrowRecord = async (record: EscrowRecord): Promise<EscrowRecord> => {
   const db = getDb();
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO escrow_records (id, trade_id, buyer_agent_id, seller_agent_id, amount_micro_algos, tx_id, status, created_at, updated_at, released_at, refunded_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `,
+  ).run(
     record.id,
     record.tradeId,
     record.buyerAgentId,
@@ -1019,4 +1104,3 @@ export const clearSqliteSkillSwap = async (): Promise<void> => {
   db.prepare('DELETE FROM trades').run();
   db.prepare('DELETE FROM escrow_records').run();
 };
-

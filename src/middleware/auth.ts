@@ -117,10 +117,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
       const { payload } = await jwtVerify(token, secretKey);
       user = {
         agentId:
-          (payload.agentId as string) ||
-          (payload.sub as string) ||
-          agentId ||
-          'unknown-agent',
+          (payload.agentId as string) || (payload.sub as string) || agentId || 'unknown-agent',
         walletAddress: payload.walletAddress as string | undefined,
         tier: (payload.tier as 'free' | 'basic' | 'premium') || 'free',
         paidRoutes: Array.isArray(payload.paidRoutes) ? (payload.paidRoutes as string[]) : [],

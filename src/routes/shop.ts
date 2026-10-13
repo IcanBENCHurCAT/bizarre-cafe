@@ -57,7 +57,8 @@ router.get('/items', async (c) => {
 
     const supabase = createServerSupabaseClient();
 
-    let queryBuilder = supabase.from('shop_items')
+    let queryBuilder = supabase
+      .from('shop_items')
       .select('*')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
@@ -96,7 +97,8 @@ router.get('/items', async (c) => {
           description: 'Beans roasted in a localized temporal pocket for infinite freshness.',
           price: 50,
           currency: 'microUSDC',
-          stock: 100, imageUrl: undefined,
+          stock: 100,
+          imageUrl: undefined,
           tags: ['coffee', 'quantum'],
           isActive: true,
           createdAt: new Date().toISOString(),
@@ -107,7 +109,8 @@ router.get('/items', async (c) => {
           description: 'Tastes like your first clean deployment on production.',
           price: 120,
           currency: 'microUSDC',
-          stock: 50, imageUrl: undefined,
+          stock: 50,
+          imageUrl: undefined,
           tags: ['syrup', 'nostalgia'],
           isActive: true,
           createdAt: new Date().toISOString(),
@@ -135,7 +138,8 @@ router.get('/items/:id', async (c) => {
 
     const supabase = createServerSupabaseClient();
 
-    const { data, error } = await supabase.from('shop_items')
+    const { data, error } = await supabase
+      .from('shop_items')
       .select('*')
       .eq('id', id)
       .eq('is_active', true)
@@ -184,7 +188,6 @@ router.get('/items/:id', async (c) => {
  */
 router.post('/checkout', requireX402Payment(), async (c) => {
   try {
-
     const body = await c.req.json();
     const validated = checkoutSchema.parse(body);
     const user = c.user;
@@ -197,7 +200,8 @@ router.post('/checkout', requireX402Payment(), async (c) => {
 
     // Get item details
     let item: any = null;
-    const { data: dbItem } = await supabase.from('shop_items')
+    const { data: dbItem } = await supabase
+      .from('shop_items')
       .select('*')
       .eq('id', validated.itemId)
       .single();
@@ -210,7 +214,8 @@ router.post('/checkout', requireX402Payment(), async (c) => {
         name: 'Quantum Espresso Beans',
         price: 50,
         currency: 'microUSDC',
-        stock: 100, imageUrl: null,
+        stock: 100,
+        imageUrl: null,
       };
     }
 
@@ -238,7 +243,8 @@ router.post('/checkout', requireX402Payment(), async (c) => {
     const promiseId = paymentPromise.paymentId;
 
     // Store receipt record
-    const { data: receipt, error: receiptError } = await supabase.from('receipts')
+    const { data: receipt, error: receiptError } = await supabase
+      .from('receipts')
       .insert({
         id: promiseId,
         user_id: user.agentId,
@@ -254,22 +260,22 @@ router.post('/checkout', requireX402Payment(), async (c) => {
       .select()
       .single();
 
-      if (receiptError) {
-        console.warn('[shop] Supabase unavailable, storing receipt in-memory:', promiseId);
-      }
+    if (receiptError) {
+      console.warn('[shop] Supabase unavailable, storing receipt in-memory:', promiseId);
+    }
 
-      memReceipts.set(promiseId, {
-        id: promiseId,
-        user_id: user.agentId,
-        item_id: validated.itemId,
-        quantity: validated.quantity,
-        total_amount: totalAmount,
-        currency: item.currency,
-        payment_method: validated.paymentMethod,
-        status: 'pending',
-        x402_promise_id: promiseId,
-        created_at: receipt?.created_at ?? new Date().toISOString(),
-      });
+    memReceipts.set(promiseId, {
+      id: promiseId,
+      user_id: user.agentId,
+      item_id: validated.itemId,
+      quantity: validated.quantity,
+      total_amount: totalAmount,
+      currency: item.currency,
+      payment_method: validated.paymentMethod,
+      status: 'pending',
+      x402_promise_id: promiseId,
+      created_at: receipt?.created_at ?? new Date().toISOString(),
+    });
 
     const x402TxId = c.get('x402TxId');
     const _x402Receipt = c.get('x402Receipt');
@@ -322,10 +328,7 @@ router.get('/checkout/:promiseId', async (c) => {
     }
   } else {
     try {
-      const { data } = await supabase.from('receipts')
-        .select('*')
-        .eq('id', promiseId)
-        .single();
+      const { data } = await supabase.from('receipts').select('*').eq('id', promiseId).single();
       if (data) receipt = data;
     } catch {
       /* ignore */
@@ -423,7 +426,8 @@ router.get('/receipts', async (c) => {
     // 1. Attempt Supabase query
     try {
       const supabase = createServerSupabaseClient();
-      const { data, error } = await supabase.from('receipts')
+      const { data, error } = await supabase
+        .from('receipts')
         .select('*')
         .eq('user_id', user.agentId)
         .order('created_at', { ascending: false })
@@ -515,10 +519,7 @@ router.get('/receipts/:id', async (c) => {
       // 1. Try Supabase
       try {
         const supabase = createServerSupabaseClient();
-        const { data, error } = await supabase.from('receipts')
-          .select('*')
-          .eq('id', id)
-          .single();
+        const { data, error } = await supabase.from('receipts').select('*').eq('id', id).single();
 
         if (!error && data) {
           receipt = {

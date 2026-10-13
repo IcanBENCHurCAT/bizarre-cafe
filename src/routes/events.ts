@@ -1,4 +1,3 @@
- 
 /**
  * Events Routes — Scheduled Cafe Events
  *
@@ -54,7 +53,8 @@ router.post('/create', async (c) => {
 
     const scheduledAt = validated.scheduledAt || now;
 
-    const { data, error } = await supabase.from('cafe_events')
+    const { data, error } = await supabase
+      .from('cafe_events')
       .insert({
         name: validated.name,
         description: validated.description,
@@ -119,7 +119,8 @@ router.get('/upcoming', async (c) => {
 
     const supabase = createServerSupabaseClient();
 
-    let queryBuilder = supabase.from('cafe_events')
+    let queryBuilder = supabase
+      .from('cafe_events')
       .select('*')
       .eq('status', 'upcoming')
       .gte('start_time', new Date().toISOString())
@@ -145,7 +146,7 @@ router.get('/upcoming', async (c) => {
       name: e.name,
       description: e.description,
       type: e.type as EventType,
-      
+
       max_attendees: undefined,
       status: e.status as EventStatus,
       location: e.location,
@@ -192,7 +193,8 @@ router.get('/past', async (c) => {
 
     const supabase = createServerSupabaseClient();
 
-    let queryBuilder = supabase.from('cafe_events')
+    let queryBuilder = supabase
+      .from('cafe_events')
       .select('*')
       .in('status', ['past', 'cancelled'])
       .order('start_time', { ascending: false })
@@ -258,18 +260,17 @@ router.get('/:id', async (c) => {
 
     const supabase = createServerSupabaseClient();
 
-    const eventPromise = supabase.from('cafe_events')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const eventPromise = supabase.from('cafe_events').select('*').eq('id', id).single();
 
-    const countPromise = supabase.from('event_attendance')
+    const countPromise = supabase
+      .from('event_attendance')
       .select('*', { count: 'exact', head: true })
       .eq('event_id', id)
       .eq('status', 'joined');
 
     const userAttendancePromise = user
-      ? supabase.from('event_attendance')
+      ? supabase
+          .from('event_attendance')
           .select('*')
           .eq('event_id', id)
           .eq('user_id', user.agentId)
@@ -279,7 +280,7 @@ router.get('/:id', async (c) => {
     const [
       { data: event, error: eventError },
       { count: attendanceCount, error: attendanceError },
-      { data: attendance }
+      { data: attendance },
     ] = await Promise.all([eventPromise, countPromise, userAttendancePromise]);
 
     if (eventError || !event) {
@@ -339,17 +340,16 @@ router.post('/:id/join', async (c) => {
     const supabase = createServerSupabaseClient();
     const now = new Date().toISOString();
 
-    const eventPromise = supabase.from('cafe_events')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const eventPromise = supabase.from('cafe_events').select('*').eq('id', id).single();
 
-    const countPromise = supabase.from('event_attendance')
+    const countPromise = supabase
+      .from('event_attendance')
       .select('*', { count: 'exact', head: true })
       .eq('event_id', id)
       .eq('status', 'joined');
 
-    const existingPromise = supabase.from('event_attendance')
+    const existingPromise = supabase
+      .from('event_attendance')
       .select('*')
       .eq('event_id', id)
       .eq('user_id', user.agentId)
@@ -358,7 +358,7 @@ router.post('/:id/join', async (c) => {
     const [
       { data: event, error: eventError },
       { count: attendanceCount, error: countError },
-      { data: existing }
+      { data: existing },
     ] = await Promise.all([eventPromise, countPromise, existingPromise]);
 
     if (eventError || !event) {
@@ -394,7 +394,8 @@ router.post('/:id/join', async (c) => {
     }
 
     // Add attendance record
-    const { data: attendance, error: attError } = await supabase.from('event_attendance')
+    const { data: attendance, error: attError } = await supabase
+      .from('event_attendance')
       .insert({
         event_id: id,
         user_id: user.agentId,
@@ -450,7 +451,8 @@ router.post('/:id/leave', async (c) => {
 
     // ⚡ Bolt Optimization: Replace select-then-update with a single atomic update
     // Reduces latency by halving database round-trips and fixes concurrency race conditions
-    const { data: updatedAttendance, error: updateError } = await supabase.from('event_attendance')
+    const { data: updatedAttendance, error: updateError } = await supabase
+      .from('event_attendance')
       .update({
         status: 'left',
         updated_at: now,
@@ -464,7 +466,8 @@ router.post('/:id/leave', async (c) => {
 
     if (updateError || !updatedAttendance) {
       // If update failed, check if it's because the record doesn't exist or is already left
-      const { data: existing } = await supabase.from('event_attendance')
+      const { data: existing } = await supabase
+        .from('event_attendance')
         .select('status')
         .eq('event_id', id)
         .eq('user_id', user.agentId)
@@ -501,6 +504,5 @@ router.post('/:id/leave', async (c) => {
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to leave event' } }, 500);
   }
 });
-
 
 export default router;

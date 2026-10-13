@@ -42,11 +42,7 @@ export const algodClient = new algosdk.Algodv2(
   '',
 );
 
-export const indexerClient = new algosdk.Indexer(
-  '',
-  config.algorandIndexerUrl,
-  '',
-);
+export const indexerClient = new algosdk.Indexer('', config.algorandIndexerUrl, '');
 
 // ──────────────────────────────────────────────
 // Mock Verification Registry
@@ -259,14 +255,12 @@ export async function verifyAlgorandTransaction(
           }
           amount = txnObj.amt || 0;
           if (txnObj.rcv) {
-            receiver = typeof txnObj.rcv === 'string'
-              ? txnObj.rcv
-              : algosdk.encodeAddress(txnObj.rcv);
+            receiver =
+              typeof txnObj.rcv === 'string' ? txnObj.rcv : algosdk.encodeAddress(txnObj.rcv);
           }
           if (txnObj.snd) {
-            sender = typeof txnObj.snd === 'string'
-              ? txnObj.snd
-              : algosdk.encodeAddress(txnObj.snd);
+            sender =
+              typeof txnObj.snd === 'string' ? txnObj.snd : algosdk.encodeAddress(txnObj.snd);
           }
           if (txnObj.note) {
             noteStr = Buffer.from(txnObj.note).toString('utf-8');

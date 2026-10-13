@@ -258,7 +258,7 @@ export const chat = {
       .range(offset, offset + limit - 1);
 
     if (error) throw error;
-    return (data as any) as (MessageRow & { rooms: Pick<RoomRow, 'name' | 'type'> | null })[];
+    return data as any as (MessageRow & { rooms: Pick<RoomRow, 'name' | 'type'> | null })[];
   },
 
   /** Get messages by session */

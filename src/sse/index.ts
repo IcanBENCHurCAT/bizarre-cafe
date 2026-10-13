@@ -195,7 +195,8 @@ export const triggerHeartbeat = (): void => {
     timestamp: now,
   });
 
-  for (const client of clients.values()) { // ⚡ Bolt Optimization: Avoid O(N) memory allocation from Array.from()
+  for (const client of clients.values()) {
+    // ⚡ Bolt Optimization: Avoid O(N) memory allocation from Array.from()
     if (!client.active) {
       cleanupClient(client.id);
       continue;
@@ -277,7 +278,9 @@ export const sseHandler = async (c: Context) => {
     }
     agentSet.add(clientId);
 
-    console.warn(`[sse] Client ${clientId} connected (agent ${agentId}, room ${roomId || 'global'})`);
+    console.warn(
+      `[sse] Client ${clientId} connected (agent ${agentId}, room ${roomId || 'global'})`,
+    );
 
     await sendToClient(client, {
       type: 'system',
@@ -403,7 +406,7 @@ export const getRoomPresence = (roomId: string): RoomParticipant[] => {
     const client = clients.get(clientId);
     if (!client || !client.active) continue;
 
-    const isRecent = (now - client.lastSeen) < 60000;
+    const isRecent = now - client.lastSeen < 60000;
     const currentStatus: 'active' | 'idle' = isRecent ? 'active' : 'idle';
     const existing = agentMap.get(client.agentId);
 

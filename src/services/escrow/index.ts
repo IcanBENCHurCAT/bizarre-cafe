@@ -21,7 +21,13 @@ import {
 } from '../../db/sqlite';
 import { createServerSupabaseClient } from '../../supabase/client';
 
-export type { EscrowRecord, EscrowStatus, EscrowLockParams, EscrowReleaseResult, EscrowRefundResult };
+export type {
+  EscrowRecord,
+  EscrowStatus,
+  EscrowLockParams,
+  EscrowReleaseResult,
+  EscrowRefundResult,
+};
 
 // In-memory cache for escrows
 const memEscrows = new Map<string, EscrowRecord>();
@@ -31,7 +37,8 @@ const memEscrows = new Map<string, EscrowRecord>();
  * Coordinates with antiDoubleSpend to ensure txId has not been replayed.
  */
 export async function lockFundsInEscrow(params: EscrowLockParams): Promise<EscrowRecord> {
-  const { tradeId, buyerAgentId, sellerAgentId, amountMicroAlgos, txId, receipt, paymentId } = params;
+  const { tradeId, buyerAgentId, sellerAgentId, amountMicroAlgos, txId, receipt, paymentId } =
+    params;
 
   if (!txId || typeof txId !== 'string' || !txId.trim()) {
     throw new Error('Missing transaction ID');
@@ -153,7 +160,10 @@ export async function getEscrowByTradeId(tradeId: string): Promise<EscrowRecord 
 /**
  * Release escrowed funds to seller upon verified trade delivery.
  */
-export async function releaseEscrow(escrowId: string, callerAgentId: string): Promise<EscrowRecord> {
+export async function releaseEscrow(
+  escrowId: string,
+  callerAgentId: string,
+): Promise<EscrowRecord> {
   let escrow = await getEscrowRecord(escrowId);
   if (!escrow) {
     escrow = await getEscrowByTradeId(escrowId);
@@ -230,7 +240,11 @@ export async function refundEscrow(
   }
 
   // Caller authorization: must be a trade participant (buyer or seller) or 'system'
-  if (callerAgentId !== 'system' && callerAgentId !== escrow.buyerAgentId && callerAgentId !== escrow.sellerAgentId) {
+  if (
+    callerAgentId !== 'system' &&
+    callerAgentId !== escrow.buyerAgentId &&
+    callerAgentId !== escrow.sellerAgentId
+  ) {
     throw new Error('FORBIDDEN: Not authorized to refund this escrow');
   }
 

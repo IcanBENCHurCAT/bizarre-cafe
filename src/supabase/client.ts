@@ -39,22 +39,23 @@ export const supabase = createClient<Database>(
   config.supabaseUrl || 'http://localhost:54321',
   config.supabaseKey || 'dummy-anon-key',
   {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-  },
-  db: {
-    schema: 'public',
-  },
-  global: {
-    fetch: async (url, init?) => {
-      // Inject auth headers for internal proxy calls if needed
-      const headers = new Headers(init?.headers);
-      headers.set('x-service-key', config.supabaseServiceRoleKey || 'dummy-service-role-key');
-      return fetch(url, { ...init, headers });
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    db: {
+      schema: 'public',
+    },
+    global: {
+      fetch: async (url, init?) => {
+        // Inject auth headers for internal proxy calls if needed
+        const headers = new Headers(init?.headers);
+        headers.set('x-service-key', config.supabaseServiceRoleKey || 'dummy-service-role-key');
+        return fetch(url, { ...init, headers });
+      },
     },
   },
-});
+);
 
 // ─── Service Role Client ──────────────────────────────────────────────
 

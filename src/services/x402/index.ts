@@ -467,4 +467,3 @@ export async function verifyPaymentSubmission(
 
   return verification;
 }
-

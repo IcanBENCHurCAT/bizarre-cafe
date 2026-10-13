@@ -13,7 +13,12 @@ import { config } from '../../config';
 // Ensure @noble/ed25519 has sha512 configured in Node runtime
 if (!ed.hashes.sha512) {
   ed.hashes.sha512 = (...m: Uint8Array[]) =>
-    new Uint8Array(crypto.createHash('sha512').update(ed.etc.concatBytes(...m)).digest());
+    new Uint8Array(
+      crypto
+        .createHash('sha512')
+        .update(ed.etc.concatBytes(...m))
+        .digest(),
+    );
 }
 
 // ──────────────────────────────────────────────
@@ -373,8 +378,12 @@ export async function verifyAgentDID(
     }
 
     // In test mode, allow deterministic mock if address is not a valid 58-char Algorand address
-    if (config.nodeEnv === 'test' && (trimmedDid.includes('test') || config.algorandMockVerification)) {
-      const sigStr = typeof signature === 'string' ? signature : Buffer.from(signature).toString('hex');
+    if (
+      config.nodeEnv === 'test' &&
+      (trimmedDid.includes('test') || config.algorandMockVerification)
+    ) {
+      const sigStr =
+        typeof signature === 'string' ? signature : Buffer.from(signature).toString('hex');
       if (sigStr.includes('0123456789abcdef') || sigStr.length === 64 || sigStr.length === 128) {
         return { verified: true, did: trimmedDid, verifiedAt: Date.now() };
       }

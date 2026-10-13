@@ -13,8 +13,6 @@
  *  5. Server records verification status
  */
 
-
-
 import { verifyAgentDID } from '../identity/did';
 import { createToken } from '../../middleware/auth';
 import { config } from '../../config';
@@ -100,7 +98,7 @@ const challenges = new Map<string, StoredChallenge>();
 const agents = new Map<string, AgentRecord>();
 
 /** Challenge TTL (5 minutes) */
-const CHALLENGE_TTL_MS = config.didChallengeTtlMs ?? (5 * 60 * 1000);
+const CHALLENGE_TTL_MS = config.didChallengeTtlMs ?? 5 * 60 * 1000;
 
 /** Maximum challenges per agent per window */
 const MAX_CHALLENGES_PER_HOUR = config.didMaxChallengesPerHour ?? 20;
@@ -174,8 +172,6 @@ export const hashNonce = (nonce: string): Promise<string> => {
 const formatChallengeMessage = (nonce: string, did: string): string => {
   return `Bizarre Cafe Verification\nDID: ${did}\nNonce: ${nonce}\nTimestamp: ${Date.now()}`;
 };
-
-
 
 /**
  * Clean up expired challenges from memory.

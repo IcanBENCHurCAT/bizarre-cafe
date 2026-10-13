@@ -45,10 +45,18 @@ async function verifyRoomAccess(roomId: string, user?: { agentId: string } | nul
   const room = await db.rooms.get(roomId);
   if (room && room.visibility === 'private') {
     if (!user) {
-      return { allowed: false, status: 401 as const, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } };
+      return {
+        allowed: false,
+        status: 401 as const,
+        error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+      };
     }
     if (room.owner_id && room.owner_id !== user.agentId) {
-      return { allowed: false, status: 403 as const, error: { code: 'FORBIDDEN', message: 'Access denied' } };
+      return {
+        allowed: false,
+        status: 403 as const,
+        error: { code: 'FORBIDDEN', message: 'Access denied' },
+      };
     }
   }
   return { allowed: true, status: 200 as const, error: null };

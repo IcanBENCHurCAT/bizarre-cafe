@@ -63,7 +63,8 @@ router.post('/challenge', async (c) => {
     const supabase = createServerSupabaseClient();
 
     // Revoke any existing active challenge for this agent
-    await supabase.from('verification_challenges')
+    await supabase
+      .from('verification_challenges')
       .update({ status: 'expired' })
       .eq('user_id', agentId)
       .eq('status', 'pending')
@@ -74,7 +75,8 @@ router.post('/challenge', async (c) => {
     const expiresAt = new Date(issued.expiresAt).toISOString();
 
     // Store challenge in Supabase
-    const { data, error } = await supabase.from('verification_challenges')
+    const { data, error } = await supabase
+      .from('verification_challenges')
       .insert({
         id: issued.challengeId,
         user_id: agentId,
@@ -162,7 +164,8 @@ router.post('/verify', async (c) => {
 
     // Get active challenge
     let challenge: any = null;
-    const { data: supabaseChallenge, error: challengeError } = await supabase.from('verification_challenges')
+    const { data: supabaseChallenge, error: challengeError } = await supabase
+      .from('verification_challenges')
       .select('*')
       .eq('user_id', agentId)
       .eq('challenge', validated.challenge)
@@ -183,24 +186,21 @@ router.post('/verify', async (c) => {
     }
 
     // Verify signature using the verification service
-    const serviceResult = await verifyAgent(
-      agentId,
-      validated.signature,
-      validated.challenge,
-    );
+    const serviceResult = await verifyAgent(agentId, validated.signature, validated.challenge);
 
     const signatureValid =
       serviceResult.verified ||
       (config.nodeEnv !== 'production' &&
-        verifySignature(
-          validated.challenge,
-          validated.signature,
-          validated.walletAddress || '',
-        ));
+        verifySignature(validated.challenge, validated.signature, validated.walletAddress || ''));
 
     if (!signatureValid) {
       return c.json(
-        { error: { code: 'INVALID_SIGNATURE', message: serviceResult.reason ?? 'Wallet signature verification failed' } },
+        {
+          error: {
+            code: 'INVALID_SIGNATURE',
+            message: serviceResult.reason ?? 'Wallet signature verification failed',
+          },
+        },
         400,
       );
     }
@@ -208,7 +208,8 @@ router.post('/verify', async (c) => {
     const now = new Date().toISOString();
 
     // Mark challenge as verified
-    const { error: updateError } = await supabase.from('verification_challenges')
+    const { error: updateError } = await supabase
+      .from('verification_challenges')
       .update({ status: 'verified', updated_at: now })
       .eq('id', challenge.id);
 
@@ -222,16 +223,19 @@ router.post('/verify', async (c) => {
 
     // ⚡ Bolt Optimization: Replace sequential select and update/insert with a single upsert
     // Removes an unnecessary round trip to the database
-    await supabase.from('agent_verification').upsert({
-      user_id: agentId,
-      is_verified: true,
-      status: 'verified',
-      wallet_address: validated.walletAddress ?? null,
-      did_document: validated.didDocument ?? null,
-      verified_at: now,
-      tier: 'basic',
-      updated_at: now,
-    }, { onConflict: 'user_id' });
+    await supabase.from('agent_verification').upsert(
+      {
+        user_id: agentId,
+        is_verified: true,
+        status: 'verified',
+        wallet_address: validated.walletAddress ?? null,
+        did_document: validated.didDocument ?? null,
+        verified_at: now,
+        tier: 'basic',
+        updated_at: now,
+      },
+      { onConflict: 'user_id' },
+    );
 
     // Persist to SQLite
     try {
@@ -298,7 +302,12 @@ router.get('/status', async (c) => {
     // SECURITY FIX: Prevent IDOR vulnerability by enforcing that authenticated agents can only inspect their own verification status
     if (user.agentId !== agentId) {
       return c.json(
-        { error: { code: 'FORBIDDEN', message: "Cannot access another agent's verification status" } },
+        {
+          error: {
+            code: 'FORBIDDEN',
+            message: "Cannot access another agent's verification status",
+          },
+        },
         403,
       );
     }
@@ -306,7 +315,8 @@ router.get('/status', async (c) => {
     const supabase = createServerSupabaseClient();
 
     // Get verification record
-    const { data: verification, error: verError } = await supabase.from('agent_verification')
+    const { data: verification, error: verError } = await supabase
+      .from('agent_verification')
       .select('*')
       .eq('user_id', agentId)
       .single();
@@ -386,7 +396,8 @@ router.post('/revoke', async (c) => {
     const now = new Date().toISOString();
 
     // Check if agent has verification in Supabase
-    const { data: verification } = await supabase.from('agent_verification')
+    const { data: verification } = await supabase
+      .from('agent_verification')
       .select('*')
       .eq('user_id', validated.agentId)
       .single();
@@ -407,7 +418,8 @@ router.post('/revoke', async (c) => {
     }
 
     // Revoke: mark as unverified, clear DID
-    await supabase.from('agent_verification')
+    await supabase
+      .from('agent_verification')
       .update({
         status: 'revoked',
         is_verified: false,
@@ -539,7 +551,8 @@ router.post('/upgrade', async (c) => {
     const supabase = createServerSupabaseClient();
 
     // Get current verification
-    const { data: verification, error: verError } = await supabase.from('agent_verification')
+    const { data: verification, error: verError } = await supabase
+      .from('agent_verification')
       .select('*')
       .eq('user_id', user.agentId)
       .single();
@@ -569,7 +582,8 @@ router.post('/upgrade', async (c) => {
     // For now, auto-approve upgrades (configurable)
     const now = new Date().toISOString();
 
-    await supabase.from('agent_verification')
+    await supabase
+      .from('agent_verification')
       .update({
         tier,
         updated_at: now,
@@ -599,7 +613,11 @@ router.post('/upgrade', async (c) => {
  * Base64 or hex decodes the signature and verifies it against the public key
  * derived from the Algorand wallet address using algosdk.
  */
-export function verifySignature(message: string, signature: string, walletAddress: string): boolean {
+export function verifySignature(
+  message: string,
+  signature: string,
+  walletAddress: string,
+): boolean {
   try {
     // Validate format
     if (!walletAddress || !walletAddress.startsWith('ALGO:')) {
