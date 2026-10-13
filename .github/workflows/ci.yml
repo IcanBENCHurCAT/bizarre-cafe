@@ -114,8 +114,8 @@ jobs:
           echo "JWT_SECRET=test-jwt-secret-for-ci" >> $GITHUB_ENV
           echo "ALGORAND_MOCK_VERIFICATION=true" >> $GITHUB_ENV
 
-      - name: Run tests
-        run: npm test
+      - name: Run tests with coverage
+        run: npx vitest run --coverage.enabled=true
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
