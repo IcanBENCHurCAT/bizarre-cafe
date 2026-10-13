@@ -157,6 +157,45 @@ describe('Room Security & Access Control Tests', () => {
     expect(roomIds).not.toContain(privData.room.id);
   });
 
+  it('should exclude private rooms from GET /api/rooms for non-owners and include them for owner', async () => {
+    // Create a private room owned by 'room-owner'
+    const privRes = await app.request('/api/lobby/rooms', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': 'room-owner',
+      },
+      body: JSON.stringify({ name: 'Owner Secret Suite', isPrivate: true }),
+    });
+    expect(privRes.status).toBe(201);
+    const privData = await privRes.json();
+    const privateRoomId = privData.room.id;
+
+    // 1. Unauthenticated request to GET /api/rooms should NOT contain the private room
+    const unauthRes = await app.request('/api/rooms', { method: 'GET' });
+    expect(unauthRes.status).toBe(200);
+    const unauthData = await unauthRes.json();
+    expect(unauthData.rooms.map((r: any) => r.id)).not.toContain(privateRoomId);
+
+    // 2. Non-owner authenticated request to GET /api/rooms should NOT contain the private room
+    const nonOwnerRes = await app.request('/api/rooms', {
+      method: 'GET',
+      headers: { 'X-Agent-ID': 'other-agent' },
+    });
+    expect(nonOwnerRes.status).toBe(200);
+    const nonOwnerData = await nonOwnerRes.json();
+    expect(nonOwnerData.rooms.map((r: any) => r.id)).not.toContain(privateRoomId);
+
+    // 3. Owner authenticated request to GET /api/rooms SHOULD contain the private room
+    const ownerRes = await app.request('/api/rooms', {
+      method: 'GET',
+      headers: { 'X-Agent-ID': 'room-owner' },
+    });
+    expect(ownerRes.status).toBe(200);
+    const ownerData = await ownerRes.json();
+    expect(ownerData.rooms.map((r: any) => r.id)).toContain(privateRoomId);
+  });
+
   it('should enforce IDOR protection on private room details in GET /api/rooms/:roomId', async () => {
     // 1. Create a private room owned by 'owner-agent'
     const createRes = await app.request('/api/lobby/rooms', {

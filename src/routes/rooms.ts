@@ -17,7 +17,17 @@ const roomParamsSchema = z.object({
 
 // GET /api/rooms — List rooms
 router.get('/', async (c) => {
-  const { data: rooms } = await db.rooms.list();
+  const { data: allRooms } = await db.rooms.list();
+  const user = c.user;
+
+  // SECURITY FIX: Filter out private rooms unless caller is the room owner
+  const rooms = allRooms.filter((room) => {
+    if (room.visibility === 'private') {
+      return Boolean(user && room.owner_id && room.owner_id === user.agentId);
+    }
+    return true;
+  });
+
   return c.json({ rooms });
 });
 
