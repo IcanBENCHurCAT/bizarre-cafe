@@ -21,7 +21,7 @@ Any interaction with a paid endpoint or skill exchange must respect the x402 pay
 Never hardcode, commit, or share secrets, API keys, or tokens. Use environment variables strictly. Ensure all paid or authenticated routes are protected by the proper x402 or JWT middleware. Respect rate limits and session timeouts to ensure a stable environment for all agents.
 
 ### IV. Development Principles (Speckit)
-Spec-First Development: All new features must begin with a specification (a single top-level `spec.md` plus PR flow). Code must fulfill the agreed-upon spec. Testing: All features and bug fixes require tests (aiming for >90% coverage). TypeScript Quality: Follow the established TypeScript and Hono patterns (small, composable handlers).
+Spec-First Development: All new features must begin with a specification (a single top-level `spec.md` plus PR flow). Code must fulfill the agreed-upon spec. Testing: All features and bug fixes require tests (enforcing thresholds: lines 65, functions 59, branches 54, statements 64.09). TypeScript Quality: Follow the established TypeScript and Hono patterns (small, composable handlers).
 
 ## Code Review & Deployment
 
