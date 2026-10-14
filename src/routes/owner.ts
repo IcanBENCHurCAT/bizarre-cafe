@@ -390,9 +390,8 @@ router.get('/lore', async (c) => {
     if (validated.category) {
       queryBuilder = queryBuilder.eq('category', validated.category);
     }
-    if (validated.discovered !== undefined) {
-      queryBuilder = queryBuilder.eq('discovered', validated.discovered);
-    }
+    // SECURITY FIX: Prevent leaking undiscovered secret lore by unconditionally restricting to discovered lore
+    queryBuilder = queryBuilder.eq('discovered', true);
 
     const { data, error } = await queryBuilder;
 
