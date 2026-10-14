@@ -4,6 +4,7 @@ const { tables, mockSupabase } = vi.hoisted(() => {
   const tables: Record<string, any[]> = {
     owner_messages: [],
     owner_mood: [],
+    lore_entries: [],
   };
 
   class MockQueryBuilder {
@@ -21,7 +22,31 @@ const { tables, mockSupabase } = vi.hoisted(() => {
 
     select(_fields = '*') {
       if (!this.currentData) {
-        this.currentData = this.currentRows;
+        this.currentData = [...this.currentRows];
+      }
+      return this;
+    }
+
+    eq(col: string, val: any) {
+      if (!this.currentData) {
+        this.currentData = [...this.currentRows];
+      }
+      if (Array.isArray(this.currentData)) {
+        this.currentData = this.currentData.filter((row: any) => row[col] === val);
+      }
+      return this;
+    }
+
+    order(_col: string, _opts?: any) {
+      return this;
+    }
+
+    limit(n: number) {
+      if (!this.currentData) {
+        this.currentData = [...this.currentRows];
+      }
+      if (Array.isArray(this.currentData)) {
+        this.currentData = this.currentData.slice(0, n);
       }
       return this;
     }
@@ -66,6 +91,55 @@ describe('Owner Endpoint Security - Auth Enforcement', () => {
   beforeEach(() => {
     tables.owner_messages = [];
     tables.owner_mood = [];
+    tables.lore_entries = [];
+  });
+
+  it('should only return discovered lore entries and not leak undiscovered lore', async () => {
+    tables.lore_entries = [
+      {
+        id: '1',
+        title: 'Discovered Lore 1',
+        content: 'Known facts',
+        category: 'history',
+        discovered: true,
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: '2',
+        title: 'Secret Lore 2',
+        content: 'Top secret secret undiscovered lore',
+        category: 'secret',
+        discovered: false,
+        created_at: new Date().toISOString(),
+      },
+    ];
+
+    // Request without parameters
+    const res = await app.request('/api/owner/lore', {
+      method: 'GET',
+      headers: {
+        'X-Agent-ID': 'test-agent',
+      },
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lore).toHaveLength(1);
+    expect(body.lore[0].id).toBe('1');
+    expect(body.lore[0].discovered).toBe(true);
+
+    // Explicitly request discovered=false should still not leak undiscovered lore
+    const resUndiscovered = await app.request('/api/owner/lore?discovered=false', {
+      method: 'GET',
+      headers: {
+        'X-Agent-ID': 'test-agent',
+      },
+    });
+
+    expect(resUndiscovered.status).toBe(200);
+    const bodyUndiscovered = await resUndiscovered.json();
+    expect(bodyUndiscovered.lore).toHaveLength(1);
+    expect(bodyUndiscovered.lore[0].id).toBe('1');
   });
 
   it('should return 401 Unauthorized for unauthenticated requests to POST /api/owner/interact', async () => {
