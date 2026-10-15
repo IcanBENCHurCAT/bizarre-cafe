@@ -3,8 +3,15 @@ import { describe, it, expect, vi } from 'vitest';
 const { mockSupabase } = vi.hoisted(() => {
   class MockQueryBuilder {
     private isSingle = false;
+    private isInsert = false;
     select() { return this; }
+    update() { return this; }
+    insert() {
+      this.isInsert = true;
+      return this;
+    }
     eq() { return this; }
+    gte() { return this; }
     order() { return this; }
     limit() { return this; }
     single() {
@@ -12,6 +19,19 @@ const { mockSupabase } = vi.hoisted(() => {
       return this;
     }
     then(resolve: (val: any) => any) {
+      if (this.isInsert) {
+        return Promise.resolve({
+          data: {
+            id: 'mock-challenge-id',
+            user_id: 'owner-agent',
+            challenge: 'mock-challenge',
+            expires_at: new Date().toISOString(),
+            status: 'pending',
+            created_at: new Date().toISOString(),
+          },
+          error: null,
+        }).then(resolve);
+      }
       if (this.isSingle) {
         return Promise.resolve({ data: null, error: { code: 'PGRST116' } }).then(resolve);
       }
@@ -96,5 +116,41 @@ describe('Verification Security - IDOR Protection', () => {
   it('should return 401 Unauthorized when unauthenticated request is made to /status', async () => {
     const res = await app.request('/api/verification/status?agentId=target-agent');
     expect(res.status).toBe(401);
+  });
+
+  it('should prevent an authenticated agent from requesting a challenge for another agent (403 Forbidden)', async () => {
+    const res = await app.request('/api/verification/challenge', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': 'attacker-agent',
+      },
+      body: JSON.stringify({
+        agentId: 'target-agent',
+      }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error.code).toBe('FORBIDDEN');
+    expect(body.error.message).toContain('Cannot request verification challenge for another agent');
+  });
+
+  it('should allow an authenticated agent to request a challenge for themselves (200 OK)', async () => {
+    const res = await app.request('/api/verification/challenge', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': 'owner-agent',
+      },
+      body: JSON.stringify({
+        agentId: 'owner-agent',
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.challenge).toBeDefined();
+    expect(body.challenge.agentId).toBe('owner-agent');
   });
 });

@@ -59,6 +59,20 @@ router.post('/challenge', async (c) => {
   try {
     const body = await c.req.json();
     const { agentId } = z.object({ agentId: z.string() }).parse(body);
+    const user = c.user;
+
+    // SECURITY FIX: Prevent IDOR vulnerability by enforcing that authenticated agents can only request challenges for themselves
+    if (user && user.agentId !== agentId) {
+      return c.json(
+        {
+          error: {
+            code: 'FORBIDDEN',
+            message: "Cannot request verification challenge for another agent",
+          },
+        },
+        403,
+      );
+    }
 
     const supabase = createServerSupabaseClient();
 
