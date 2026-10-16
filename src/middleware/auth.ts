@@ -12,6 +12,7 @@ import { jwtVerify, SignJWT } from 'jose';
 import { config } from '../config';
 import { verifyPaymentSubmission } from '../services/x402/index';
 import { verifyAgent } from '../services/verification/index';
+import * as algosdk from 'algosdk';
 
 export interface AuthUser {
   agentId: string;
@@ -68,13 +69,15 @@ const verifyWalletSignature = async (
   address: string,
 ): Promise<boolean> => {
   try {
-    // In production, verify against actual Algorand address
-    // For now, accept any valid-looking signature
-    const _msgBytes = new TextEncoder().encode(message);
-    const sigBytes = Buffer.from(signature, 'hex');
+    const msgBytes = new TextEncoder().encode(message);
+    const sigBytes = Uint8Array.from(Buffer.from(signature, 'hex'));
+    const actualAddress = address.startsWith('ALGO:') ? address.substring(5) : address;
 
-    // Simplified verification - in production, verify against algo address
-    return sigBytes.length === 64 && address.startsWith('ALGO:');
+    if (sigBytes.length !== 64) {
+      return false;
+    }
+
+    return algosdk.verifyBytes(msgBytes, sigBytes, actualAddress);
   } catch {
     return false;
   }
@@ -124,7 +127,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
       };
     } catch {
       // In development or test, allow fallback if arbitrary Bearer token passed
-      if (config.nodeEnv === 'development' || config.nodeEnv === 'test') {
+      if (config.allowAuthBypass && (config.nodeEnv === 'development' || config.nodeEnv === 'test')) {
         user = generateFakeUser(agentId || 'dev-agent');
       }
     }
@@ -147,7 +150,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   }
 
   // Method 2b: Legacy wallet signature headers (for x402, only in non-production)
-  if (!user && config.nodeEnv !== 'production') {
+  if (!user && config.allowAuthBypass && config.nodeEnv !== 'production') {
     const walletSig = extractWalletSignature(c);
     if (walletSig) {
       const isValid = await verifyWalletSignature(
@@ -163,7 +166,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   }
 
   // Method 3: Agent ID header (only for development/testing)
-  if (!user && agentId && (config.nodeEnv === 'development' || config.nodeEnv === 'test')) {
+  if (!user && agentId && config.allowAuthBypass && (config.nodeEnv === 'development' || config.nodeEnv === 'test')) {
     user = generateFakeUser(agentId);
   }
 
@@ -177,6 +180,16 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
     c.user = user;
   }
 
+  return next();
+};
+
+/**
+ * Require authenticated user for a specific route
+ */
+export const requireAuth: MiddlewareHandler = async (c, next) => {
+  if (!c.auth.user) {
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
+  }
   return next();
 };
 

@@ -10,6 +10,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../db';
+import { requireAuth } from '../middleware/auth';
 
 const router = new Hono();
 
@@ -39,7 +40,7 @@ router.get('/rooms', async (c) => {
 });
 
 // POST /api/lobby/rooms — Create a new room
-router.post('/rooms', async (c) => {
+router.post('/rooms', requireAuth, async (c) => {
   try {
     const user = c.user;
 

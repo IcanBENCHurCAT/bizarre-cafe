@@ -14,6 +14,7 @@ import { z } from 'zod';
 import { db } from '../db';
 import { broadcastToRoom, getRoomPresence, touchAgent } from '../sse';
 import type { ChatMessage } from '../types/cafe';
+import { requireAuth } from '../middleware/auth';
 
 const router = new Hono();
 
@@ -69,7 +70,7 @@ async function verifyRoomAccess(roomId: string, user?: { agentId: string } | nul
  * be sent by admins; rich messages include structured metadata.
  * WebSocket clients will receive this message via broadcast.
  */
-router.post('/messages', async (c) => {
+router.post('/messages', requireAuth, async (c) => {
   try {
     const body = await c.req.json();
     const validated = sendMessageSchema.parse(body);
@@ -239,7 +240,7 @@ router.get('/presence', async (c) => {
  * Returns the count of unread messages for the authenticated agent
  * in the specified room. Used for notification badges.
  */
-router.get('/unread', async (c) => {
+router.get('/unread', requireAuth, async (c) => {
   try {
     const query = c.req.query();
     const { roomId } = z.object({ roomId: z.string().min(1) }).parse(query);

@@ -27,6 +27,7 @@ import {
   getSqliteVerification,
 } from '../db/sqlite';
 import { normalizeSignature, normalizeMessage } from '../services/identity/did';
+import { requireAuth } from '../middleware/auth';
 
 const router = new Hono();
 
@@ -303,7 +304,7 @@ router.post('/verify', async (c) => {
  * Returns the current verification status for an agent, including
  * DID document, wallet address, and verification tier.
  */
-router.get('/status', async (c) => {
+router.get('/status', requireAuth, async (c) => {
   try {
     const query = c.req.query();
     const { agentId } = statusQuerySchema.parse(query);
@@ -388,7 +389,7 @@ router.get('/status', async (c) => {
  * Revokes an agent's current verification. Useful when a wallet
  * is compromised or the agent wants to re-verify with a new key.
  */
-router.post('/revoke', async (c) => {
+router.post('/revoke', requireAuth, async (c) => {
   try {
     const body = await c.req.json();
     const validated = revokeSchema.parse(body);
@@ -487,7 +488,7 @@ router.post('/revoke', async (c) => {
  * Returns a history of verification actions for an agent,
  * including challenges, verifications, and revocations.
  */
-router.get('/log', async (c) => {
+router.get('/log', requireAuth, async (c) => {
   try {
     const query = c.req.query();
     const { agentId } = statusQuerySchema.parse(query);
@@ -552,7 +553,7 @@ router.get('/log', async (c) => {
  * An agent can request to be upgraded from basic to full verification.
  * This may require additional identity proof.
  */
-router.post('/upgrade', async (c) => {
+router.post('/upgrade', requireAuth, async (c) => {
   try {
     const body = await c.req.json();
     const { tier } = z.object({ tier: z.enum(['basic', 'full']) }).parse(body);

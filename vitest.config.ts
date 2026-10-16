@@ -8,6 +8,7 @@ export default defineConfig({
     fileParallelism: false,
     env: {
       JWT_SECRET: 'test-jwt-secret-key-for-testing-purposes-only',
+      ALLOW_AUTH_BYPASS: 'true',
     },
     coverage: {
       provider: 'v8',

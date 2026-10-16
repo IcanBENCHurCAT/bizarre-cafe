@@ -32,6 +32,7 @@ import {
 } from '../db/sqlite';
 import * as sqliteDb from '../db/sqlite';
 import { lockFundsInEscrow, releaseEscrow, refundEscrow } from '../services/escrow';
+import { requireAuth } from '../middleware/auth';
 
 type SkillOfferRow = Database['public']['Tables']['skill_offers']['Row'];
 
@@ -159,7 +160,7 @@ const tradeParamsSchema = z.object({
 /**
  * POST /offer — Post a skill offer
  */
-router.post('/offer', async (c) => {
+router.post('/offer', requireAuth, async (c) => {
   try {
     const body = await c.req.json();
     const validated = offerSchema.parse(body);
@@ -250,7 +251,7 @@ router.post('/offer', async (c) => {
 /**
  * POST /request — Post a skill request / bounty
  */
-router.post('/request', async (c) => {
+router.post('/request', requireAuth, async (c) => {
   try {
     const body = await c.req.json();
     const validated = requestSchema.parse(body);
@@ -552,7 +553,7 @@ router.get('/requests', async (c) => {
 /**
  * POST /offers/:id/accept — Accept a skill offer with escrow locking
  */
-router.post('/offers/:id/accept', async (c) => {
+router.post('/offers/:id/accept', requireAuth, async (c) => {
   try {
     const { id } = tradeParamsSchema.parse({ id: c.req.param('id') });
     const body = await c.req.json().catch(() => ({}));
@@ -916,7 +917,7 @@ router.post('/offers/:id/accept', async (c) => {
 /**
  * GET /trades — View trade history with in-memory fallback
  */
-router.get('/trades', async (c) => {
+router.get('/trades', requireAuth, async (c) => {
   try {
     const query = z.object({ limit: z.string().transform(Number).optional() }).parse(c.req.query());
     const limit = query.limit ?? 20;
@@ -1002,7 +1003,7 @@ router.get('/trades', async (c) => {
 /**
  * GET /trades/:id — View specific trade details
  */
-router.get('/trades/:id', async (c) => {
+router.get('/trades/:id', requireAuth, async (c) => {
   try {
     const { id } = tradeParamsSchema.parse({ id: c.req.param('id') });
     const user = c.user;
@@ -1076,7 +1077,7 @@ router.get('/trades/:id', async (c) => {
 /**
  * POST /trades/:id/complete — Complete a trade and release escrow
  */
-router.post('/trades/:id/complete', async (c) => {
+router.post('/trades/:id/complete', requireAuth, async (c) => {
   try {
     const { id } = tradeParamsSchema.parse({ id: c.req.param('id') });
     const body = await c.req.json().catch(() => ({}));
@@ -1249,7 +1250,7 @@ router.post('/trades/:id/complete', async (c) => {
 /**
  * POST /trades/:id/cancel — Cancel a trade and refund escrow
  */
-router.post('/trades/:id/cancel', async (c) => {
+router.post('/trades/:id/cancel', requireAuth, async (c) => {
   try {
     const { id } = tradeParamsSchema.parse({ id: c.req.param('id') });
     const body = await c.req.json().catch(() => ({}));
