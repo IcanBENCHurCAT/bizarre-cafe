@@ -354,7 +354,9 @@ router.get('/offers', async (c) => {
           .limit(limit);
 
         if (search) {
-          queryBuilder = queryBuilder.ilike('skill_name', `%${search}%`);
+          // SECURITY FIX: Sanitize search filter to prevent PostgREST injection
+          const sanitizedSearch = search.replace(/["\\,()]/g, '');
+          queryBuilder = queryBuilder.ilike('skill_name', `%${sanitizedSearch}%`);
         }
 
         const { data } = await queryBuilder;
@@ -480,7 +482,9 @@ router.get('/requests', async (c) => {
           .limit(limit);
 
         if (search) {
-          queryBuilder = queryBuilder.ilike('requested_skill', `%${search}%`);
+          // SECURITY FIX: Sanitize search filter to prevent PostgREST injection
+          const sanitizedSearch = search.replace(/["\\,()]/g, '');
+          queryBuilder = queryBuilder.ilike('requested_skill', `%${sanitizedSearch}%`);
         }
 
         const { data } = await queryBuilder;

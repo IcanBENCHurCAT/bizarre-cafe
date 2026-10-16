@@ -31,4 +31,22 @@ describe('Skill Swap Security & PostgREST Injection Protection', () => {
     expect(body.trades).toBeDefined();
     expect(Array.isArray(body.trades)).toBe(true);
   });
+
+  it('should safely handle search query containing PostgREST injection characters in GET /api/skill-swap/offers', async () => {
+    const injectionSearch = 'python",skill_name.neq."safe';
+    const res = await app.request(`/api/skill-swap/offers?search=${encodeURIComponent(injectionSearch)}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.offers).toBeDefined();
+    expect(Array.isArray(body.offers)).toBe(true);
+  });
+
+  it('should safely handle search query containing PostgREST injection characters in GET /api/skill-swap/requests', async () => {
+    const injectionSearch = 'coding",description.neq."safe';
+    const res = await app.request(`/api/skill-swap/requests?search=${encodeURIComponent(injectionSearch)}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.requests).toBeDefined();
+    expect(Array.isArray(body.requests)).toBe(true);
+  });
 });
