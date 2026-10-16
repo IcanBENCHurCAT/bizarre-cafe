@@ -12,7 +12,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { config } from '../config';
 import { createServerSupabaseClient } from '../supabase/client';
-import { requireX402Payment } from '../middleware/auth';
+import { requireX402Payment, requireAuth } from '../middleware/auth';
 import { createPaymentPromise, getPaymentStatus } from '../services/x402/index';
 import type { ShopItem } from '../types/cafe';
 
@@ -186,7 +186,7 @@ router.get('/items/:id', async (c) => {
  * payment details including the promise ID that the buyer must
  * sign with their Algorand wallet.
  */
-router.post('/checkout', requireX402Payment(), async (c) => {
+router.post('/checkout', requireAuth, requireX402Payment(),async (c) => {
   try {
     const body = await c.req.json();
     const validated = checkoutSchema.parse(body);
@@ -310,7 +310,7 @@ router.post('/checkout', requireX402Payment(), async (c) => {
 /**
  * GET /checkout/:promiseId — Inspect payment promise status
  */
-router.get('/checkout/:promiseId', async (c) => {
+router.get('/checkout/:promiseId', requireAuth, async (c) => {
   const promiseId = c.req.param('promiseId');
   const user = c.user;
 
@@ -372,7 +372,7 @@ router.get('/checkout/:promiseId', async (c) => {
  *
  * Convenience endpoint for simple purchases. Uses x402 by default.
  */
-router.post('/purchase', async (c) => {
+router.post('/purchase', requireAuth, async (c) => {
   try {
     const body = await c.req.json();
     const validated = purchaseSchema.parse(body);
@@ -410,7 +410,7 @@ router.post('/purchase', async (c) => {
  * Returns all receipts for the authenticated agent, sorted by date.
  * Supports filtering by limit, with seamless in-memory fallback.
  */
-router.get('/receipts', async (c) => {
+router.get('/receipts', requireAuth, async (c) => {
   try {
     const query = c.req.query();
     const limit =
@@ -488,7 +488,7 @@ router.get('/receipts', async (c) => {
 /**
  * GET /receipts/:id — View specific receipt details
  */
-router.get('/receipts/:id', async (c) => {
+router.get('/receipts/:id', requireAuth, async (c) => {
   try {
     const id = c.req.param('id');
     const user = c.user;

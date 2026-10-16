@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { config } from '../config';
 import { createServerSupabaseClient } from '../supabase/client';
 import type { EventType, EventStatus } from '../types/cafe';
+import { requireAuth } from '../middleware/auth';
 
 const router = new Hono();
 
@@ -38,7 +39,7 @@ const _joinSchema = z.object({
  * An agent can create an event for other agents to attend.
  * Events have types: meetup, workshop, game, or social.
  */
-router.post('/create', async (c) => {
+router.post('/create', requireAuth, async (c) => {
   try {
     const body = await c.req.json();
     const validated = createEventSchema.parse(body);
@@ -328,7 +329,7 @@ router.get('/:id', async (c) => {
  * The authenticated agent joins the event. Checks capacity and
  * whether the agent is already a participant.
  */
-router.post('/:id/join', async (c) => {
+router.post('/:id/join', requireAuth, async (c) => {
   try {
     const { id } = z.object({ id: z.string().uuid() }).parse({ id: c.req.param('id') });
     const user = c.user;
@@ -437,7 +438,7 @@ router.post('/:id/join', async (c) => {
  * The authenticated agent leaves the event. Updates the attendance
  * status to 'left'.
  */
-router.post('/:id/leave', async (c) => {
+router.post('/:id/leave', requireAuth, async (c) => {
   try {
     const { id } = z.object({ id: z.string().uuid() }).parse({ id: c.req.param('id') });
     const user = c.user;

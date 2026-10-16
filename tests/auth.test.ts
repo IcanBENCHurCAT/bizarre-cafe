@@ -279,7 +279,14 @@ describe('Auth Middleware Security Tests', () => {
   });
 
   it('should allow legacy wallet signature (Method 2b) in development environment', async () => {
+    const algosdk = await import('algosdk');
+    const acct = algosdk.generateAccount();
+    const msg = 'test-wallet-message';
+    const sigBytes = algosdk.signBytes(new TextEncoder().encode(msg), acct.sk);
+    const sigBase64 = Buffer.from(sigBytes).toString('base64');
+    
     config.nodeEnv = 'development';
+    config.allowAuthBypass = true;
     const app = new Hono();
     app.use('/test', authMiddleware);
     app.get('/test', (c) => {
@@ -291,16 +298,16 @@ describe('Auth Middleware Security Tests', () => {
 
     const res = await app.request('/test', {
       headers: {
-        'x-wallet-sig': Buffer.alloc(64).toString('base64'),
-        'x-wallet-address': 'ALGO:LEGACY_WALLET_ADDR',
-        'x-wallet-message': 'test-wallet-message',
+        'x-wallet-sig': sigBase64,
+        'x-wallet-address': `ALGO:${acct.addr}`,
+        'x-wallet-message': msg,
       },
     });
 
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.auth.user).toBeDefined();
-    expect(body.auth.user.agentId).toBe('ALGO:LEGACY_WALLET_ADDR');
+    expect(body.auth.user.agentId).toBe(`ALGO:${acct.addr}`);
   });
 
   describe('requireX402Payment Middleware', () => {

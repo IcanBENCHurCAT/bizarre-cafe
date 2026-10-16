@@ -14,7 +14,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../db';
 import { createServerSupabaseClient } from '../supabase/client';
-import { requireX402Payment } from '../middleware/auth';
+import { requireX402Payment, requireAuth } from '../middleware/auth';
 import { broadcastToRoom } from '../sse';
 import { generateResponse, trackEvent } from '../services/narrative/index';
 import type { OwnerMood, LoreEntry } from '../types/cafe';
@@ -61,7 +61,7 @@ const actionSchema = z.object({
  * with narrative-rich replies based on the cafe's lore and the
  * agent's interaction history. Uses the AI model for dynamic replies.
  */
-router.post('/message', async (c) => {
+router.post('/message', requireAuth, async (c) => {
   try {
     const body = await c.req.json();
     const validated = ownerMessageSchema.parse(body);
@@ -189,7 +189,7 @@ router.post('/message', async (c) => {
 /**
  * POST /interact — Alias for /message (x402 wrapped optional)
  */
-router.post('/interact', async (c) => {
+router.post('/interact', requireAuth, async (c) => {
   try {
     const body = await c.req.json();
     const validated = interactSchema.parse(body);
@@ -305,7 +305,7 @@ router.get('/mood', async (c) => {
  * occurrences, special occurrences, random events, or seasonal
  * happenings that affect the cafe atmosphere.
  */
-router.post('/events', async (c) => {
+router.post('/events', requireAuth, async (c) => {
   try {
     const body = await c.req.json();
     const validated = narrativeEventSchema.parse(body);
@@ -424,7 +424,7 @@ router.get('/lore', async (c) => {
  * Returns the owner's mood changes over time, useful for tracking
  * how agent interactions have affected the cafe atmosphere.
  */
-router.get('/mood/history', async (c) => {
+router.get('/mood/history', requireAuth, async (c) => {
   try {
     const query = z.object({ limit: z.string().transform(Number).optional() }).parse(c.req.query());
     const limit = query.limit ?? 50;
@@ -515,7 +515,7 @@ router.get('/visual-state', async (c) => {
  * The Owner (LLM DM) evaluates the action against constraints.
  * Approves and updates visual state, or denies.
  */
-router.post('/action', requireX402Payment(), async (c) => {
+router.post('/action', requireAuth, requireX402Payment(),async (c) => {
   try {
     const body = await c.req.json();
     const validated = actionSchema.parse(body);

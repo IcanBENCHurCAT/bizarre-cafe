@@ -8,6 +8,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../db';
 import { updateClientRoom, getRoomAgents } from '../sse';
+import { requireAuth } from '../middleware/auth';
 
 const router = new Hono();
 
@@ -32,7 +33,7 @@ router.get('/', async (c) => {
 });
 
 // GET /api/rooms/:roomId — Get room details
-router.get('/:roomId', async (c) => {
+router.get('/:roomId', requireAuth, async (c) => {
   const { roomId } = roomParamsSchema.parse({ roomId: c.req.param('roomId') });
   const room = await db.rooms.get(roomId);
 
@@ -53,7 +54,7 @@ router.get('/:roomId', async (c) => {
 });
 
 // POST /api/rooms/:roomId/join — Join a room
-router.post('/:roomId/join', async (c) => {
+router.post('/:roomId/join', requireAuth, async (c) => {
   const { roomId } = roomParamsSchema.parse({ roomId: c.req.param('roomId') });
   const body = await c.req.json().catch(() => ({}));
 
@@ -83,7 +84,7 @@ router.post('/:roomId/join', async (c) => {
 });
 
 // POST /api/rooms/:roomId/leave — Leave a room
-router.post('/:roomId/leave', async (c) => {
+router.post('/:roomId/leave', requireAuth, async (c) => {
   const { roomId } = roomParamsSchema.parse({ roomId: c.req.param('roomId') });
   const body = await c.req.json().catch(() => ({}));
 
@@ -109,7 +110,7 @@ router.post('/:roomId/leave', async (c) => {
 });
 
 // GET /api/rooms/:roomId/agents — List room participants
-router.get('/:roomId/agents', async (c) => {
+router.get('/:roomId/agents', requireAuth, async (c) => {
   const { roomId } = roomParamsSchema.parse({ roomId: c.req.param('roomId') });
 
   // SECURITY FIX: Enforce private room authorization check

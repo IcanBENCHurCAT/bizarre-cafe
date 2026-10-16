@@ -40,6 +40,7 @@ export interface Config {
   corsAllowedOrigins: string | string[];
   didChallengeTtlMs: number;
   didMaxChallengesPerHour: number;
+  allowAuthBypass: boolean;
 }
 
 const getRequired = (key: string): string => {
@@ -144,4 +145,5 @@ export const config: Config = {
   ),
   didChallengeTtlMs: getNumber('DID_CHALLENGE_TTL_MS', 300000),
   didMaxChallengesPerHour: getNumber('DID_MAX_CHALLENGES_PER_HOUR', 20),
+  allowAuthBypass: getOptional('ALLOW_AUTH_BYPASS', 'false') === 'true',
 };
