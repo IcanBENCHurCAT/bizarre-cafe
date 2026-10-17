@@ -54,7 +54,10 @@ export const rateLimiter = (opts?: RateLimiterOptions): MiddlewareHandler => {
   setInterval(() => store.cleanup(), windowMs).unref();
 
   return async (c, next) => {
-    const clientKey = c.req.header('x-forwarded-for') ?? c.req.header('x-agent-id') ?? c.req.url;
+    // SECURITY FIX: Extract the primary client IP from X-Forwarded-For header to prevent rate limit bypass via proxy-chain appending
+    const forwardedFor = c.req.header('x-forwarded-for');
+    const clientIp = forwardedFor ? forwardedFor.split(',')[0].trim() : undefined;
+    const clientKey = clientIp || c.req.header('x-agent-id') || c.req.url;
 
     const now = Date.now();
     const entry = store.get(clientKey);
