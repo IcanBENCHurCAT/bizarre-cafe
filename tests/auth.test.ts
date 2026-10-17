@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Hono } from 'hono';
 import { SignJWT } from 'jose';
 import { authMiddleware, requireX402Payment, createToken } from '../src/middleware/auth';
+import { rateLimiter } from '../src/middleware/rateLimiter';
 import { config } from '../src/config';
 import {
   registerMockTransaction,
@@ -418,6 +419,34 @@ describe('Auth Middleware Security Tests', () => {
       expect(body.error).toBeDefined();
       expect(body.error.code).toBe('DOUBLE_SPEND_DETECTED');
       expect(body.error.txId).toBe(validTxId);
+    });
+  });
+
+  describe('Rate Limiter Middleware Security', () => {
+    it('should extract the primary client IP from comma-separated X-Forwarded-For header to prevent rate limit bypass', async () => {
+      const app = new Hono();
+      app.use('/limited', rateLimiter({ maxRequests: 2, windowMs: 60000 }));
+      app.get('/limited', (c) => c.json({ ok: true }));
+
+      // Request 1 with X-Forwarded-For: 192.168.1.1
+      const res1 = await app.request('/limited', {
+        headers: { 'x-forwarded-for': '192.168.1.1' },
+      });
+      expect(res1.status).toBe(200);
+
+      // Request 2 with X-Forwarded-For containing additional proxy: 192.168.1.1, 10.0.0.1
+      const res2 = await app.request('/limited', {
+        headers: { 'x-forwarded-for': '192.168.1.1, 10.0.0.1' },
+      });
+      expect(res2.status).toBe(200);
+
+      // Request 3 with another appended proxy should hit 429 rate limit because primary client IP is 192.168.1.1
+      const res3 = await app.request('/limited', {
+        headers: { 'x-forwarded-for': '192.168.1.1, 10.0.0.2' },
+      });
+      expect(res3.status).toBe(429);
+      const body = await res3.json();
+      expect(body.error.code).toBe('RATE_LIMIT_EXCEEDED');
     });
   });
 });

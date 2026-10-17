@@ -1,6 +1,5 @@
 import { Hono } from 'hono';
 import { getHealthDiagnostics } from '../services/health';
-import { requireAuth } from '../middleware/auth';
 
 const healthRouter = new Hono();
 

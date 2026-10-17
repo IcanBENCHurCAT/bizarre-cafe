@@ -22,3 +22,8 @@
 **Vulnerability:** In `GET /api/verification/status`, the endpoint returned an agent's sensitive verification record (DID document, wallet address, tier) without checking if `c.user.agentId` matched the requested `agentId` query parameter, allowing any authenticated agent to inspect another agent's private verification details.
 **Learning:** Identity and status inspection endpoints taking a query parameter (such as `agentId`) must verify that the requesting user's authenticated identity matches the requested resource owner (`user.agentId === agentId`).
 **Prevention:** Always check `c.user.agentId === agentId` on identity/status query endpoints and reject unauthorized requests with HTTP 403 Forbidden.
+
+## 2026-10-01 - X-Forwarded-For Rate Limiting Bypass
+**Vulnerability:** In `src/middleware/rateLimiter.ts`, `c.req.header('x-forwarded-for')` was used as the rate limit key without extracting the primary client IP. When requests pass through proxy chains, `X-Forwarded-For` contains a comma-separated list of IP addresses. An attacker could bypass IP rate limits by appending arbitrary proxy IPs (e.g. `, 10.0.0.1`) to the header on subsequent requests.
+**Learning:** `X-Forwarded-For` header values must be parsed to extract only the first client IP before using it as an identity key in rate limiting stores.
+**Prevention:** Extract `forwardedFor.split(',')[0].trim()` to isolate the primary client IP for rate limiting calculations.
