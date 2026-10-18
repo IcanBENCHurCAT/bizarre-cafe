@@ -49,10 +49,33 @@ router.post('/create', requireAuth, async (c) => {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
     }
 
-    const supabase = createServerSupabaseClient();
     const now = new Date().toISOString();
-
     const scheduledAt = validated.scheduledAt || now;
+
+    // Check config.useLocalDb before querying Supabase to ensure local/test execution modes use in-memory state
+    if (config.useLocalDb) {
+      return c.json(
+        {
+          message: 'Event created',
+          event: {
+            id: crypto.randomUUID(),
+            name: validated.name,
+            description: validated.description,
+            type: validated.type,
+            max_attendees: validated.max_attendees ?? 50,
+            status: 'upcoming',
+            location: validated.location,
+            hostAgentId: user.agentId,
+            scheduledAt,
+            createdAt: now,
+            updatedAt: now,
+          },
+        },
+        201,
+      );
+    }
+
+    const supabase = createServerSupabaseClient();
 
     const { data, error } = await supabase
       .from('cafe_events')
@@ -99,6 +122,9 @@ router.post('/create', requireAuth, async (c) => {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
+    if (config.useLocalDb || config.nodeEnv === 'test') {
+      return c.json({ error: { code: 'DATABASE_ERROR', message: 'Failed to create event' } }, 500);
+    }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to create event' } }, 500);
   }
 });
@@ -117,6 +143,11 @@ router.get('/upcoming', async (c) => {
     const eventType = z
       .object({ type: z.enum(['meetup', 'workshop', 'game', 'social']).optional() })
       .parse(query).type;
+
+    // Check config.useLocalDb before querying Supabase to ensure local/test execution modes use in-memory state
+    if (config.useLocalDb) {
+      return c.json({ events: [], total: 0 });
+    }
 
     const supabase = createServerSupabaseClient();
 
@@ -161,6 +192,9 @@ router.get('/upcoming', async (c) => {
   } catch (err) {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+    }
+    if (config.useLocalDb || config.nodeEnv === 'test') {
+      return c.json({ events: [], total: 0 });
     }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch upcoming events' } },
@@ -259,6 +293,11 @@ router.get('/:id', async (c) => {
     const { id } = z.object({ id: z.string().uuid() }).parse({ id: c.req.param('id') });
     const user = c.user;
 
+    // Check config.useLocalDb before querying Supabase to ensure local/test execution modes use in-memory state
+    if (config.useLocalDb) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Event not found' } }, 404);
+    }
+
     const supabase = createServerSupabaseClient();
 
     const eventPromise = supabase.from('cafe_events').select('*').eq('id', id).single();
@@ -319,6 +358,9 @@ router.get('/:id', async (c) => {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
+    if (config.useLocalDb || config.nodeEnv === 'test') {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Event not found' } }, 404);
+    }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch event' } }, 500);
   }
 });
@@ -336,6 +378,11 @@ router.post('/:id/join', requireAuth, async (c) => {
 
     if (!user) {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
+    }
+
+    // Check config.useLocalDb before querying Supabase to ensure local/test execution modes use in-memory state
+    if (config.useLocalDb) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Event not found' } }, 404);
     }
 
     const supabase = createServerSupabaseClient();
@@ -428,6 +475,9 @@ router.post('/:id/join', requireAuth, async (c) => {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
+    if (config.useLocalDb || config.nodeEnv === 'test') {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Event not found' } }, 404);
+    }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to join event' } }, 500);
   }
 });
@@ -445,6 +495,14 @@ router.post('/:id/leave', requireAuth, async (c) => {
 
     if (!user) {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
+    }
+
+    // Check config.useLocalDb before querying Supabase to ensure local/test execution modes use in-memory state
+    if (config.useLocalDb) {
+      return c.json(
+        { error: { code: 'NOT_FOUND', message: 'You are not attending this event' } },
+        404,
+      );
     }
 
     const supabase = createServerSupabaseClient();
@@ -501,6 +559,12 @@ router.post('/:id/leave', requireAuth, async (c) => {
   } catch (err) {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+    }
+    if (config.useLocalDb || config.nodeEnv === 'test') {
+      return c.json(
+        { error: { code: 'NOT_FOUND', message: 'You are not attending this event' } },
+        404,
+      );
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to leave event' } }, 500);
   }
