@@ -12,6 +12,7 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { config } from '../config';
 import { db } from '../db';
 import { createServerSupabaseClient } from '../supabase/client';
 import { requireX402Payment, requireAuth } from '../middleware/auth';
@@ -315,6 +316,50 @@ router.post('/events', requireAuth, async (c) => {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
     }
 
+    // SECURITY FIX: Enforce authorization check for private rooms in affectedRooms
+    if (validated.affectedRooms && validated.affectedRooms.length > 0) {
+      for (const roomId of validated.affectedRooms) {
+        const room = await db.rooms.get(roomId);
+        if (
+          room &&
+          room.visibility === 'private' &&
+          room.owner_id &&
+          room.owner_id !== user.agentId
+        ) {
+          return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);
+        }
+      }
+    }
+
+    const now = new Date().toISOString();
+
+    // Check config.useLocalDb before querying Supabase to ensure local/test execution modes use in-memory state
+    if (config.useLocalDb) {
+      const eventId = crypto.randomUUID();
+      trackEvent('narrative_event', {
+        eventId,
+        title: validated.title,
+        type: validated.type,
+        agentId: user.agentId,
+      });
+
+      return c.json(
+        {
+          message: 'Event triggered',
+          event: {
+            id: eventId,
+            title: validated.title,
+            description: validated.description,
+            type: validated.type,
+            affectedRooms: validated.affectedRooms ?? null,
+            createdAt: now,
+            triggeredAt: now,
+          },
+        },
+        201,
+      );
+    }
+
     const supabase = createServerSupabaseClient();
 
     const { data, error } = await supabase
@@ -325,8 +370,8 @@ router.post('/events', requireAuth, async (c) => {
         type: validated.type,
         affected_rooms: validated.affectedRooms ?? null,
         agent_id: user.agentId,
-        triggered_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
+        triggered_at: now,
+        created_at: now,
       })
       .select()
       .single();
@@ -361,6 +406,9 @@ router.post('/events', requireAuth, async (c) => {
   } catch (err) {
     if (err instanceof z.ZodError) {
       return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+    }
+    if (config.useLocalDb || config.nodeEnv === 'test') {
+      return c.json({ error: { code: 'DATABASE_ERROR', message: 'Failed to create event' } }, 500);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to trigger event' } }, 500);
   }

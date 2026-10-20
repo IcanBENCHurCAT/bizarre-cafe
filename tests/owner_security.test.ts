@@ -250,4 +250,55 @@ describe('Owner Endpoint Security - Auth Enforcement', () => {
     });
     expect(ownerInteract.status).toBe(200);
   });
+
+  it('should enforce private room authorization for POST /api/owner/events', async () => {
+    // 1. Create a private room owned by 'room-owner-agent'
+    const createRes = await app.request('/api/lobby/rooms', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': 'room-owner-agent',
+      },
+      body: JSON.stringify({ name: 'Private Secret Room for Events', isPrivate: true }),
+    });
+    expect(createRes.status).toBe(201);
+    const { room } = await createRes.json();
+
+    // 2. Non-owner request targeting private room should return 403 Forbidden
+    const forbiddenRes = await app.request('/api/owner/events', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': 'intruder-agent',
+      },
+      body: JSON.stringify({
+        title: 'Unauthorized Event',
+        description: 'Outsider trying to trigger narrative event in private room',
+        type: 'special',
+        affectedRooms: [room.id],
+      }),
+    });
+    expect(forbiddenRes.status).toBe(403);
+    const forbiddenBody = await forbiddenRes.json();
+    expect(forbiddenBody.error.code).toBe('FORBIDDEN');
+
+    // 3. Room owner request targeting private room should succeed (201 Created)
+    const ownerRes = await app.request('/api/owner/events', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': 'room-owner-agent',
+      },
+      body: JSON.stringify({
+        title: 'Authorized Event',
+        description: 'Room owner triggering narrative event in their room',
+        type: 'special',
+        affectedRooms: [room.id],
+      }),
+    });
+    expect(ownerRes.status).toBe(201);
+    const ownerBody = await ownerRes.json();
+    expect(ownerBody.message).toBe('Event triggered');
+    expect(ownerBody.event.affectedRooms).toContain(room.id);
+  });
 });
