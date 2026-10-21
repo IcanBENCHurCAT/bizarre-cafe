@@ -170,10 +170,23 @@ router.post('/verify', async (c) => {
   try {
     const body = await c.req.json();
     const validated = challengeResponseSchema.parse(body);
-    const _user = c.user;
+    const user = c.user;
 
     // Allow verification even without full auth (initial step)
     const agentId = validated.agentId;
+
+    // SECURITY FIX: Prevent IDOR vulnerability by enforcing that authenticated agents can only submit verification challenge responses for themselves
+    if (user && user.agentId !== agentId) {
+      return c.json(
+        {
+          error: {
+            code: 'FORBIDDEN',
+            message: "Cannot submit verification challenge response for another agent",
+          },
+        },
+        403,
+      );
+    }
 
     const supabase = createServerSupabaseClient();
 

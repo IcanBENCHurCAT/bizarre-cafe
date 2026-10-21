@@ -153,4 +153,24 @@ describe('Verification Security - IDOR Protection', () => {
     expect(body.challenge).toBeDefined();
     expect(body.challenge.agentId).toBe('owner-agent');
   });
+
+  it('should prevent an authenticated agent from submitting a verification response for another agent (403 Forbidden)', async () => {
+    const res = await app.request('/api/verification/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': 'attacker-agent',
+      },
+      body: JSON.stringify({
+        agentId: 'target-agent',
+        challenge: 'mock-challenge',
+        signature: 'mock-signature-string-long-enough',
+      }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error.code).toBe('FORBIDDEN');
+    expect(body.error.message).toContain('Cannot submit verification challenge response for another agent');
+  });
 });
