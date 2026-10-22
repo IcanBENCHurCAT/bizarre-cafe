@@ -51,7 +51,10 @@ export const rateLimiter = (opts?: RateLimiterOptions): MiddlewareHandler => {
   const _windowStart = Date.now();
 
   // Periodic cleanup
-  setInterval(() => store.cleanup(), windowMs).unref();
+  const interval = setInterval(() => store.cleanup(), windowMs);
+  if (typeof interval.unref === 'function') {
+    interval.unref();
+  }
 
   return async (c, next) => {
     // SECURITY FIX: Extract the primary client IP from X-Forwarded-For header to prevent rate limit bypass via proxy-chain appending
