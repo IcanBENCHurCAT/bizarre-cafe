@@ -331,6 +331,35 @@ describe('Room Security & Access Control Tests', () => {
     expect(ownerAgents.status).toBe(200);
   });
 
+  it('should deny access (403) for private room with null owner_id', async () => {
+    const { db } = await import('../src/db');
+    const spy = vi.spyOn(db.rooms, 'get').mockResolvedValueOnce({
+      id: 'unowned-private-room',
+      name: 'Unowned Secret Room',
+      description: 'Private room with no assigned owner',
+      status: 'active',
+      visibility: 'private',
+      owner_id: null,
+      max_agents: 10,
+      member_count: 0,
+      created_at: new Date().toISOString(),
+    });
+
+    const res = await app.request('/api/rooms/unowned-private-room', {
+      method: 'GET',
+      headers: {
+        'X-Agent-ID': 'any-agent',
+      },
+    });
+
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBeDefined();
+    expect(body.error.code).toBe('FORBIDDEN');
+
+    spy.mockRestore();
+  });
+
   it('should safely handle PostgREST injection characters in rooms.search', async () => {
     const { supabase } = await import('../src/supabase/client');
     const { rooms } = await import('../src/supabase/queries');

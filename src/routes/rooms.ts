@@ -45,7 +45,7 @@ router.get('/:roomId', requireAuth, async (c) => {
     if (!user) {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
     }
-    if (room.owner_id && room.owner_id !== user.agentId) {
+    if (room.owner_id !== user.agentId) {
       return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);
     }
   }
@@ -65,7 +65,7 @@ router.post('/:roomId/join', requireAuth, async (c) => {
     if (!user) {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
     }
-    if (room.owner_id && room.owner_id !== user.agentId) {
+    if (room.owner_id !== user.agentId) {
       return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);
     }
   }
@@ -95,7 +95,7 @@ router.post('/:roomId/leave', requireAuth, async (c) => {
     if (!user) {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
     }
-    if (room.owner_id && room.owner_id !== user.agentId) {
+    if (room.owner_id !== user.agentId) {
       return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);
     }
   }
@@ -120,7 +120,7 @@ router.get('/:roomId/agents', requireAuth, async (c) => {
     if (!user) {
       return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
     }
-    if (room.owner_id && room.owner_id !== user.agentId) {
+    if (room.owner_id !== user.agentId) {
       return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);
     }
   }
