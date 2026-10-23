@@ -237,7 +237,7 @@ export const sseHandler = async (c: Context) => {
       if (!agentId || agentId === 'anonymous') {
         return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
       }
-      if (room.owner_id && room.owner_id !== agentId) {
+      if (room.owner_id !== agentId) {
         return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);
       }
     }

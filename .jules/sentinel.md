@@ -27,3 +27,8 @@
 **Vulnerability:** In `src/middleware/rateLimiter.ts`, `c.req.header('x-forwarded-for')` was used as the rate limit key without extracting the primary client IP. When requests pass through proxy chains, `X-Forwarded-For` contains a comma-separated list of IP addresses. An attacker could bypass IP rate limits by appending arbitrary proxy IPs (e.g. `, 10.0.0.1`) to the header on subsequent requests.
 **Learning:** `X-Forwarded-For` header values must be parsed to extract only the first client IP before using it as an identity key in rate limiting stores.
 **Prevention:** Extract `forwardedFor.split(',')[0].trim()` to isolate the primary client IP for rate limiting calculations.
+
+## 2026-10-02 - Private Room Authorization Check Fail-Open Bug
+**Vulnerability:** Private room authorization checks used `room.owner_id && room.owner_id !== user.agentId` to deny access. When a private room had a `null` or unassigned `owner_id`, the truthiness guard (`room.owner_id &&`) evaluated to `null`, bypassing the inequality check and allowing any authenticated agent to access, join, or trigger events in private unowned rooms.
+**Learning:** Guarding inequality ownership checks with truthiness checks on potentially null owner fields causes authorization to fail open when the field is null.
+**Prevention:** Perform direct inequality comparisons (`room.owner_id !== user.agentId`) so null or unassigned owner fields fail closed with 403 Forbidden.

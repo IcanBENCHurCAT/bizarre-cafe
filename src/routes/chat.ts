@@ -52,7 +52,7 @@ async function verifyRoomAccess(roomId: string, user?: { agentId: string } | nul
         error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
       };
     }
-    if (room.owner_id && room.owner_id !== user.agentId) {
+    if (room.owner_id !== user.agentId) {
       return {
         allowed: false,
         status: 403 as const,
