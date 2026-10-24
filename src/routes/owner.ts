@@ -213,7 +213,6 @@ router.post('/interact', requireAuth, async (c) => {
       if (
         room &&
         room.visibility === 'private' &&
-        room.owner_id &&
         room.owner_id !== user.agentId
       ) {
         return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);

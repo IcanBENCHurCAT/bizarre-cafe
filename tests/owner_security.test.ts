@@ -251,6 +251,31 @@ describe('Owner Endpoint Security - Auth Enforcement', () => {
     expect(ownerInteract.status).toBe(200);
   });
 
+  it('should deny access to private unowned rooms (null owner_id) in POST /api/owner/interact', async () => {
+    const { db } = await import('../src/db');
+    const createdRoom = await db.rooms.create({
+      name: 'Unowned Private Room',
+      visibility: 'private',
+      owner_id: null,
+    });
+
+    const res = await app.request('/api/owner/interact', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': 'any-agent',
+      },
+      body: JSON.stringify({
+        message: 'Attempt to interact in unowned private room',
+        roomId: createdRoom.id,
+      }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error.code).toBe('FORBIDDEN');
+  });
+
   it('should enforce private room authorization for POST /api/owner/events', async () => {
     // 1. Create a private room owned by 'room-owner-agent'
     const createRes = await app.request('/api/lobby/rooms', {
