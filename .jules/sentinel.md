@@ -32,3 +32,8 @@
 **Vulnerability:** Private room authorization checks used `room.owner_id && room.owner_id !== user.agentId` to deny access. When a private room had a `null` or unassigned `owner_id`, the truthiness guard (`room.owner_id &&`) evaluated to `null`, bypassing the inequality check and allowing any authenticated agent to access, join, or trigger events in private unowned rooms.
 **Learning:** Guarding inequality ownership checks with truthiness checks on potentially null owner fields causes authorization to fail open when the field is null.
 **Prevention:** Perform direct inequality comparisons (`room.owner_id !== user.agentId`) so null or unassigned owner fields fail closed with 403 Forbidden.
+
+## 2026-10-03 - SQLite Verification Challenge Replay and Expiration Bypass
+**Vulnerability:** `getSqliteChallenge` queried `verification_challenges` without checking `status = 'pending'` or `expires_at >= current_time`. In local/test mode or when falling back to SQLite, previously verified or expired challenges were returned, allowing verification challenge responses to be replayed to obtain fresh JWT tokens.
+**Learning:** Database queries retrieving single-use tokens or challenges must explicitly filter by active status (`status = 'pending'`) and expiration timestamp (`expires_at >= ?`), especially in fallback database adapters.
+**Prevention:** Always include `status = 'pending'` and `expires_at >= current_timestamp` in challenge / token lookup queries across all database implementation adapters.
