@@ -53,6 +53,7 @@ vi.mock('../src/supabase/client', () => ({
 }));
 
 import app from '../src/index';
+import { createSqliteChallenge, getSqliteChallenge } from '../src/db/sqlite';
 
 describe('Verification Security - IDOR Protection', () => {
   it('should prevent an authenticated agent from accessing another agent verification log (403 Forbidden)', async () => {
@@ -172,5 +173,53 @@ describe('Verification Security - IDOR Protection', () => {
     const body = await res.json();
     expect(body.error.code).toBe('FORBIDDEN');
     expect(body.error.message).toContain('Cannot submit verification challenge response for another agent');
+  });
+
+  it('should reject non-pending or expired challenges in getSqliteChallenge', async () => {
+    const agentId = 'test-challenge-agent';
+    const pendingId = 'challenge-pending-1';
+    const verifiedId = 'challenge-verified-1';
+    const expiredId = 'challenge-expired-1';
+
+    const futureDate = new Date(Date.now() + 600000).toISOString();
+    const pastDate = new Date(Date.now() - 600000).toISOString();
+
+    // Create pending, verified, and expired challenges in SQLite
+    await createSqliteChallenge({
+      id: crypto.randomUUID(),
+      user_id: agentId,
+      challenge: pendingId,
+      expires_at: futureDate,
+      status: 'pending',
+    });
+
+    await createSqliteChallenge({
+      id: crypto.randomUUID(),
+      user_id: agentId,
+      challenge: verifiedId,
+      expires_at: futureDate,
+      status: 'verified',
+    });
+
+    await createSqliteChallenge({
+      id: crypto.randomUUID(),
+      user_id: agentId,
+      challenge: expiredId,
+      expires_at: pastDate,
+      status: 'pending',
+    });
+
+    // Valid pending challenge should be returned
+    const pendingResult = await getSqliteChallenge(pendingId, agentId);
+    expect(pendingResult).not.toBeNull();
+    expect(pendingResult?.challenge).toBe(pendingId);
+
+    // Non-pending (verified) challenge should NOT be returned
+    const verifiedResult = await getSqliteChallenge(verifiedId, agentId);
+    expect(verifiedResult).toBeNull();
+
+    // Expired challenge should NOT be returned
+    const expiredResult = await getSqliteChallenge(expiredId, agentId);
+    expect(expiredResult).toBeNull();
   });
 });

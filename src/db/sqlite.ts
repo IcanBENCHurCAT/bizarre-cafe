@@ -551,15 +551,22 @@ export const getSqliteChallenge = async (
   userId?: string,
 ): Promise<any | null> => {
   const db = getDb();
+  const now = new Date().toISOString();
   if (userId) {
     return (
       db
-        .prepare('SELECT * FROM verification_challenges WHERE challenge = ? AND user_id = ?')
-        .get(challenge, userId) || null
+        .prepare(
+          'SELECT * FROM verification_challenges WHERE challenge = ? AND user_id = ? AND status = ? AND expires_at >= ?',
+        )
+        .get(challenge, userId, 'pending', now) || null
     );
   }
   return (
-    db.prepare('SELECT * FROM verification_challenges WHERE challenge = ?').get(challenge) || null
+    db
+      .prepare(
+        'SELECT * FROM verification_challenges WHERE challenge = ? AND status = ? AND expires_at >= ?',
+      )
+      .get(challenge, 'pending', now) || null
   );
 };
 
