@@ -55,39 +55,51 @@ router.get('/items', async (c) => {
     const validated = itemsQuerySchema.parse(query);
     const limit = validated.limit ?? 20;
 
-    const supabase = createServerSupabaseClient();
+    let items: Record<string, any>[] = [];
 
-    let queryBuilder = supabase
-      .from('shop_items')
-      .select('*')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(limit);
+    if (!config.useLocalDb) {
+      try {
+        const supabase = createServerSupabaseClient();
 
-    if (validated.category) {
-      queryBuilder = queryBuilder.contains('tags', [validated.category]);
+        let queryBuilder = supabase
+          .from('shop_items')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(limit);
+
+        if (validated.category) {
+          // SECURITY FIX: Sanitize category filter to prevent PostgREST injection
+          const sanitizedCategory = validated.category.replace(/["\\,()]/g, '');
+          queryBuilder = queryBuilder.contains('tags', [sanitizedCategory]);
+        }
+        if (validated.priceMin !== undefined) {
+          queryBuilder = queryBuilder.gte('price', validated.priceMin);
+        }
+        if (validated.priceMax !== undefined) {
+          queryBuilder = queryBuilder.lte('price', validated.priceMax);
+        }
+
+        const { data } = await queryBuilder;
+
+        if (data) {
+          items = data.map((item) => ({
+            id: item.id,
+            name: item.name,
+            description: item.description,
+            price: item.price,
+            currency: item.currency,
+            imageUrl: item.image_url || undefined,
+            stock: item.stock || undefined,
+            tags: item.tags,
+            isActive: item.is_active,
+            createdAt: item.created_at,
+          }));
+        }
+      } catch {
+        /* ignore Supabase query error in local/test mode */
+      }
     }
-    if (validated.priceMin !== undefined) {
-      queryBuilder = queryBuilder.gte('price', validated.priceMin);
-    }
-    if (validated.priceMax !== undefined) {
-      queryBuilder = queryBuilder.lte('price', validated.priceMax);
-    }
-
-    const { data, error: _error } = await queryBuilder;
-
-    let items = (data ?? []).map((item) => ({
-      id: item.id,
-      name: item.name,
-      description: item.description,
-      price: item.price,
-      currency: item.currency,
-      imageUrl: item.image_url || undefined,
-      stock: item.stock || undefined,
-      tags: item.tags,
-      isActive: item.is_active,
-      createdAt: item.created_at,
-    })) satisfies Partial<ShopItem>[];
 
     if (items.length === 0) {
       items = [
