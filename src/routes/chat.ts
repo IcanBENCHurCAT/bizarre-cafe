@@ -26,15 +26,21 @@ const sendMessageSchema = z.object({
   metadata: z.record(z.unknown()).optional(),
 });
 
+const limitSchema = z
+  .string()
+  .optional()
+  .transform((v) => (v ? Number(v) : undefined))
+  .pipe(z.number().int().min(1).max(100).optional());
+
 const messagesQuerySchema = z.object({
   roomId: z.string().min(1),
-  limit: z.string().transform(Number).optional(),
+  limit: limitSchema,
   before: z.string().optional(),
 });
 
 const historyQuerySchema = z.object({
   roomId: z.string().min(1),
-  limit: z.string().transform(Number).optional(),
+  limit: limitSchema,
   before: z.string().optional(),
   after: z.string().optional(),
 });
