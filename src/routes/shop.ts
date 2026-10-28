@@ -14,7 +14,6 @@ import { config } from '../config';
 import { createServerSupabaseClient } from '../supabase/client';
 import { requireX402Payment, requireAuth } from '../middleware/auth';
 import { createPaymentPromise, getPaymentStatus } from '../services/x402/index';
-import type { ShopItem } from '../types/cafe';
 
 const router = new Hono();
 export const memReceipts = new Map<string, any>();

@@ -95,4 +95,34 @@ describe('Chat Security & Private Room Access Control Tests', () => {
     });
     expect(ownerHist.status).toBe(200);
   });
+
+  it('should reject invalid, negative, or excessive limit values in GET /api/chat/messages and GET /api/chat/history', async () => {
+    const roomId = 'public-test-room';
+
+    // 1. Invalid non-numeric limit parameter -> 400 VALIDATION_ERROR
+    const invalidLimitRes = await app.request(`/api/chat/messages?roomId=${roomId}&limit=invalid`);
+    expect(invalidLimitRes.status).toBe(400);
+    const invalidBody = await invalidLimitRes.json();
+    expect(invalidBody.error.code).toBe('VALIDATION_ERROR');
+
+    // 2. Negative limit parameter -> 400 VALIDATION_ERROR
+    const negativeLimitRes = await app.request(`/api/chat/messages?roomId=${roomId}&limit=-5`);
+    expect(negativeLimitRes.status).toBe(400);
+    const negativeBody = await negativeLimitRes.json();
+    expect(negativeBody.error.code).toBe('VALIDATION_ERROR');
+
+    // 3. Excessive limit parameter (>100) -> 400 VALIDATION_ERROR
+    const excessiveLimitRes = await app.request(`/api/chat/history?roomId=${roomId}&limit=500`);
+    expect(excessiveLimitRes.status).toBe(400);
+    const excessiveBody = await excessiveLimitRes.json();
+    expect(excessiveBody.error.code).toBe('VALIDATION_ERROR');
+
+    // 4. Zero limit parameter -> 400 VALIDATION_ERROR
+    const zeroLimitRes = await app.request(`/api/chat/messages?roomId=${roomId}&limit=0`);
+    expect(zeroLimitRes.status).toBe(400);
+
+    // 5. Valid limit parameter within bounds (1-100) -> 200 OK
+    const validLimitRes = await app.request(`/api/chat/messages?roomId=${roomId}&limit=25`);
+    expect(validLimitRes.status).toBe(200);
+  });
 });
