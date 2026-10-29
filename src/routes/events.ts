@@ -20,6 +20,12 @@ import { requireAuth } from '../middleware/auth';
 const router = new Hono();
 
 // Zod schemas
+const limitSchema = z
+  .string()
+  .optional()
+  .transform((v) => (v ? Number(v) : undefined))
+  .pipe(z.number().int().min(1).max(100).optional());
+
 const createEventSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().min(1).max(5000),
@@ -139,7 +145,7 @@ router.get('/upcoming', async (c) => {
   try {
     const query = c.req.query();
     const limit =
-      z.object({ limit: z.string().transform(Number).optional() }).parse(query).limit ?? 20;
+      z.object({ limit: limitSchema }).parse(query).limit ?? 20;
     const eventType = z
       .object({ type: z.enum(['meetup', 'workshop', 'game', 'social']).optional() })
       .parse(query).type;
@@ -213,10 +219,7 @@ router.get('/past', async (c) => {
   try {
     const query = z
       .object({
-        limit: z
-          .string()
-          .optional()
-          .transform((v) => (v ? Number(v) : undefined)),
+        limit: limitSchema,
       })
       .parse(c.req.query());
     const limit = query.limit ?? 20;
