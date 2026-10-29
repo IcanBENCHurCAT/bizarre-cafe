@@ -97,4 +97,44 @@ describe('Events Security & PostgREST Injection Protection', () => {
     const body = await res.json();
     expect(body.error).toBeDefined();
   });
+
+  it('should reject invalid, negative, or excessive limit values in GET /api/events/upcoming with 400 Bad Request', async () => {
+    // 1. Invalid non-numeric string
+    const resInvalid = await app.request('/api/events/upcoming?limit=invalid');
+    expect(resInvalid.status).toBe(400);
+    const bodyInvalid = await resInvalid.json();
+    expect(bodyInvalid.error.code).toBe('VALIDATION_ERROR');
+
+    // 2. Negative limit
+    const resNegative = await app.request('/api/events/upcoming?limit=-5');
+    expect(resNegative.status).toBe(400);
+    const bodyNegative = await resNegative.json();
+    expect(bodyNegative.error.code).toBe('VALIDATION_ERROR');
+
+    // 3. Excessive limit (>100)
+    const resExcessive = await app.request('/api/events/upcoming?limit=999');
+    expect(resExcessive.status).toBe(400);
+    const bodyExcessive = await resExcessive.json();
+    expect(bodyExcessive.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('should reject invalid, negative, or excessive limit values in GET /api/events/past with 400 Bad Request', async () => {
+    // 1. Invalid non-numeric string
+    const resInvalid = await app.request('/api/events/past?limit=abc');
+    expect(resInvalid.status).toBe(400);
+    const bodyInvalid = await resInvalid.json();
+    expect(bodyInvalid.error.code).toBe('VALIDATION_ERROR');
+
+    // 2. Negative limit
+    const resNegative = await app.request('/api/events/past?limit=-10');
+    expect(resNegative.status).toBe(400);
+    const bodyNegative = await resNegative.json();
+    expect(bodyNegative.error.code).toBe('VALIDATION_ERROR');
+
+    // 3. Excessive limit (>100)
+    const resExcessive = await app.request('/api/events/past?limit=500');
+    expect(resExcessive.status).toBe(400);
+    const bodyExcessive = await resExcessive.json();
+    expect(bodyExcessive.error.code).toBe('VALIDATION_ERROR');
+  });
 });
