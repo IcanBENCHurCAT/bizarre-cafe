@@ -42,13 +42,19 @@ const narrativeEventSchema = z.object({
   affectedRooms: z.array(z.string()).optional(),
 });
 
+const limitSchema = z
+  .string()
+  .optional()
+  .transform((v) => (v ? Number(v) : undefined))
+  .pipe(z.number().int().min(1).max(100).optional());
+
 const loreFilterSchema = z.object({
   category: z.enum(['history', 'secret', 'rumor', 'lore']).optional(),
   discovered: z
     .string()
     .transform((v) => v === 'true')
     .optional(),
-  limit: z.string().transform(Number).optional(),
+  limit: limitSchema,
 });
 
 const actionSchema = z.object({
@@ -471,7 +477,7 @@ router.get('/lore', async (c) => {
  */
 router.get('/mood/history', requireAuth, async (c) => {
   try {
-    const query = z.object({ limit: z.string().transform(Number).optional() }).parse(c.req.query());
+    const query = z.object({ limit: limitSchema }).parse(c.req.query());
     const limit = query.limit ?? 50;
     const user = c.user;
 

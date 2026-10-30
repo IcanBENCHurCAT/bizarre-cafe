@@ -35,11 +35,25 @@ const checkoutSchema = z.object({
   agentId: z.string(),
 });
 
+const limitSchema = z
+  .string()
+  .optional()
+  .transform((v) => (v ? Number(v) : undefined))
+  .pipe(z.number().int().min(1).max(100).optional());
+
 const itemsQuerySchema = z.object({
   category: z.string().optional(),
-  priceMin: z.string().transform(Number).optional(),
-  priceMax: z.string().transform(Number).optional(),
-  limit: z.string().transform(Number).optional(),
+  priceMin: z
+    .string()
+    .optional()
+    .transform((v) => (v ? Number(v) : undefined))
+    .pipe(z.number().optional()),
+  priceMax: z
+    .string()
+    .optional()
+    .transform((v) => (v ? Number(v) : undefined))
+    .pipe(z.number().optional()),
+  limit: limitSchema,
 });
 
 /**
@@ -425,7 +439,7 @@ router.get('/receipts', requireAuth, async (c) => {
   try {
     const query = c.req.query();
     const limit =
-      z.object({ limit: z.string().transform(Number).optional() }).parse(query).limit ?? 20;
+      z.object({ limit: limitSchema }).parse(query).limit ?? 20;
     const user = c.user;
 
     if (!user) {
