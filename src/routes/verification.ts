@@ -44,6 +44,12 @@ const statusQuerySchema = z.object({
   agentId: z.string(),
 });
 
+const limitSchema = z
+  .string()
+  .optional()
+  .transform((v) => (v ? Number(v) : undefined))
+  .pipe(z.number().int().min(1).max(100).optional());
+
 const revokeSchema = z.object({
   agentId: z.string(),
   reason: z.string().max(500).optional(),
@@ -506,7 +512,7 @@ router.get('/log', requireAuth, async (c) => {
     const query = c.req.query();
     const { agentId } = statusQuerySchema.parse(query);
     const limit =
-      z.object({ limit: z.string().transform(Number).optional() }).parse(query).limit ?? 50;
+      z.object({ limit: limitSchema }).parse(query).limit ?? 50;
     const user = c.user;
 
     if (!user) {

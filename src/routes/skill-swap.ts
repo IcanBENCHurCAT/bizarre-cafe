@@ -153,6 +153,12 @@ const acceptSchema = z.object({
   payment: z.any().optional(),
 });
 
+const limitSchema = z
+  .string()
+  .optional()
+  .transform((v) => (v ? Number(v) : undefined))
+  .pipe(z.number().int().min(1).max(100).optional());
+
 const tradeParamsSchema = z.object({
   id: z.string().uuid(),
 });
@@ -333,11 +339,17 @@ router.get('/offers', async (c) => {
   try {
     const query = c.req.query();
     const limit =
-      z.object({ limit: z.string().transform(Number).optional() }).parse(query).limit ?? 20;
+      z.object({ limit: limitSchema }).parse(query).limit ?? 20;
     const search = z.object({ search: z.string().optional() }).parse(query).search;
     const category = z.object({ category: z.string().optional() }).parse(query).category;
     const maxPrice = z
-      .object({ maxPrice: z.string().transform(Number).optional() })
+      .object({
+        maxPrice: z
+          .string()
+          .optional()
+          .transform((v) => (v ? Number(v) : undefined))
+          .pipe(z.number().optional()),
+      })
       .parse(query).maxPrice;
 
     const offerMap = new Map<string, any>();
@@ -465,7 +477,7 @@ router.get('/requests', async (c) => {
   try {
     const query = c.req.query();
     const limit =
-      z.object({ limit: z.string().transform(Number).optional() }).parse(query).limit ?? 20;
+      z.object({ limit: limitSchema }).parse(query).limit ?? 20;
     const search = z.object({ search: z.string().optional() }).parse(query).search;
 
     const requestMap = new Map<string, any>();
@@ -923,7 +935,7 @@ router.post('/offers/:id/accept', requireAuth, async (c) => {
  */
 router.get('/trades', requireAuth, async (c) => {
   try {
-    const query = z.object({ limit: z.string().transform(Number).optional() }).parse(c.req.query());
+    const query = z.object({ limit: limitSchema }).parse(c.req.query());
     const limit = query.limit ?? 20;
     const user = c.user;
 

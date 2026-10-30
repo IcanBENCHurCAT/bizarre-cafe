@@ -326,4 +326,42 @@ describe('Owner Endpoint Security - Auth Enforcement', () => {
     expect(ownerBody.message).toBe('Event triggered');
     expect(ownerBody.event.affectedRooms).toContain(room.id);
   });
+
+  it('should reject invalid, negative, or excessive limit parameters with 400 VALIDATION_ERROR', async () => {
+    // 1. Invalid non-numeric string for limit parameter in GET /api/owner/lore
+    const invalidRes = await app.request('/api/owner/lore?limit=invalid', {
+      method: 'GET',
+      headers: { 'X-Agent-ID': 'test-agent' },
+    });
+    expect(invalidRes.status).toBe(400);
+    const invalidBody = await invalidRes.json();
+    expect(invalidBody.error.code).toBe('VALIDATION_ERROR');
+
+    // 2. Negative limit parameter in GET /api/owner/lore
+    const negativeRes = await app.request('/api/owner/lore?limit=-10', {
+      method: 'GET',
+      headers: { 'X-Agent-ID': 'test-agent' },
+    });
+    expect(negativeRes.status).toBe(400);
+    const negativeBody = await negativeRes.json();
+    expect(negativeBody.error.code).toBe('VALIDATION_ERROR');
+
+    // 3. Excessive limit parameter (>100) in GET /api/owner/lore
+    const excessiveRes = await app.request('/api/owner/lore?limit=1000', {
+      method: 'GET',
+      headers: { 'X-Agent-ID': 'test-agent' },
+    });
+    expect(excessiveRes.status).toBe(400);
+    const excessiveBody = await excessiveRes.json();
+    expect(excessiveBody.error.code).toBe('VALIDATION_ERROR');
+
+    // 4. Invalid limit parameter in GET /api/owner/mood/history
+    const historyInvalid = await app.request('/api/owner/mood/history?limit=abc', {
+      method: 'GET',
+      headers: { 'X-Agent-ID': 'test-agent' },
+    });
+    expect(historyInvalid.status).toBe(400);
+    const historyInvalidBody = await historyInvalid.json();
+    expect(historyInvalidBody.error.code).toBe('VALIDATION_ERROR');
+  });
 });
