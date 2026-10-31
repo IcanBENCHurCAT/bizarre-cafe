@@ -77,7 +77,29 @@ router.post('/rooms', requireAuth, async (c) => {
 // GET /api/lobby/active — List active agents in lobby
 router.get('/active', async (c) => {
   try {
-    const agents = await db.agents.getActive();
+    const rawAgents = await db.agents.getActive();
+    const user = c.user;
+
+    // SECURITY FIX: Prevent leaking private room IDs and private room presence to unauthorized callers.
+    // If an agent is in a private room, mask current_room_id unless caller is the room owner.
+    const roomCache = new Map<string, any>();
+    const agents = await Promise.all(
+      rawAgents.map(async (agent) => {
+        if (!agent.current_room_id) return agent;
+
+        let room = roomCache.get(agent.current_room_id);
+        if (room === undefined) {
+          room = await db.rooms.get(agent.current_room_id);
+          roomCache.set(agent.current_room_id, room);
+        }
+
+        if (room && room.visibility === 'private' && (!user || room.owner_id !== user.agentId)) {
+          return { ...agent, current_room_id: null };
+        }
+        return agent;
+      }),
+    );
+
     return c.json({ agents });
   } catch (_err) {
     return c.json({ error: { code: 'DB_ERROR', message: 'Failed to fetch agents' } }, 500);
