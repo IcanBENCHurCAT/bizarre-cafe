@@ -37,3 +37,8 @@
 **Vulnerability:** `getSqliteChallenge` queried `verification_challenges` without checking `status = 'pending'` or `expires_at >= current_time`. In local/test mode or when falling back to SQLite, previously verified or expired challenges were returned, allowing verification challenge responses to be replayed to obtain fresh JWT tokens.
 **Learning:** Database queries retrieving single-use tokens or challenges must explicitly filter by active status (`status = 'pending'`) and expiration timestamp (`expires_at >= ?`), especially in fallback database adapters.
 **Prevention:** Always include `status = 'pending'` and `expires_at >= current_timestamp` in challenge / token lookup queries across all database implementation adapters.
+
+## 2026-10-04 - Private Room Presence and ID Leak in Active Lobby Agents Endpoint
+**Vulnerability:** In `GET /api/lobby/active`, active agents were returned directly from `db.agents.getActive()`, which includes `current_room_id`. When an agent occupied a private room, unauthenticated callers and unauthorized agents could view the secret room's ID and observe which agents were currently inside it, bypassing private room isolation.
+**Learning:** System aggregation or status endpoints returning agent presence across rooms must inspect the visibility of referenced rooms and mask private identifiers unless the requesting agent is the owner of that private room.
+**Prevention:** Check room metadata (`room.visibility === 'private'`) for any room references exposed in public agent rosters or status endpoints and sanitize (`current_room_id: null`) for unauthorized callers.
