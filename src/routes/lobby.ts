@@ -68,7 +68,7 @@ router.post('/rooms', requireAuth, async (c) => {
     );
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to create room' } }, 500);
   }

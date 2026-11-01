@@ -183,7 +183,7 @@ router.post('/message', requireAuth, async (c) => {
     );
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to interact with owner' } },
@@ -243,7 +243,7 @@ router.post('/interact', requireAuth, async (c) => {
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to interact with owner' } },
@@ -297,7 +297,7 @@ router.get('/mood', async (c) => {
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch owner mood' } }, 500);
   }
@@ -408,7 +408,7 @@ router.post('/events', requireAuth, async (c) => {
     );
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     if (config.useLocalDb || config.nodeEnv === 'test') {
       return c.json({ error: { code: 'DATABASE_ERROR', message: 'Failed to create event' } }, 500);
@@ -463,7 +463,7 @@ router.get('/lore', async (c) => {
     return c.json({ lore, total: lore.length });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch lore' } }, 500);
   }
@@ -512,7 +512,7 @@ router.get('/mood/history', requireAuth, async (c) => {
     return c.json({ history, total: history.length });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch mood history' } },
@@ -662,7 +662,7 @@ router.post('/action', requireAuth, requireX402Payment(),async (c) => {
     );
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to evaluate action' } }, 500);
   }

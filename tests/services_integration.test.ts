@@ -244,7 +244,7 @@ describe('Service Integration Tests', () => {
       method: 'POST',
       headers: {
         ...authHeaders,
-        'x-payment-receipt': 'receipt_service_integration_token',
+        'x-payment-receipt': `receipt_service_integration_${Date.now()}`,
       },
       body: JSON.stringify({
         itemId: '11111111-1111-1111-1111-111111111111',
