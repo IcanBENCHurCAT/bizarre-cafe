@@ -94,6 +94,7 @@
     "@vitest/mocker": "^4.1.12",
     "@stablelib/ed25519": "^2.1.0",
     "follow-redirects": "^1.16.2",
+    "abitype": "^1.3.0",
     "@coinbase/cdp-sdk": {
       "zod": "^4.6.7"
     },
