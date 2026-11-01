@@ -247,7 +247,7 @@ router.post('/offer', requireAuth, async (c) => {
     return c.json({ message: 'Offer posted', offer }, 201);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     console.error('[skill-swap] POST /offer unexpected error:', err);
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to post offer' } }, 500);
@@ -326,7 +326,7 @@ router.post('/request', requireAuth, async (c) => {
     return c.json({ message: 'Request posted', request }, 201);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to post request' } }, 500);
   }
@@ -464,7 +464,7 @@ router.get('/offers', async (c) => {
     return c.json({ offers, total: offers.length });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch offers' } }, 500);
   }
@@ -560,7 +560,7 @@ router.get('/requests', async (c) => {
     return c.json({ requests, total: requests.length });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch requests' } }, 500);
   }
@@ -924,7 +924,7 @@ router.post('/offers/:id/accept', requireAuth, async (c) => {
     }
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to accept offer' } }, 500);
   }
@@ -1010,7 +1010,7 @@ router.get('/trades', requireAuth, async (c) => {
     return c.json({ trades: limitedTrades, total: limitedTrades.length });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch trades' } }, 500);
   }
@@ -1084,7 +1084,7 @@ router.get('/trades/:id', requireAuth, async (c) => {
     return c.json({ trade });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch trade' } }, 500);
   }
@@ -1257,7 +1257,7 @@ router.post('/trades/:id/complete', requireAuth, async (c) => {
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to complete trade' } }, 500);
   }
@@ -1421,7 +1421,7 @@ router.post('/trades/:id/cancel', requireAuth, async (c) => {
     return c.json({ message: 'Trade cancelled', tradeId: id, status: 'cancelled' });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to cancel trade' } }, 500);
   }

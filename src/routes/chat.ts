@@ -23,7 +23,7 @@ const sendMessageSchema = z.object({
   roomId: z.string().min(1),
   content: z.string().min(1).max(5000),
   type: z.enum(['text', 'system', 'rich']).default('text'),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 const limitSchema = z
@@ -125,7 +125,7 @@ router.post('/messages', requireAuth, async (c) => {
     );
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to send message' } }, 500);
   }
@@ -164,7 +164,7 @@ router.get('/messages', async (c) => {
     return c.json({ messages });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch messages' } }, 500);
   }
@@ -206,7 +206,7 @@ router.get('/history', async (c) => {
     return c.json({ messages, total: messages.length });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch history' } }, 500);
   }
@@ -234,7 +234,7 @@ router.get('/presence', async (c) => {
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch presence' } }, 500);
   }
@@ -266,7 +266,7 @@ router.get('/unread', requireAuth, async (c) => {
     return c.json({ roomId, unreadCount: count });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch unread count' } },
