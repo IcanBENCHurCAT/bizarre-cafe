@@ -29,12 +29,25 @@ const _joinRoomSchema = z.object({
   message: z.string().max(200).optional(),
 });
 
+// SECURITY FIX: Standard pagination limit validation schema to prevent DoS / memory exhaustion
+const limitSchema = z
+  .string()
+  .optional()
+  .transform((v) => (v ? Number(v) : undefined))
+  .pipe(z.number().int().min(1).max(100).optional());
+
 // GET /api/lobby/rooms — List public rooms
 router.get('/rooms', async (c) => {
   try {
-    const { data: rooms, pagination } = await db.rooms.list({ limit: 50, visibility: 'public' });
+    const query = z.object({ limit: limitSchema }).parse(c.req.query());
+    const limit = query.limit ?? 50;
+
+    const { data: rooms, pagination } = await db.rooms.list({ limit, visibility: 'public' });
     return c.json({ rooms, pagination });
-  } catch (_err) {
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
+    }
     return c.json({ error: { code: 'DB_ERROR', message: 'Failed to fetch rooms' } }, 500);
   }
 });

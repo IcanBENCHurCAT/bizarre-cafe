@@ -386,4 +386,58 @@ describe('Room Security & Access Control Tests', () => {
 
     spy.mockRestore();
   });
+
+  it('should validate pagination limit parameter on GET /api/rooms and reject invalid inputs with 400', async () => {
+    // 1. Invalid non-numeric string -> 400 VALIDATION_ERROR
+    const invalidRes = await app.request('/api/rooms?limit=invalid');
+    expect(invalidRes.status).toBe(400);
+    const invalidBody = await invalidRes.json();
+    expect(invalidBody.error.code).toBe('VALIDATION_ERROR');
+
+    // 2. Negative limit -> 400 VALIDATION_ERROR
+    const negativeRes = await app.request('/api/rooms?limit=-5');
+    expect(negativeRes.status).toBe(400);
+    const negativeBody = await negativeRes.json();
+    expect(negativeBody.error.code).toBe('VALIDATION_ERROR');
+
+    // 3. Excessive limit (>100) -> 400 VALIDATION_ERROR
+    const excessiveRes = await app.request('/api/rooms?limit=500');
+    expect(excessiveRes.status).toBe(400);
+    const excessiveBody = await excessiveRes.json();
+    expect(excessiveBody.error.code).toBe('VALIDATION_ERROR');
+
+    // 4. Valid limit -> 200 OK
+    const validRes = await app.request('/api/rooms?limit=10');
+    expect(validRes.status).toBe(200);
+    const validBody = await validRes.json();
+    expect(validBody.rooms).toBeDefined();
+    expect(Array.isArray(validBody.rooms)).toBe(true);
+  });
+
+  it('should validate pagination limit parameter on GET /api/lobby/rooms and reject invalid inputs with 400', async () => {
+    // 1. Invalid non-numeric string -> 400 VALIDATION_ERROR
+    const invalidRes = await app.request('/api/lobby/rooms?limit=invalid');
+    expect(invalidRes.status).toBe(400);
+    const invalidBody = await invalidRes.json();
+    expect(invalidBody.error.code).toBe('VALIDATION_ERROR');
+
+    // 2. Negative limit -> 400 VALIDATION_ERROR
+    const negativeRes = await app.request('/api/lobby/rooms?limit=-10');
+    expect(negativeRes.status).toBe(400);
+    const negativeBody = await negativeRes.json();
+    expect(negativeBody.error.code).toBe('VALIDATION_ERROR');
+
+    // 3. Excessive limit (>100) -> 400 VALIDATION_ERROR
+    const excessiveRes = await app.request('/api/lobby/rooms?limit=999');
+    expect(excessiveRes.status).toBe(400);
+    const excessiveBody = await excessiveRes.json();
+    expect(excessiveBody.error.code).toBe('VALIDATION_ERROR');
+
+    // 4. Valid limit -> 200 OK
+    const validRes = await app.request('/api/lobby/rooms?limit=5');
+    expect(validRes.status).toBe(200);
+    const validBody = await validRes.json();
+    expect(validBody.rooms).toBeDefined();
+    expect(validBody.pagination).toBeDefined();
+  });
 });
