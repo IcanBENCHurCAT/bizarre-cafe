@@ -16,20 +16,37 @@ const roomParamsSchema = z.object({
   roomId: z.string().min(1),
 });
 
+// SECURITY FIX: Standard pagination limit validation schema to prevent DoS / memory exhaustion
+const limitSchema = z
+  .string()
+  .optional()
+  .transform((v) => (v ? Number(v) : undefined))
+  .pipe(z.number().int().min(1).max(100).optional());
+
 // GET /api/rooms — List rooms
 router.get('/', async (c) => {
-  const { data: allRooms } = await db.rooms.list();
-  const user = c.user;
+  try {
+    const query = z.object({ limit: limitSchema }).parse(c.req.query());
+    const limit = query.limit ?? 50;
 
-  // SECURITY FIX: Filter out private rooms unless caller is the room owner
-  const rooms = allRooms.filter((room) => {
-    if (room.visibility === 'private') {
-      return Boolean(user && room.owner_id && room.owner_id === user.agentId);
+    const { data: allRooms } = await db.rooms.list({ limit });
+    const user = c.user;
+
+    // SECURITY FIX: Filter out private rooms unless caller is the room owner
+    const rooms = allRooms.filter((room) => {
+      if (room.visibility === 'private') {
+        return Boolean(user && room.owner_id && room.owner_id === user.agentId);
+      }
+      return true;
+    });
+
+    return c.json({ rooms });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
     }
-    return true;
-  });
-
-  return c.json({ rooms });
+    return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch rooms' } }, 500);
+  }
 });
 
 // GET /api/rooms/:roomId — Get room details
