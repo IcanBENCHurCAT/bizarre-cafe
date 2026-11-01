@@ -46,7 +46,7 @@ router.get('/rooms', async (c) => {
     return c.json({ rooms, pagination });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'DB_ERROR', message: 'Failed to fetch rooms' } }, 500);
   }
