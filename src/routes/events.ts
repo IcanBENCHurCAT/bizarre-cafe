@@ -126,7 +126,7 @@ router.post('/create', requireAuth, async (c) => {
     );
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     if (config.useLocalDb || config.nodeEnv === 'test') {
       return c.json({ error: { code: 'DATABASE_ERROR', message: 'Failed to create event' } }, 500);
@@ -197,7 +197,7 @@ router.get('/upcoming', async (c) => {
     return c.json({ events, total: events.length });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     if (config.useLocalDb || config.nodeEnv === 'test') {
       return c.json({ events: [], total: 0 });
@@ -273,7 +273,7 @@ router.get('/past', async (c) => {
     return c.json({ events, total: events.length });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     if (config.useLocalDb || config.nodeEnv === 'test') {
       return c.json({ events: [], total: 0 });
@@ -359,7 +359,7 @@ router.get('/:id', async (c) => {
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     if (config.useLocalDb || config.nodeEnv === 'test') {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Event not found' } }, 404);
@@ -476,7 +476,7 @@ router.post('/:id/join', requireAuth, async (c) => {
     );
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     if (config.useLocalDb || config.nodeEnv === 'test') {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Event not found' } }, 404);
@@ -561,7 +561,7 @@ router.post('/:id/leave', requireAuth, async (c) => {
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     if (config.useLocalDb || config.nodeEnv === 'test') {
       return c.json(

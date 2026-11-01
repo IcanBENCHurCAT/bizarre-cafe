@@ -153,7 +153,7 @@ router.post('/challenge', async (c) => {
     );
   } catch (err: any) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     if (err?.message?.includes('Rate limit')) {
       return c.json({ error: { code: 'RATE_LIMITED', message: err.message } }, 429);
@@ -311,7 +311,7 @@ router.post('/verify', async (c) => {
     );
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Verification failed' } }, 500);
   }
@@ -393,7 +393,7 @@ router.get('/status', requireAuth, async (c) => {
     } as any);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch verification status' } },
@@ -492,7 +492,7 @@ router.post('/revoke', requireAuth, async (c) => {
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to revoke verification' } },
@@ -557,7 +557,7 @@ router.get('/log', requireAuth, async (c) => {
     return c.json({ log, total: log.length });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json(
       { error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch verification log' } },
@@ -635,7 +635,7 @@ router.post('/upgrade', requireAuth, async (c) => {
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Upgrade failed' } }, 500);
   }

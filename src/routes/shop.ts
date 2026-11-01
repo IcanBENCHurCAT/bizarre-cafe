@@ -23,13 +23,13 @@ export const clearMemReceipts = (): void => {
 
 // Zod schemas
 const purchaseSchema = z.object({
-  itemId: z.string().uuid(),
+  itemId: z.string().regex(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/, 'Invalid UUID'),
   quantity: z.number().min(1).max(100).default(1),
   agentId: z.string(),
 });
 
 const checkoutSchema = z.object({
-  itemId: z.string().uuid(),
+  itemId: z.string().regex(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/, 'Invalid UUID'),
   quantity: z.number().min(1).max(100),
   paymentMethod: z.enum(['x402', 'crypto']),
   agentId: z.string(),
@@ -146,7 +146,7 @@ router.get('/items', async (c) => {
     return c.json({ items });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch items' } }, 500);
   }
@@ -159,7 +159,7 @@ router.get('/items', async (c) => {
  */
 router.get('/items/:id', async (c) => {
   try {
-    const { id } = z.object({ id: z.string().uuid() }).parse({ id: c.req.param('id') });
+    const { id } = z.object({ id: z.string().regex(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/, 'Invalid UUID') }).parse({ id: c.req.param('id') });
 
     const supabase = createServerSupabaseClient();
 
@@ -198,7 +198,7 @@ router.get('/items/:id', async (c) => {
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch item' } }, 500);
   }
@@ -326,7 +326,7 @@ router.post('/checkout', requireAuth, requireX402Payment(),async (c) => {
     );
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Checkout failed' } }, 500);
   }
@@ -423,7 +423,7 @@ router.post('/purchase', requireAuth, async (c) => {
     );
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Purchase failed' } }, 500);
   }
@@ -504,7 +504,7 @@ router.get('/receipts', requireAuth, async (c) => {
     return c.json({ receipts: limitedReceipts, total: limitedReceipts.length });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.errors } }, 400);
+      return c.json({ error: { code: 'VALIDATION_ERROR', details: err.issues } }, 400);
     }
     return c.json({ error: { code: 'UNKNOWN_ERROR', message: 'Failed to fetch receipts' } }, 500);
   }
