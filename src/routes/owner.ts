@@ -80,11 +80,7 @@ router.post('/message', requireAuth, async (c) => {
 
     if (validated.roomId) {
       const room = await db.rooms.get(validated.roomId);
-      if (
-        room &&
-        room.visibility === 'private' &&
-        room.owner_id !== user.agentId
-      ) {
+      if (room && room.visibility === 'private' && room.owner_id !== user.agentId) {
         return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);
       }
     }
@@ -216,11 +212,7 @@ router.post('/interact', requireAuth, async (c) => {
 
     if (validated.roomId) {
       const room = await db.rooms.get(validated.roomId);
-      if (
-        room &&
-        room.visibility === 'private' &&
-        room.owner_id !== user.agentId
-      ) {
+      if (room && room.visibility === 'private' && room.owner_id !== user.agentId) {
         return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);
       }
     }
@@ -322,13 +314,12 @@ router.post('/events', requireAuth, async (c) => {
 
     // SECURITY FIX: Enforce authorization check for private rooms in affectedRooms
     if (validated.affectedRooms && validated.affectedRooms.length > 0) {
-      for (const roomId of validated.affectedRooms) {
-        const room = await db.rooms.get(roomId);
-        if (
-          room &&
-          room.visibility === 'private' &&
-          room.owner_id !== user.agentId
-        ) {
+      // ⚡ Bolt Optimization: Batch independent room queries with Promise.all to reduce latency
+      const rooms = await Promise.all(
+        validated.affectedRooms.map((roomId) => db.rooms.get(roomId)),
+      );
+      for (const room of rooms) {
+        if (room && room.visibility === 'private' && room.owner_id !== user.agentId) {
           return c.json({ error: { code: 'FORBIDDEN', message: 'Access denied' } }, 403);
         }
       }
@@ -566,7 +557,7 @@ router.get('/visual-state', async (c) => {
  * The Owner (LLM DM) evaluates the action against constraints.
  * Approves and updates visual state, or denies.
  */
-router.post('/action', requireAuth, requireX402Payment(),async (c) => {
+router.post('/action', requireAuth, requireX402Payment(), async (c) => {
   try {
     const body = await c.req.json();
     const validated = actionSchema.parse(body);
