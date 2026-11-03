@@ -570,6 +570,34 @@ export const getSqliteChallenge = async (
   );
 };
 
+export const updateSqliteChallengeStatus = async (
+  challenge: string,
+  status: string,
+  userId?: string,
+): Promise<void> => {
+  const db = getDb();
+  const now = new Date().toISOString();
+  if (userId) {
+    db.prepare(
+      'UPDATE verification_challenges SET status = ?, updated_at = ? WHERE (challenge = ? OR id = ?) AND user_id = ?',
+    ).run(status, now, challenge, challenge, userId);
+  } else {
+    db.prepare(
+      'UPDATE verification_challenges SET status = ?, updated_at = ? WHERE challenge = ? OR id = ?',
+    ).run(status, now, challenge, challenge);
+  }
+};
+
+export const expireSqliteChallengesForAgent = async (
+  userId: string,
+): Promise<void> => {
+  const db = getDb();
+  const now = new Date().toISOString();
+  db.prepare(
+    "UPDATE verification_challenges SET status = 'expired', updated_at = ? WHERE user_id = ? AND status = 'pending'",
+  ).run(now, userId);
+};
+
 // ─── Skill Marketplace & Escrow SQLite Helpers ──────────────────────────────
 
 export interface SqliteSkillOffer {
