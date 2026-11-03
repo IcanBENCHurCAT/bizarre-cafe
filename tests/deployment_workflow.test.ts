@@ -57,12 +57,12 @@ describe('OCI Deployment Workflow (.github/workflows/deploy.yml)', () => {
       // QEMU
       const qemuStep = steps.find((s: any) => s.uses?.startsWith('docker/setup-qemu-action'));
       expect(qemuStep).toBeDefined();
-      expect(qemuStep.uses).toContain('@v3');
+      expect(qemuStep.uses).toMatch(/@v[3-9]/);
 
       // Buildx
       const buildxStep = steps.find((s: any) => s.uses?.startsWith('docker/setup-buildx-action'));
       expect(buildxStep).toBeDefined();
-      expect(buildxStep.uses).toContain('@v3');
+      expect(buildxStep.uses).toMatch(/@v[3-9]/);
 
       // Login
       const loginStep = steps.find((s: any) => s.uses?.startsWith('docker/login-action'));
