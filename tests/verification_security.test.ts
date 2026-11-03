@@ -53,7 +53,12 @@ vi.mock('../src/supabase/client', () => ({
 }));
 
 import app from '../src/index';
-import { createSqliteChallenge, getSqliteChallenge } from '../src/db/sqlite';
+import {
+  createSqliteChallenge,
+  getSqliteChallenge,
+  updateSqliteChallengeStatus,
+  expireSqliteChallengesForAgent,
+} from '../src/db/sqlite';
 
 describe('Verification Security - IDOR Protection', () => {
   it('should prevent an authenticated agent from accessing another agent verification log (403 Forbidden)', async () => {
@@ -221,5 +226,114 @@ describe('Verification Security - IDOR Protection', () => {
     // Expired challenge should NOT be returned
     const expiredResult = await getSqliteChallenge(expiredId, agentId);
     expect(expiredResult).toBeNull();
+  });
+
+  it('should mark challenge as verified in SQLite with updateSqliteChallengeStatus', async () => {
+    const agentId = 'test-challenge-update-agent';
+    const challengeNonce = 'challenge-nonce-update-1';
+    const futureDate = new Date(Date.now() + 600000).toISOString();
+
+    await createSqliteChallenge({
+      id: crypto.randomUUID(),
+      user_id: agentId,
+      challenge: challengeNonce,
+      expires_at: futureDate,
+      status: 'pending',
+    });
+
+    const before = await getSqliteChallenge(challengeNonce, agentId);
+    expect(before).not.toBeNull();
+
+    await updateSqliteChallengeStatus(challengeNonce, 'verified', agentId);
+
+    const after = await getSqliteChallenge(challengeNonce, agentId);
+    expect(after).toBeNull();
+  });
+
+  it('should expire existing pending challenges in SQLite with expireSqliteChallengesForAgent', async () => {
+    const agentId = 'test-challenge-expire-agent';
+    const challenge1 = 'challenge-nonce-expire-1';
+    const challenge2 = 'challenge-nonce-expire-2';
+    const futureDate = new Date(Date.now() + 600000).toISOString();
+
+    await createSqliteChallenge({
+      id: crypto.randomUUID(),
+      user_id: agentId,
+      challenge: challenge1,
+      expires_at: futureDate,
+      status: 'pending',
+    });
+    await createSqliteChallenge({
+      id: crypto.randomUUID(),
+      user_id: agentId,
+      challenge: challenge2,
+      expires_at: futureDate,
+      status: 'pending',
+    });
+
+    expect(await getSqliteChallenge(challenge1, agentId)).not.toBeNull();
+    expect(await getSqliteChallenge(challenge2, agentId)).not.toBeNull();
+
+    await expireSqliteChallengesForAgent(agentId);
+
+    expect(await getSqliteChallenge(challenge1, agentId)).toBeNull();
+    expect(await getSqliteChallenge(challenge2, agentId)).toBeNull();
+  });
+
+  it('should mark challenge as verified in SQLite on POST /api/verification/verify preventing challenge replay', async () => {
+    const agentId = 'test-verify-replay-agent';
+    const challengeNonce = 'replay-nonce-' + crypto.randomUUID();
+    const futureDate = new Date(Date.now() + 600000).toISOString();
+
+    await createSqliteChallenge({
+      id: crypto.randomUUID(),
+      user_id: agentId,
+      challenge: challengeNonce,
+      expires_at: futureDate,
+      status: 'pending',
+    });
+
+    // First verification request should succeed
+    const firstRes = await app.request('/api/verification/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': agentId,
+      },
+      body: JSON.stringify({
+        agentId,
+        challenge: challengeNonce,
+        signature: 'mock-signature-string-long-enough',
+        walletAddress: 'ALGO:TEST_WALLET_ADDRESS_REPLAY',
+      }),
+    });
+
+    expect(firstRes.status).toBe(200);
+    const firstBody = await firstRes.json();
+    expect(firstBody.message).toBe('Verification successful');
+    expect(firstBody.token).toBeDefined();
+
+    // Challenge in SQLite should now be marked verified, so it cannot be found as pending
+    const sqliteRecord = await getSqliteChallenge(challengeNonce, agentId);
+    expect(sqliteRecord).toBeNull();
+
+    // Replay attempt should be rejected with 404 (valid challenge not found)
+    const replayRes = await app.request('/api/verification/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': agentId,
+      },
+      body: JSON.stringify({
+        agentId,
+        challenge: challengeNonce,
+        signature: 'mock-signature-string-long-enough',
+        walletAddress: 'ALGO:TEST_WALLET_ADDRESS_REPLAY',
+      }),
+    });
+
+    expect(replayRes.status).toBe(404);
+    const replayBody = await replayRes.json();
+    expect(replayBody.error.code).toBe('NOT_FOUND');
   });
 });

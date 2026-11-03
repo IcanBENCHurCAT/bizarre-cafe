@@ -23,6 +23,8 @@ import {
 import {
   createSqliteChallenge,
   getSqliteChallenge,
+  updateSqliteChallengeStatus,
+  expireSqliteChallengesForAgent,
   upsertSqliteVerification,
   getSqliteVerification,
 } from '../db/sqlite';
@@ -121,6 +123,7 @@ router.post('/challenge', async (c) => {
 
     if (config.useLocalDb) {
       try {
+        await expireSqliteChallengesForAgent(agentId);
         await createSqliteChallenge({
           id: issued.challengeId,
           user_id: agentId,
@@ -241,35 +244,37 @@ router.post('/verify', async (c) => {
 
     const now = new Date().toISOString();
 
-    // Mark challenge as verified
-    const { error: updateError } = await supabase
-      .from('verification_challenges')
-      .update({ status: 'verified', updated_at: now })
-      .eq('id', challenge.id);
+    if (!config.useLocalDb) {
+      // Mark challenge as verified
+      const { error: updateError } = await supabase
+        .from('verification_challenges')
+        .update({ status: 'verified', updated_at: now })
+        .eq('id', challenge.id);
 
-    if (updateError) {
-      console.error('Supabase update error:', updateError);
-      return c.json(
-        { error: { code: 'DATABASE_ERROR', message: 'Failed to update challenge status' } },
-        500,
+      if (updateError) {
+        console.error('Supabase update error:', updateError);
+        return c.json(
+          { error: { code: 'DATABASE_ERROR', message: 'Failed to update challenge status' } },
+          500,
+        );
+      }
+
+      // ⚡ Bolt Optimization: Replace sequential select and update/insert with a single upsert
+      // Removes an unnecessary round trip to the database
+      await supabase.from('agent_verification').upsert(
+        {
+          user_id: agentId,
+          is_verified: true,
+          status: 'verified',
+          wallet_address: validated.walletAddress ?? null,
+          did_document: validated.didDocument ?? null,
+          verified_at: now,
+          tier: 'basic',
+          updated_at: now,
+        },
+        { onConflict: 'user_id' },
       );
     }
-
-    // ⚡ Bolt Optimization: Replace sequential select and update/insert with a single upsert
-    // Removes an unnecessary round trip to the database
-    await supabase.from('agent_verification').upsert(
-      {
-        user_id: agentId,
-        is_verified: true,
-        status: 'verified',
-        wallet_address: validated.walletAddress ?? null,
-        did_document: validated.didDocument ?? null,
-        verified_at: now,
-        tier: 'basic',
-        updated_at: now,
-      },
-      { onConflict: 'user_id' },
-    );
 
     // Persist to SQLite
     try {
@@ -283,6 +288,7 @@ router.post('/verify', async (c) => {
         wallet_address: validated.walletAddress ?? null,
         verified_at: now,
       });
+      await updateSqliteChallengeStatus(challenge.challenge, 'verified', agentId);
     } catch {
       // Ignore if SQLite error
     }
