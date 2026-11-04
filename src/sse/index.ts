@@ -114,11 +114,25 @@ export const broadcastToRoom = (payload: BroadcastPayload): void => {
   };
 
   if (formatted.roomId) {
-    // Channel isolation: broadcast ONLY to room clients and global clients
-    for (const clientId of globalClients) {
-      sendToTarget(clientId);
+    // SECURITY FIX: Enforce channel isolation and IDOR protection.
+    // Do NOT leak private room events to global clients unless authorized as room owner.
+    const targetRoomId = formatted.roomId;
+    if (globalClients.size > 0) {
+      void db.rooms.get(targetRoomId).then((room) => {
+        const isPrivate = room?.visibility === 'private';
+        const ownerId = room?.owner_id;
+        for (const clientId of globalClients) {
+          const client = clients.get(clientId);
+          if (!client || !client.active) continue;
+          if (isPrivate && (!ownerId || client.agentId !== ownerId)) {
+            continue;
+          }
+          sendSerializedToClient(client, serializedEvent);
+        }
+      });
     }
-    const roomSet = roomClients.get(formatted.roomId);
+
+    const roomSet = roomClients.get(targetRoomId);
     if (roomSet) {
       for (const clientId of roomSet) {
         sendToTarget(clientId);
