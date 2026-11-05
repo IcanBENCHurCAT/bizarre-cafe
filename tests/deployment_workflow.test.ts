@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import yaml from 'js-yaml';
+import * as yamlModule from 'js-yaml';
+
+const yaml: any = (yamlModule as any).load ? yamlModule : ((yamlModule as any).default ?? yamlModule);
 
 describe('OCI Deployment Workflow (.github/workflows/deploy.yml)', () => {
   const workflowPath = path.resolve(__dirname, '../.github/workflows/deploy.yml');
