@@ -130,7 +130,7 @@ export async function recordSpentTransaction(payment: SpentPaymentDetails): Prom
         error?.code === 'SQLITE_CONSTRAINT_UNIQUE' ||
         error?.code === '23505'
       ) {
-        throw new Error('DOUBLE_SPEND_DETECTED');
+        throw new Error('DOUBLE_SPEND_DETECTED', { cause: err });
       }
       throw err;
     }
