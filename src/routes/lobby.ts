@@ -95,23 +95,36 @@ router.get('/active', async (c) => {
 
     // SECURITY FIX: Prevent leaking private room IDs and private room presence to unauthorized callers.
     // If an agent is in a private room, mask current_room_id unless caller is the room owner.
-    const roomCache = new Map<string, any>();
-    const agents = await Promise.all(
-      rawAgents.map(async (agent) => {
-        if (!agent.current_room_id) return agent;
 
-        let room = roomCache.get(agent.current_room_id);
-        if (room === undefined) {
-          room = await db.rooms.get(agent.current_room_id);
-          roomCache.set(agent.current_room_id, room);
-        }
+    // PERF: Prevent N+1 queries and redundant queries from Promise.all concurrent cache misses.
+    // Pre-calculate unique rooms using a Set to avoid redundant intermediate arrays.
+    const uniqueRoomIds = new Set<string>();
+    for (const agent of rawAgents) {
+      if (agent.current_room_id) {
+        uniqueRoomIds.add(agent.current_room_id);
+      }
+    }
 
-        if (room && room.visibility === 'private' && (!user || room.owner_id !== user.agentId)) {
-          return { ...agent, current_room_id: null };
-        }
-        return agent;
-      }),
-    );
+    // Fetch all unique rooms concurrently
+    const roomPromises = Array.from(uniqueRoomIds).map(async (roomId) => {
+      const room = await db.rooms.get(roomId);
+      return { roomId, room };
+    });
+    const fetchedRooms = await Promise.all(roomPromises);
+
+    // Create a synchronous map for quick lookups
+    const roomCache = new Map(fetchedRooms.map(({ roomId, room }) => [roomId, room]));
+
+    // Synchronous mapping over pre-fetched data
+    const agents = rawAgents.map((agent) => {
+      if (!agent.current_room_id) return agent;
+
+      const room = roomCache.get(agent.current_room_id);
+      if (room && room.visibility === 'private' && (!user || room.owner_id !== user.agentId)) {
+        return { ...agent, current_room_id: null };
+      }
+      return agent;
+    });
 
     return c.json({ agents });
   } catch (_err) {
