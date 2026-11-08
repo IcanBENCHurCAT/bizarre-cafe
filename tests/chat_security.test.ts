@@ -125,4 +125,44 @@ describe('Chat Security & Private Room Access Control Tests', () => {
     const validLimitRes = await app.request(`/api/chat/messages?roomId=${roomId}&limit=25`);
     expect(validLimitRes.status).toBe(200);
   });
+
+  it('should reject invalid date strings for before and after cursor parameters with 400 VALIDATION_ERROR', async () => {
+    const roomId = 'public-test-room';
+
+    // 1. Invalid date for 'before' in GET /api/chat/messages -> 400 VALIDATION_ERROR
+    const invalidBeforeMsgRes = await app.request(
+      `/api/chat/messages?roomId=${roomId}&before=not-a-date`,
+    );
+    expect(invalidBeforeMsgRes.status).toBe(400);
+    const invalidBeforeMsgBody = await invalidBeforeMsgRes.json();
+    expect(invalidBeforeMsgBody.error.code).toBe('VALIDATION_ERROR');
+
+    // 2. Invalid date for 'before' in GET /api/chat/history -> 400 VALIDATION_ERROR
+    const invalidBeforeHistRes = await app.request(
+      `/api/chat/history?roomId=${roomId}&before=invalid-date`,
+    );
+    expect(invalidBeforeHistRes.status).toBe(400);
+    const invalidBeforeHistBody = await invalidBeforeHistRes.json();
+    expect(invalidBeforeHistBody.error.code).toBe('VALIDATION_ERROR');
+
+    // 3. Invalid date for 'after' in GET /api/chat/history -> 400 VALIDATION_ERROR
+    const invalidAfterHistRes = await app.request(
+      `/api/chat/history?roomId=${roomId}&after=invalid-date`,
+    );
+    expect(invalidAfterHistRes.status).toBe(400);
+    const invalidAfterHistBody = await invalidAfterHistRes.json();
+    expect(invalidAfterHistBody.error.code).toBe('VALIDATION_ERROR');
+
+    // 4. Valid ISO 8601 date strings for before and after -> 200 OK
+    const nowIso = new Date().toISOString();
+    const validBeforeRes = await app.request(
+      `/api/chat/messages?roomId=${roomId}&before=${encodeURIComponent(nowIso)}`,
+    );
+    expect(validBeforeRes.status).toBe(200);
+
+    const validHistoryRes = await app.request(
+      `/api/chat/history?roomId=${roomId}&before=${encodeURIComponent(nowIso)}&after=${encodeURIComponent('2026-01-01T00:00:00.000Z')}`,
+    );
+    expect(validHistoryRes.status).toBe(200);
+  });
 });
