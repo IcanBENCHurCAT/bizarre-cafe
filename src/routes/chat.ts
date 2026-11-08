@@ -32,17 +32,23 @@ const limitSchema = z
   .transform((v) => (v ? Number(v) : undefined))
   .pipe(z.number().int().min(1).max(100).optional());
 
+// SECURITY: Enforce ISO 8601 datetime format for cursor queries to prevent RangeError crashes
+const cursorDateSchema = z
+  .string()
+  .datetime({ offset: true })
+  .optional();
+
 const messagesQuerySchema = z.object({
   roomId: z.string().min(1),
   limit: limitSchema,
-  before: z.string().optional(),
+  before: cursorDateSchema,
 });
 
 const historyQuerySchema = z.object({
   roomId: z.string().min(1),
   limit: limitSchema,
-  before: z.string().optional(),
-  after: z.string().optional(),
+  before: cursorDateSchema,
+  after: cursorDateSchema,
 });
 
 /**
@@ -150,7 +156,7 @@ router.get('/messages', async (c) => {
 
     const data = await db.chat.getMessages(validated.roomId, {
       limit,
-      after: validated.before ? new Date(validated.before).toISOString() : undefined,
+      before: validated.before ? new Date(validated.before).toISOString() : undefined,
     });
 
     const messages = data.map((m) => ({
