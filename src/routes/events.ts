@@ -447,12 +447,12 @@ router.post('/:id/join', requireAuth, async (c) => {
     // Add attendance record
     const { data: attendance, error: attError } = await supabase
       .from('event_attendance')
-      .insert({
+      .upsert({
         event_id: id,
         user_id: user.agentId,
         status: 'joined',
         joined_at: now,
-      })
+      }, { onConflict: 'event_id,user_id' })
       .select()
       .single();
 
