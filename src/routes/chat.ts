@@ -56,7 +56,14 @@ const historyQuerySchema = z.object({
  */
 async function verifyRoomAccess(roomId: string, user?: { agentId: string } | null) {
   const room = await db.rooms.get(roomId);
-  if (room && room.visibility === 'private') {
+  if (!room) {
+    return {
+      allowed: false,
+      status: 404 as const,
+      error: { code: 'NOT_FOUND', message: 'Room not found' },
+    };
+  }
+  if (room.visibility === 'private') {
     if (!user) {
       return {
         allowed: false,
