@@ -96,8 +96,50 @@ describe('Chat Security & Private Room Access Control Tests', () => {
     expect(ownerHist.status).toBe(200);
   });
 
+  it('should return 404 Room not found when sending message to a non-existent room in POST /api/chat/messages', async () => {
+    const nonExistentRoomId = '00000000-0000-0000-0000-000000000000';
+    const res = await app.request('/api/chat/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': 'test-sender-agent',
+      },
+      body: JSON.stringify({
+        roomId: nonExistentRoomId,
+        content: 'Hello non-existent room',
+      }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toBeDefined();
+    expect(body.error.code).toBe('NOT_FOUND');
+    expect(body.error.message).toBe('Room not found');
+  });
+
+  it('should return 404 Room not found when querying messages for a non-existent room in GET /api/chat/messages', async () => {
+    const nonExistentRoomId = '00000000-0000-0000-0000-000000000000';
+    const res = await app.request(`/api/chat/messages?roomId=${nonExistentRoomId}`);
+
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toBeDefined();
+    expect(body.error.code).toBe('NOT_FOUND');
+    expect(body.error.message).toBe('Room not found');
+  });
+
   it('should reject invalid, negative, or excessive limit values in GET /api/chat/messages and GET /api/chat/history', async () => {
-    const roomId = 'public-test-room';
+    // Create a public room so room exists
+    const createRes = await app.request('/api/lobby/rooms', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': 'limit-test-creator',
+      },
+      body: JSON.stringify({ name: 'Limit Test Room', isPrivate: false }),
+    });
+    const { room } = await createRes.json();
+    const roomId = room.id;
 
     // 1. Invalid non-numeric limit parameter -> 400 VALIDATION_ERROR
     const invalidLimitRes = await app.request(`/api/chat/messages?roomId=${roomId}&limit=invalid`);
@@ -127,7 +169,17 @@ describe('Chat Security & Private Room Access Control Tests', () => {
   });
 
   it('should reject invalid date strings for before and after cursor parameters with 400 VALIDATION_ERROR', async () => {
-    const roomId = 'public-test-room';
+    // Create a public room so room exists
+    const createRes = await app.request('/api/lobby/rooms', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': 'cursor-test-creator',
+      },
+      body: JSON.stringify({ name: 'Cursor Test Room', isPrivate: false }),
+    });
+    const { room } = await createRes.json();
+    const roomId = room.id;
 
     // 1. Invalid date for 'before' in GET /api/chat/messages -> 400 VALIDATION_ERROR
     const invalidBeforeMsgRes = await app.request(

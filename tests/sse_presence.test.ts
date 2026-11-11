@@ -149,10 +149,21 @@ describe('SSE Presence & Lifecycle Broadcasts Integration Tests', () => {
     const ac2 = new AbortController();
     abortControllers.push(ac1, ac2);
 
-    await app.request('/sse?agentId=agent-active-1&roomId=room-pres-1', { signal: ac1.signal });
-    await app.request('/sse?agentId=agent-active-2&roomId=room-pres-1', { signal: ac2.signal });
+    const createRoomRes = await app.request('/api/lobby/rooms', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': 'creator-agent',
+      },
+      body: JSON.stringify({ name: 'Presence Room 1', isPrivate: false }),
+    });
+    const { room } = await createRoomRes.json();
+    const roomId = room.id;
 
-    const res = await app.request('/api/chat/presence?roomId=room-pres-1', {
+    await app.request(`/sse?agentId=agent-active-1&roomId=${roomId}`, { signal: ac1.signal });
+    await app.request(`/sse?agentId=agent-active-2&roomId=${roomId}`, { signal: ac2.signal });
+
+    const res = await app.request(`/api/chat/presence?roomId=${roomId}`, {
       headers: {
         'X-Agent-ID': 'test-query-agent',
       },
@@ -160,7 +171,7 @@ describe('SSE Presence & Lifecycle Broadcasts Integration Tests', () => {
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.roomId).toBe('room-pres-1');
+    expect(body.roomId).toBe(roomId);
     expect(Array.isArray(body.presence)).toBe(true);
     expect(body.presence.length).toBe(2);
 
@@ -178,7 +189,18 @@ describe('SSE Presence & Lifecycle Broadcasts Integration Tests', () => {
     const ac = new AbortController();
     abortControllers.push(ac);
 
-    await app.request('/sse?agentId=agent-idle&roomId=room-idle-test', { signal: ac.signal });
+    const createRoomRes = await app.request('/api/lobby/rooms', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': 'creator-agent',
+      },
+      body: JSON.stringify({ name: 'Idle Room', isPrivate: false }),
+    });
+    const { room } = await createRoomRes.json();
+    const roomId = room.id;
+
+    await app.request(`/sse?agentId=agent-idle&roomId=${roomId}`, { signal: ac.signal });
 
     // Manually age the client's lastSeen timestamp to simulate idle
     const clients = getConnectedClients();
@@ -186,7 +208,7 @@ describe('SSE Presence & Lifecycle Broadcasts Integration Tests', () => {
     expect(idleClient).toBeDefined();
     (idleClient as any).lastSeen = Date.now() - 75000; // 75 seconds ago
 
-    const res = await app.request('/api/chat/presence?roomId=room-idle-test', {
+    const res = await app.request(`/api/chat/presence?roomId=${roomId}`, {
       headers: {
         'X-Agent-ID': 'test-query-agent',
       },
@@ -203,7 +225,18 @@ describe('SSE Presence & Lifecycle Broadcasts Integration Tests', () => {
     const ac = new AbortController();
     abortControllers.push(ac);
 
-    await app.request('/sse?agentId=agent-sender&roomId=room-refresh-test', { signal: ac.signal });
+    const createRoomRes = await app.request('/api/lobby/rooms', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Agent-ID': 'creator-agent',
+      },
+      body: JSON.stringify({ name: 'Refresh Test Room', isPrivate: false }),
+    });
+    const { room } = await createRoomRes.json();
+    const roomId = room.id;
+
+    await app.request(`/sse?agentId=agent-sender&roomId=${roomId}`, { signal: ac.signal });
 
     // Age client
     const clients = getConnectedClients();
@@ -212,10 +245,10 @@ describe('SSE Presence & Lifecycle Broadcasts Integration Tests', () => {
     (client as any).lastSeen = Date.now() - 90000;
 
     // Verify it is idle
-    let pres = getRoomPresence('room-refresh-test');
+    let pres = getRoomPresence(roomId);
     expect(pres.find((p) => p.agentId === 'agent-sender')?.status).toBe('idle');
 
-    // Post a message as agent-sender (supports non-uuid roomId)
+    // Post a message as agent-sender
     const postRes = await app.request('/api/chat/messages', {
       method: 'POST',
       headers: {
@@ -223,7 +256,7 @@ describe('SSE Presence & Lifecycle Broadcasts Integration Tests', () => {
         'X-Agent-ID': 'agent-sender',
       },
       body: JSON.stringify({
-        roomId: 'room-refresh-test',
+        roomId,
         content: 'I am back and active!',
       }),
     });
@@ -231,7 +264,7 @@ describe('SSE Presence & Lifecycle Broadcasts Integration Tests', () => {
     expect(postRes.status).toBe(201);
 
     // Pres should now be active
-    pres = getRoomPresence('room-refresh-test');
+    pres = getRoomPresence(roomId);
     const updated = pres.find((p) => p.agentId === 'agent-sender');
     expect(updated?.status).toBe('active');
     expect(Date.now() - new Date(updated!.lastSeen).getTime()).toBeLessThan(2000);
