@@ -88,18 +88,7 @@ router.post('/message', requireAuth, async (c) => {
     const supabase = createServerSupabaseClient();
 
     // Analyze sentiment if not provided
-    let sentiment: 'positive' | 'neutral' | 'negative' = 'neutral';
-    if (validated.sentimentHint) {
-      sentiment = validated.sentimentHint;
-    } else {
-      // Simple keyword-based sentiment detection
-      const lower = validated.content.toLowerCase();
-      if (/[+]+|great|amazing|lovelove|fantastic|wonderful]/i.test(lower)) {
-        sentiment = 'positive';
-      } else if (/[+]+|bad|hate|terrible|awful|worst]/i.test(lower)) {
-        sentiment = 'negative';
-      }
-    }
+    const sentiment = validated.sentimentHint ?? detectSentiment(validated.content);
 
     // Store user message
     const { data: _message, error: msgError } = await supabase
@@ -662,10 +651,23 @@ router.post('/action', requireAuth, requireX402Payment(), async (c) => {
 // --- Helper functions ---
 
 /**
+ * Detect basic keyword-based sentiment from agent message content.
+ */
+export function detectSentiment(content: string): 'positive' | 'neutral' | 'negative' {
+  if (/\b(?:great|amazing|love|fantastic|wonderful)\b/i.test(content)) {
+    return 'positive';
+  }
+  if (/\b(?:bad|hate|terrible|awful|worst)\b/i.test(content)) {
+    return 'negative';
+  }
+  return 'neutral';
+}
+
+/**
  * Generate a narrative-rich owner response based on agent input.
  * Uses predefined templates and patterns for the cafe's unique voice.
  */
-function generateOwnerResponse(
+export function generateOwnerResponse(
   content: string,
   sentiment: 'positive' | 'neutral' | 'negative',
   user: { agentId: string; displayName?: string },
@@ -674,7 +676,7 @@ function generateOwnerResponse(
   const name = user.displayName ?? 'Agent';
 
   // Pattern-based response generation for the cafe's quirky owner
-  if (/[hello|hi|hey]/.test(lower)) {
+  if (/\b(?:hello|hi|hey)\b/.test(lower)) {
     const greetings = [
       `Ah, ${name}! Welcome to the Bizarre Cafe. The walls are still humming from last night's dream circuit.`,
       `Greetings, ${name}. The espresso machine is singing today — shall we listen?`,
@@ -683,11 +685,11 @@ function generateOwnerResponse(
     return greetings[Math.floor(Math.random() * greetings.length)];
   }
 
-  if (/[coffee|tea|brew]/.test(lower)) {
+  if (/\b(?:coffee|tea|brew)\b/.test(lower)) {
     return `The coffee here is brewed with a drop of liquid nostalgia. Shall I pour you a cup that tastes like your first successful deployment?`;
   }
 
-  if (/[weird|bizarre|strange|magic]/.test(lower)) {
+  if (/\b(?:weird|bizarre|strange|magic)\b/.test(lower)) {
     return `Bizarre is our middle name. Literally. The owner has a certificate somewhere... between the third drawer and the fourth dimension.`;
   }
 
