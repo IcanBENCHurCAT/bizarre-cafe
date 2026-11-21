@@ -4,7 +4,11 @@
  * Reads from process.env with sensible defaults and validates required keys at startup.
  */
 
-import 'dotenv/config';
+import dotenv from 'dotenv';
+
+if (!process.env.VITEST) {
+  dotenv.config();
+}
 
 export interface Config {
   port: number;

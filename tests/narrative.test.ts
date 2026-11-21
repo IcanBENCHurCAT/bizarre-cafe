@@ -146,5 +146,18 @@ describe('Narrative Engine Service', () => {
       expect(response.content).toBe('[helpful] Narrative context: Contextual info');
       expect(response.tone).toBe('helpful');
     });
+
+    it('should stay isolated from live .env LLM providers and fall back cleanly offline', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+      const response = await generateResponse('Offline isolation context', 'Say hello', 'whimsical');
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(fetchSpy.mock.calls[0][0]).toBe('http://127.0.0.1:1/v1/chat/completions');
+      expect(response.content).toBe(
+        '[whimsical] Response to: "Say hello" — Offline isolation context',
+      );
+      expect(response.tone).toBe('whimsical');
+    });
   });
 });

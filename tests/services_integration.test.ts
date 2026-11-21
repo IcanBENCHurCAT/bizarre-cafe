@@ -196,6 +196,31 @@ describe('Service Integration Tests', () => {
     expect(typeof body.conversation.ownerResponse).toBe('string');
   });
 
+  it('should process POST /api/owner/message offline without calling external LLM APIs', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    try {
+      const res = await app.request('/api/owner/message', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          content: 'Offline isolation verification message',
+          sentimentHint: 'neutral',
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.message).toBe('Owner responded');
+      expect(body.conversation.ownerResponse).toContain(
+        '[mysterious] Response to: "Offline isolation verification message"',
+      );
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(fetchSpy.mock.calls[0][0]).toBe('http://127.0.0.1:1/v1/chat/completions');
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
   it('should validate inputs on POST /api/owner/interact and reject invalid or oversized payloads', async () => {
     // 1. Valid request
     const validRes = await app.request('/api/owner/interact', {

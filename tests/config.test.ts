@@ -9,11 +9,11 @@ describe('Config environment variable validation', () => {
   });
 
   afterEach(() => {
+    vi.doUnmock('dotenv');
     process.env = originalEnv;
   });
 
   it('should throw an error when JWT_SECRET is missing, even in test environment', async () => {
-    vi.doMock('dotenv/config', () => ({}));
     delete process.env.JWT_SECRET;
     process.env.NODE_ENV = 'test';
 
@@ -46,7 +46,6 @@ describe('Config environment variable validation', () => {
   });
 
   it('should throw a fatal error when ALGORAND_MOCK_VERIFICATION is true in production', async () => {
-    vi.doMock('dotenv/config', () => ({}));
     process.env.JWT_SECRET = 'my-secure-test-jwt-secret';
     process.env.NODE_ENV = 'production';
     process.env.ALGORAND_MOCK_VERIFICATION = 'true';
@@ -57,5 +56,30 @@ describe('Config environment variable validation', () => {
     }).rejects.toThrow(
       "FATAL: ALGORAND_MOCK_VERIFICATION is explicitly set to 'true' in a production environment. This is a severe real-money risk as it would allow fake payments."
     );
+  });
+
+  it('should not invoke dotenv.config() under Vitest and should isolate LLM provider config', async () => {
+    const dotenvConfigSpy = vi.fn();
+    vi.doMock('dotenv', () => ({ default: { config: dotenvConfigSpy } }));
+
+    const { config } = await import('../src/config.ts');
+
+    expect(dotenvConfigSpy).not.toHaveBeenCalled();
+    expect(config.providerCascade).toBe('none');
+    expect(config.geminiApiKey).toBe('');
+    expect(config.groqApiKey).toBe('');
+    expect(config.openrouterApiKey).toBe('');
+    expect(config.openaiApiKey).toBe('');
+    expect(config.openaiBaseUrl).toBe('http://127.0.0.1:1/v1');
+  });
+
+  it('should invoke dotenv.config() when VITEST is not set', async () => {
+    const dotenvConfigSpy = vi.fn();
+    vi.doMock('dotenv', () => ({ default: { config: dotenvConfigSpy } }));
+    delete process.env.VITEST;
+
+    await import('../src/config.ts');
+
+    expect(dotenvConfigSpy).toHaveBeenCalledTimes(1);
   });
 });
