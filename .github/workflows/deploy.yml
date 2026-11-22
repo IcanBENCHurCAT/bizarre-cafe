@@ -155,6 +155,7 @@ jobs:
             USE_LOCAL_DB=${USE_LOCAL_DB}
             PORT=8080
             NODE_ENV=production
+            START_SERVER=true
             EOF
             chmod 600 .env
 
