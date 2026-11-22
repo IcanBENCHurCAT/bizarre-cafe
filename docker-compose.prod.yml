@@ -13,6 +13,7 @@ services:
     environment:
       - PORT=8080
       - NODE_ENV=production
+      - START_SERVER=true
       - DOMAIN=${DOMAIN:-bizarre-cafe.duckdns.org}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://bizarre-cafe.duckdns.org}
       - JWT_SECRET=${JWT_SECRET:-}

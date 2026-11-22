@@ -36,6 +36,7 @@ RUN chown -R appuser:appgroup /app
 USER appuser
 
 ENV NODE_ENV=production
+ENV START_SERVER=true
 ENV PORT=8080
 
 EXPOSE 8080

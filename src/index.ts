@@ -7,6 +7,8 @@
  *  - x402 payment middleware on paid routes
  */
 
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Hono } from 'hono';
 import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
@@ -141,8 +143,37 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
-// Start server if running directly (e.g. local dev)
-if (process.env.NODE_ENV !== 'production' || process.env.START_SERVER === 'true') {
+/**
+ * Determines whether this process should start the HTTP server and OwnerCronService.
+ * Explicit START_SERVER overrides take precedence, test environments stay disabled by
+ * default, and direct module execution starts automatically in any non-test environment.
+ */
+export function shouldStartServer(
+  env: NodeJS.ProcessEnv = process.env,
+  argv1: string | undefined = process.argv[1],
+  moduleUrl: string = import.meta.url,
+): boolean {
+  if (env.START_SERVER === 'true') {
+    return true;
+  }
+  if (env.START_SERVER === 'false') {
+    return false;
+  }
+  if (env.NODE_ENV === 'test' || Boolean(env.VITEST)) {
+    return false;
+  }
+  if (argv1) {
+    try {
+      return path.resolve(argv1) === path.resolve(fileURLToPath(moduleUrl));
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+// Start server when invoked directly or explicitly enabled via START_SERVER
+if (shouldStartServer()) {
   console.warn(`Starting local server on port ${config.port}`);
   OwnerCronService.start();
   serverInstance = serve({
