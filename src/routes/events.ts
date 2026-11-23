@@ -12,10 +12,10 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { config } from '../config';
-import { createServerSupabaseClient } from '../supabase/client';
-import type { EventType, EventStatus } from '../types/cafe';
-import { requireAuth } from '../middleware/auth';
+import { config } from '../config.js';
+import { createServerSupabaseClient } from '../supabase/client.js';
+import type { EventType, EventStatus } from '../types/cafe.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = new Hono();
 

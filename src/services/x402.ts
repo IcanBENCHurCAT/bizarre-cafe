@@ -4,7 +4,7 @@
  * Re-exports the unified x402 payment engine from ./x402/index.
  */
 
-export * from './x402/index';
+export * from './x402/index.js';
 
 import {
   createPaymentPromise,
@@ -14,7 +14,7 @@ import {
   type PaymentPromise,
   type PaymentResult,
   type SettlementResult,
-} from './x402/index';
+} from './x402/index.js';
 
 export interface LegacyPaymentRequest {
   id: string;

@@ -9,9 +9,9 @@
 
 import { Context, MiddlewareHandler } from 'hono';
 import { jwtVerify, SignJWT } from 'jose';
-import { config } from '../config';
-import { verifyPaymentSubmission } from '../services/x402/index';
-import { verifyAgent } from '../services/verification/index';
+import { config } from '../config.js';
+import { verifyPaymentSubmission } from '../services/x402/index.js';
+import { verifyAgent } from '../services/verification/index.js';
 import * as algosdk from 'algosdk';
 
 export interface AuthUser {

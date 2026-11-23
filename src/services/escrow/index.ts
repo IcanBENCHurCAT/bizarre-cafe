@@ -9,17 +9,17 @@
  */
 
 import { randomUUID } from 'crypto';
-import { config } from '../../config';
-import type { EscrowRecord, EscrowStatus } from '../../types/cafe';
-import type { EscrowLockParams, EscrowReleaseResult, EscrowRefundResult } from './types';
-import { verifyPaymentSubmission } from '../x402/index';
+import { config } from '../../config.js';
+import type { EscrowRecord, EscrowStatus } from '../../types/cafe.js';
+import type { EscrowLockParams, EscrowReleaseResult, EscrowRefundResult } from './types.js';
+import { verifyPaymentSubmission } from '../x402/index.js';
 import {
   createSqliteEscrowRecord,
   getSqliteEscrowRecord,
   getSqliteEscrowByTradeId,
   updateSqliteEscrowRecord,
-} from '../../db/sqlite';
-import { createServerSupabaseClient } from '../../supabase/client';
+} from '../../db/sqlite.js';
+import { createServerSupabaseClient } from '../../supabase/client.js';
 
 export type {
   EscrowRecord,

@@ -16,9 +16,9 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
-import { config } from '../config';
-import { createServerSupabaseClient } from '../supabase/client';
-import type { Database } from '../supabase/types/database.types';
+import { config } from '../config.js';
+import { createServerSupabaseClient } from '../supabase/client.js';
+import type { Database } from '../supabase/types/database.types.js';
 import {
   createSqliteSkillOffer,
   getSqliteSkillOffers,
@@ -29,10 +29,10 @@ import {
   getSqliteTradeById,
   getSqliteTradesForAgent,
   updateSqliteTrade,
-} from '../db/sqlite';
-import * as sqliteDb from '../db/sqlite';
-import { lockFundsInEscrow, releaseEscrow, refundEscrow } from '../services/escrow';
-import { requireAuth } from '../middleware/auth';
+} from '../db/sqlite.js';
+import * as sqliteDb from '../db/sqlite.js';
+import { lockFundsInEscrow, releaseEscrow, refundEscrow } from '../services/escrow/index.js';
+import { requireAuth } from '../middleware/auth.js';
 
 type SkillOfferRow = Database['public']['Tables']['skill_offers']['Row'];
 

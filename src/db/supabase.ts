@@ -1,12 +1,12 @@
-import { rooms, chat, verification, payments } from '../supabase/queries';
-import { supabase } from '../supabase/client';
+import { rooms, chat, verification, payments } from '../supabase/queries.js';
+import { supabase } from '../supabase/client.js';
 import type {
   DatabaseAdapter,
   RoomData,
   MessageData,
   AgentStatusData,
   X402PaymentData,
-} from './index';
+} from './index.js';
 
 export const supabaseDb: DatabaseAdapter = {
   rooms: {

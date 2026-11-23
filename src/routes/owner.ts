@@ -12,13 +12,13 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { config } from '../config';
-import { db } from '../db';
-import { createServerSupabaseClient } from '../supabase/client';
-import { requireX402Payment, requireAuth } from '../middleware/auth';
-import { broadcastToRoom } from '../sse';
-import { generateResponse, trackEvent } from '../services/narrative/index';
-import type { OwnerMood, LoreEntry } from '../types/cafe';
+import { config } from '../config.js';
+import { db } from '../db/index.js';
+import { createServerSupabaseClient } from '../supabase/client.js';
+import { requireX402Payment, requireAuth } from '../middleware/auth.js';
+import { broadcastToRoom } from '../sse/index.js';
+import { generateResponse, trackEvent } from '../services/narrative/index.js';
+import type { OwnerMood, LoreEntry } from '../types/cafe.js';
 
 const router = new Hono();
 

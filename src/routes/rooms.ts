@@ -6,9 +6,9 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { db } from '../db';
-import { updateClientRoom, getRoomAgents } from '../sse';
-import { requireAuth } from '../middleware/auth';
+import { db } from '../db/index.js';
+import { updateClientRoom, getRoomAgents } from '../sse/index.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = new Hono();
 

@@ -1,7 +1,7 @@
 import { Context } from 'hono';
 import { streamSSE, SSEStreamingApi } from 'hono/streaming';
-import { config } from '../config';
-import { db } from '../db';
+import { config } from '../config.js';
+import { db } from '../db/index.js';
 
 export interface SseClient {
   id: string;

@@ -6,7 +6,7 @@
  */
 
 import { Context as _Context, MiddlewareHandler } from 'hono';
-import { config } from '../config';
+import { config } from '../config.js';
 
 interface RateLimiterOptions {
   windowMs?: number;

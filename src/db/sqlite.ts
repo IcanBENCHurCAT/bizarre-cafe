@@ -1,13 +1,13 @@
 import Database from 'better-sqlite3';
-import { config } from '../config';
+import { config } from '../config.js';
 import type {
   DatabaseAdapter,
   RoomData,
   MessageData,
   AgentStatusData,
   X402PaymentData,
-} from './index';
-import type { EscrowRecord, EscrowStatus } from '../types/cafe';
+} from './index.js';
+import type { EscrowRecord, EscrowStatus } from '../types/cafe.js';
 
 let dbInstance: ReturnType<typeof Database> | null = null;
 

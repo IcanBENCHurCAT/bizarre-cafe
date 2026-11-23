@@ -10,10 +10,10 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { config } from '../config';
-import { createServerSupabaseClient } from '../supabase/client';
-import { requireX402Payment, requireAuth } from '../middleware/auth';
-import { createPaymentPromise, getPaymentStatus } from '../services/x402/index';
+import { config } from '../config.js';
+import { createServerSupabaseClient } from '../supabase/client.js';
+import { requireX402Payment, requireAuth } from '../middleware/auth.js';
+import { createPaymentPromise, getPaymentStatus } from '../services/x402/index.js';
 
 const router = new Hono();
 export const memReceipts = new Map<string, any>();

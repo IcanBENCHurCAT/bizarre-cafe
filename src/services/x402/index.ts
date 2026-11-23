@@ -9,7 +9,7 @@
  * paid routes or services.
  */
 
-import { config } from '../../config';
+import { config } from '../../config.js';
 
 // ──────────────────────────────────────────────
 // Types
@@ -382,11 +382,11 @@ export const clearPayments = (): void => {
 // Algorand & Anti-Double-Spend Integration
 // ──────────────────────────────────────────────
 
-export * from './algorand';
-export * from './antiDoubleSpend';
+export * from './algorand.js';
+export * from './antiDoubleSpend.js';
 
-import { verifyAlgorandTransaction, type AlgorandVerificationResult } from './algorand';
-import { isTransactionSpent, recordSpentTransaction } from './antiDoubleSpend';
+import { verifyAlgorandTransaction, type AlgorandVerificationResult } from './algorand.js';
+import { isTransactionSpent, recordSpentTransaction } from './antiDoubleSpend.js';
 
 export interface PaymentSubmission {
   txId: string;

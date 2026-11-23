@@ -8,7 +8,7 @@
 import * as ed from '@noble/ed25519';
 import crypto from 'node:crypto';
 import algosdk from 'algosdk';
-import { config } from '../../config';
+import { config } from '../../config.js';
 
 // Ensure @noble/ed25519 has sha512 configured in Node runtime
 if (!ed.hashes.sha512) {

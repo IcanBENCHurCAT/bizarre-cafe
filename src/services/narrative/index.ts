@@ -10,8 +10,8 @@
  */
 
 import crypto from 'node:crypto';
-import { config } from '../../config';
-import { generateCompletion } from '../llm/cascade';
+import { config } from '../../config.js';
+import { generateCompletion } from '../llm/cascade.js';
 
 export interface NarrativeEvent {
   id: string;

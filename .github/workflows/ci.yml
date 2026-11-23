@@ -72,6 +72,16 @@ jobs:
       - name: Build TypeScript
         run: npm run build --if-present
 
+      - name: Smoke test built ESM entrypoint
+        env:
+          START_SERVER: "false"
+          USE_LOCAL_DB: "true"
+          JWT_SECRET: "ci-smoke-test-secret"
+          ALGORAND_MOCK_VERIFICATION: "true"
+          BIZARRE_CAFE_PROVIDER_CASCADE: "none"
+        run: |
+          node -e "import('./dist/index.js').then(async ({ default: app }) => { const res = await app.request('/health'); if (res.status !== 200) { console.error('Health check failed:', res.status); process.exit(1); } process.exit(0); })"
+
   test:
     name: Test
     runs-on: ubuntu-latest

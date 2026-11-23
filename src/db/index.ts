@@ -1,6 +1,6 @@
-import { config } from '../config';
-import { supabaseDb } from './supabase';
-import { sqliteDb } from './sqlite';
+import { config } from '../config.js';
+import { supabaseDb } from './supabase.js';
+import { sqliteDb } from './sqlite.js';
 
 export interface RoomData {
   id: string;

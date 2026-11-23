@@ -6,7 +6,7 @@
  * 2. Persistent storage query against x402_payments via the active DatabaseAdapter (SQLite / Supabase)
  */
 
-import { db } from '../../db';
+import { db } from '../../db/index.js';
 
 export interface SpentPaymentDetails {
   txId: string;

@@ -11,15 +11,15 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import algosdk from 'algosdk';
-import { createServerSupabaseClient } from '../supabase/client';
-import { config } from '../config';
-import { createToken } from '../middleware/auth';
+import { createServerSupabaseClient } from '../supabase/client.js';
+import { config } from '../config.js';
+import { createToken } from '../middleware/auth.js';
 import {
   challengeAgent,
   verifyAgent,
   getAgentStatus,
   revokeAgent,
-} from '../services/verification/index';
+} from '../services/verification/index.js';
 import {
   createSqliteChallenge,
   getSqliteChallenge,
@@ -27,9 +27,9 @@ import {
   expireSqliteChallengesForAgent,
   upsertSqliteVerification,
   getSqliteVerification,
-} from '../db/sqlite';
-import { normalizeSignature, normalizeMessage } from '../services/identity/did';
-import { requireAuth } from '../middleware/auth';
+} from '../db/sqlite.js';
+import { normalizeSignature, normalizeMessage } from '../services/identity/did.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = new Hono();
 

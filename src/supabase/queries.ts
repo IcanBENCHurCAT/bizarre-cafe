@@ -5,8 +5,8 @@
  * Each query is typed using the Database types from supabase-js.
  */
 
-import { supabase, supabaseAdmin as _supabaseAdmin } from './client';
-import type { Database } from './types/database.types';
+import { supabase, supabaseAdmin as _supabaseAdmin } from './client.js';
+import type { Database } from './types/database.types.js';
 
 // ─── Type Aliases (convenience) ──────────────────────────────────────
 
