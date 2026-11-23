@@ -1,10 +1,10 @@
-import { config } from '../../config';
-import { db } from '../../db';
-import { getConnectedClientCount } from '../../sse';
-import { OwnerCronService } from '../owner_cron';
-import type { HealthDiagnosticResponse, MemoryUsageMetrics, SubsystemHealth } from './types';
+import { config } from '../../config.js';
+import { db } from '../../db/index.js';
+import { getConnectedClientCount } from '../../sse/index.js';
+import { OwnerCronService } from '../owner_cron.js';
+import type { HealthDiagnosticResponse, MemoryUsageMetrics, SubsystemHealth } from './types.js';
 
-export * from './types';
+export * from './types.js';
 
 // In-memory cache for database health check (10s TTL)
 const DB_HEALTH_CACHE_TTL_MS = 10000;

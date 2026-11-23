@@ -1,4 +1,4 @@
-import { broadcastToRoom } from '../sse';
+import { broadcastToRoom } from '../sse/index.js';
 
 /**
  * Autonomous Owner Cron Service

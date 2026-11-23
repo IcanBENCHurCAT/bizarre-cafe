@@ -4,7 +4,7 @@
  * Re-exports the unified Agent Verification Service from ./verification/index.
  */
 
-export * from './verification/index';
+export * from './verification/index.js';
 
 // Compatibility aliases for legacy consumers
 import {
@@ -15,7 +15,7 @@ import {
   clearState,
   type Challenge,
   type VerificationResult,
-} from './verification/index';
+} from './verification/index.js';
 
 export function challenge(agentId: string, _ttlSeconds = 300): Promise<Challenge> {
   return challengeAgent(agentId);

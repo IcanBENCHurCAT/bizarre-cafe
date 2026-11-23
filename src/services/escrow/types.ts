@@ -4,7 +4,7 @@
  * Types and interfaces for autonomous skill marketplace escrow settlements.
  */
 
-import type { EscrowRecord, EscrowStatus } from '../../types/cafe';
+import type { EscrowRecord, EscrowStatus } from '../../types/cafe.js';
 
 export type { EscrowRecord, EscrowStatus };
 

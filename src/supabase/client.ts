@@ -9,8 +9,8 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from './types/database.types';
-import { config } from '../config';
+import type { Database } from './types/database.types.js';
+import { config } from '../config.js';
 
 /**
  * Factory to create a Supabase client instance with the anon key.

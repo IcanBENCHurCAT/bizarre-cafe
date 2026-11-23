@@ -14,24 +14,24 @@ import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
 
-import { config } from './config';
-import { authMiddleware } from './middleware/auth';
-import { rateLimiter } from './middleware/rateLimiter';
-import { circuitBreaker } from './middleware/circuitBreaker';
+import { config } from './config.js';
+import { authMiddleware } from './middleware/auth.js';
+import { rateLimiter } from './middleware/rateLimiter.js';
+import { circuitBreaker } from './middleware/circuitBreaker.js';
 
 // Routes
-import healthRouter from './routes/health';
-import lobbyRouter from './routes/lobby';
-import roomsRouter from './routes/rooms';
-import chatRouter from './routes/chat';
-import shopRouter from './routes/shop';
-import skillSwapRouter from './routes/skill-swap';
-import ownerRouter from './routes/owner';
-import eventsRouter from './routes/events';
-import verificationRouter from './routes/verification';
+import healthRouter from './routes/health.js';
+import lobbyRouter from './routes/lobby.js';
+import roomsRouter from './routes/rooms.js';
+import chatRouter from './routes/chat.js';
+import shopRouter from './routes/shop.js';
+import skillSwapRouter from './routes/skill-swap.js';
+import ownerRouter from './routes/owner.js';
+import eventsRouter from './routes/events.js';
+import verificationRouter from './routes/verification.js';
 
 // SSE handler
-import { sseHandler, clearAllClients } from './sse';
+import { sseHandler, clearAllClients } from './sse/index.js';
 
 // --- App ---
 const app = new Hono();
@@ -108,7 +108,7 @@ app.route('/api/events', eventsRouter);
 app.route('/api/verification', verificationRouter);
 
 import { serve } from '@hono/node-server';
-import { OwnerCronService } from './services/owner_cron';
+import { OwnerCronService } from './services/owner_cron.js';
 
 // Active server handle for draining and graceful shutdown
 let serverInstance: ReturnType<typeof serve> | null = null;

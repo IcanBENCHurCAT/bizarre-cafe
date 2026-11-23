@@ -13,9 +13,9 @@
  *  5. Server records verification status
  */
 
-import { verifyAgentDID } from '../identity/did';
-import { createToken } from '../../middleware/auth';
-import { config } from '../../config';
+import { verifyAgentDID } from '../identity/did.js';
+import { createToken } from '../../middleware/auth.js';
+import { config } from '../../config.js';
 
 // ──────────────────────────────────────────────
 // Types

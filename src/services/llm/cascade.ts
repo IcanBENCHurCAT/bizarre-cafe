@@ -1,4 +1,4 @@
-import { ProviderConfig, getCascadeOrder } from './providers';
+import { ProviderConfig, getCascadeOrder } from './providers.js';
 
 /**
  * Generate completion utilizing a provider cascade.

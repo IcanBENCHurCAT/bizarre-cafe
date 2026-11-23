@@ -11,10 +11,10 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { db } from '../db';
-import { broadcastToRoom, getRoomPresence, touchAgent } from '../sse';
-import type { ChatMessage } from '../types/cafe';
-import { requireAuth } from '../middleware/auth';
+import { db } from '../db/index.js';
+import { broadcastToRoom, getRoomPresence, touchAgent } from '../sse/index.js';
+import type { ChatMessage } from '../types/cafe.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = new Hono();
 

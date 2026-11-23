@@ -9,8 +9,8 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { db } from '../db';
-import { requireAuth } from '../middleware/auth';
+import { db } from '../db/index.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = new Hono();
 
