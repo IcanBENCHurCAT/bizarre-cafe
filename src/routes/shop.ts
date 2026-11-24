@@ -23,13 +23,23 @@ export const clearMemReceipts = (): void => {
 
 // Zod schemas
 const purchaseSchema = z.object({
-  itemId: z.string().regex(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/, 'Invalid UUID'),
+  itemId: z
+    .string()
+    .regex(
+      /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
+      'Invalid UUID',
+    ),
   quantity: z.number().min(1).max(100).default(1),
   agentId: z.string(),
 });
 
 const checkoutSchema = z.object({
-  itemId: z.string().regex(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/, 'Invalid UUID'),
+  itemId: z
+    .string()
+    .regex(
+      /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
+      'Invalid UUID',
+    ),
   quantity: z.number().min(1).max(100),
   paymentMethod: z.enum(['x402', 'crypto']),
   agentId: z.string(),
@@ -159,7 +169,16 @@ router.get('/items', async (c) => {
  */
 router.get('/items/:id', async (c) => {
   try {
-    const { id } = z.object({ id: z.string().regex(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/, 'Invalid UUID') }).parse({ id: c.req.param('id') });
+    const { id } = z
+      .object({
+        id: z
+          .string()
+          .regex(
+            /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
+            'Invalid UUID',
+          ),
+      })
+      .parse({ id: c.req.param('id') });
 
     const supabase = createServerSupabaseClient();
 
@@ -211,7 +230,7 @@ router.get('/items/:id', async (c) => {
  * payment details including the promise ID that the buyer must
  * sign with their Algorand wallet.
  */
-router.post('/checkout', requireAuth, requireX402Payment(),async (c) => {
+router.post('/checkout', requireAuth, requireX402Payment(), async (c) => {
   try {
     const body = await c.req.json();
     const validated = checkoutSchema.parse(body);
@@ -438,8 +457,7 @@ router.post('/purchase', requireAuth, async (c) => {
 router.get('/receipts', requireAuth, async (c) => {
   try {
     const query = c.req.query();
-    const limit =
-      z.object({ limit: limitSchema }).parse(query).limit ?? 20;
+    const limit = z.object({ limit: limitSchema }).parse(query).limit ?? 20;
     const user = c.user;
 
     if (!user) {

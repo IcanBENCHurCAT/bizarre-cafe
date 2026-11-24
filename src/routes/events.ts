@@ -144,8 +144,7 @@ router.post('/create', requireAuth, async (c) => {
 router.get('/upcoming', async (c) => {
   try {
     const query = c.req.query();
-    const limit =
-      z.object({ limit: limitSchema }).parse(query).limit ?? 20;
+    const limit = z.object({ limit: limitSchema }).parse(query).limit ?? 20;
     const eventType = z
       .object({ type: z.enum(['meetup', 'workshop', 'game', 'social']).optional() })
       .parse(query).type;
@@ -447,12 +446,15 @@ router.post('/:id/join', requireAuth, async (c) => {
     // Add attendance record
     const { data: attendance, error: attError } = await supabase
       .from('event_attendance')
-      .upsert({
-        event_id: id,
-        user_id: user.agentId,
-        status: 'joined',
-        joined_at: now,
-      }, { onConflict: 'event_id,user_id' })
+      .upsert(
+        {
+          event_id: id,
+          user_id: user.agentId,
+          status: 'joined',
+          joined_at: now,
+        },
+        { onConflict: 'event_id,user_id' },
+      )
       .select()
       .single();
 

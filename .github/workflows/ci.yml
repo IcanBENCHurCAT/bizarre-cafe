@@ -30,7 +30,7 @@ jobs:
         run: npm run lint --if-present
 
       - name: Run Prettier check
-        run: npx prettier --check "src/**/*.{ts,tsx,js,jsx,json}" || true
+        run: npx prettier --check "src/**/*.{ts,tsx,js,jsx,json}"
 
   typecheck:
     name: Type Check

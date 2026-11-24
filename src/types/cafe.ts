@@ -80,12 +80,7 @@ export type SkillLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
 
 /** Skill trade status */
 export type TradeStatus =
-  | 'draft'
-  | 'offered'
-  | 'accepted'
-  | 'in_progress'
-  | 'completed'
-  | 'cancelled';
+  'draft' | 'offered' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
 
 /** Event type */
 export type EventType = 'workshop' | 'hackathon' | 'showcase' | 'social' | 'competition' | 'meetup';
