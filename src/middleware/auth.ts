@@ -127,7 +127,10 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
       };
     } catch {
       // In development or test, allow fallback if arbitrary Bearer token passed
-      if (config.allowAuthBypass && (config.nodeEnv === 'development' || config.nodeEnv === 'test')) {
+      if (
+        config.allowAuthBypass &&
+        (config.nodeEnv === 'development' || config.nodeEnv === 'test')
+      ) {
         user = generateFakeUser(agentId || 'dev-agent');
       }
     }
@@ -166,7 +169,12 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   }
 
   // Method 3: Agent ID header (only for development/testing)
-  if (!user && agentId && config.allowAuthBypass && (config.nodeEnv === 'development' || config.nodeEnv === 'test')) {
+  if (
+    !user &&
+    agentId &&
+    config.allowAuthBypass &&
+    (config.nodeEnv === 'development' || config.nodeEnv === 'test')
+  ) {
     user = generateFakeUser(agentId);
   }
 

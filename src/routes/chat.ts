@@ -33,10 +33,7 @@ const limitSchema = z
   .pipe(z.number().int().min(1).max(100).optional());
 
 // SECURITY: Enforce ISO 8601 datetime format for cursor queries to prevent RangeError crashes
-const cursorDateSchema = z
-  .string()
-  .datetime({ offset: true })
-  .optional();
+const cursorDateSchema = z.string().datetime({ offset: true }).optional();
 
 const messagesQuerySchema = z.object({
   roomId: z.string().min(1),

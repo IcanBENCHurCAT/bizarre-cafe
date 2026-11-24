@@ -76,7 +76,7 @@ router.post('/challenge', async (c) => {
         {
           error: {
             code: 'FORBIDDEN',
-            message: "Cannot request verification challenge for another agent",
+            message: 'Cannot request verification challenge for another agent',
           },
         },
         403,
@@ -190,7 +190,7 @@ router.post('/verify', async (c) => {
         {
           error: {
             code: 'FORBIDDEN',
-            message: "Cannot submit verification challenge response for another agent",
+            message: 'Cannot submit verification challenge response for another agent',
           },
         },
         403,
@@ -517,8 +517,7 @@ router.get('/log', requireAuth, async (c) => {
   try {
     const query = c.req.query();
     const { agentId } = statusQuerySchema.parse(query);
-    const limit =
-      z.object({ limit: limitSchema }).parse(query).limit ?? 50;
+    const limit = z.object({ limit: limitSchema }).parse(query).limit ?? 50;
     const user = c.user;
 
     if (!user) {

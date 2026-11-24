@@ -588,9 +588,7 @@ export const updateSqliteChallengeStatus = async (
   }
 };
 
-export const expireSqliteChallengesForAgent = async (
-  userId: string,
-): Promise<void> => {
+export const expireSqliteChallengesForAgent = async (userId: string): Promise<void> => {
   const db = getDb();
   const now = new Date().toISOString();
   db.prepare(

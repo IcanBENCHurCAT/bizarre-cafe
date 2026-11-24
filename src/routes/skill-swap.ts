@@ -338,8 +338,7 @@ router.post('/request', requireAuth, async (c) => {
 router.get('/offers', async (c) => {
   try {
     const query = c.req.query();
-    const limit =
-      z.object({ limit: limitSchema }).parse(query).limit ?? 20;
+    const limit = z.object({ limit: limitSchema }).parse(query).limit ?? 20;
     const search = z.object({ search: z.string().optional() }).parse(query).search;
     const category = z.object({ category: z.string().optional() }).parse(query).category;
     const maxPrice = z
@@ -476,8 +475,7 @@ router.get('/offers', async (c) => {
 router.get('/requests', async (c) => {
   try {
     const query = c.req.query();
-    const limit =
-      z.object({ limit: limitSchema }).parse(query).limit ?? 20;
+    const limit = z.object({ limit: limitSchema }).parse(query).limit ?? 20;
     const search = z.object({ search: z.string().optional() }).parse(query).search;
 
     const requestMap = new Map<string, any>();
